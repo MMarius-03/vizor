@@ -58,8 +58,10 @@ export function createPanelCanvas(product) {
     context.lineTo(678, 98);
     context.closePath();
     context.fill();
+    context.fillStyle = panelColors.bad;
+    context.fillRect(708, 61, 4, 19);
+    context.fillRect(708, 85, 4, 4);
   }
 
   return canvas;
 }
-

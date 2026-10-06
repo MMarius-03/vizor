@@ -2,22 +2,36 @@
 <html lang="ro">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#07090C" />
-    <title>Vizor - Test AR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090c" />
+    <title>Vizor - Test marker</title>
     <link rel="stylesheet" href="css/vizor.css" />
   </head>
   <body class="test-page">
-    <main class="test-shell">
+    <main class="test-shell" id="test-intro">
       <div class="brand" aria-label="Vizor">VIZOR</div>
-      <h1>Test marker AR</h1>
-      <p>Verifică detectarea codului 0 înainte de integrarea panourilor Vizor.</p>
-      <button class="button primary" id="start-ar-test" type="button">Pornește testul</button>
-      <p class="test-note" id="ar-test-status" role="status">Camera nu a fost pornită.</p>
-      <a class="back-link" href="index.html">Înapoi la Vizor</a>
+      <div class="test-content">
+        <p class="eyebrow">TEST TEHNIC</p>
+        <h1>Markerul 0</h1>
+        <p>Un cub apare deasupra markerului când camera îl recunoaște.</p>
+      </div>
+      <div class="start-actions">
+        <button class="button primary" id="start-ar-test" type="button">Pornește camera</button>
+        <p class="test-note" id="ar-test-status" role="status">Camera nu a fost pornită.</p>
+        <a class="back-link" href="index.html">Înapoi la Vizor</a>
+      </div>
     </main>
-    <div id="ar-test-mount"></div>
+    <section class="test-scanner" id="test-scanner" aria-label="Test marker AR" hidden>
+      <div id="ar-test-mount" class="ar-mount"></div>
+      <div class="scanner-ui">
+        <header class="scanner-top">
+          <div class="brand" aria-label="Vizor">VIZOR</div>
+          <button class="icon-button" id="close-ar-test" type="button" aria-label="Închide testul" title="Închide testul">×</button>
+        </header>
+        <div class="scanner-status" id="marker-status" role="status">Caut markerul 0...</div>
+        <div class="test-bottom">Ține markerul în lumină bună, la 40–80 cm.</div>
+      </div>
+    </section>
     <script type="module" src="js/ar-test.js"></script>
   </body>
 </html>
-
