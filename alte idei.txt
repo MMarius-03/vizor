@@ -1,0 +1,4 @@
+Idei Practice și Utilitare
+• Simulator de traduceri în timp real: Construiește o aplicație care recunoaște texte străine de pe indicatoare rutiere folosind recunoașterea optică a caracterelor și afișează traducerea direct deasupra obiectului fizic.
+• Asistent pentru renovări și amenajări interioare: O aplicație care scanează pereții unei camere, calculează suprafața și îți arată cum arată o anumită culoare de vopsea sau unde trebuie să aplici amorsa.
+• Manual tehnic interactiv: Un ghid pas cu pas pentru repararea unor electrocasnice sau centrale termice, care suprapune săgeți și instrucțiuni 3D direct peste piesele reale.
