@@ -25,6 +25,8 @@ const manualSheet = document.querySelector("#manual-sheet");
 const manualInput = document.querySelector("#manual-code");
 const priceInput = document.querySelector("#shelf-price");
 const priceOutput = document.querySelector("#price-per-litre");
+const lensLayer = document.querySelector("#lens-layer");
+const lensData = document.querySelector("#lens-data");
 
 let productIndex = 0;
 let stream = null;
@@ -34,7 +36,10 @@ let generation = 0;
 let barcodeSession = null;
 let lookupController = null;
 let scanGeneration = 0;
+let lookupGeneration = 0;
 let currentLitres = null;
+let activeBarcode = null;
+let lensLostTimer = null;
 
 function setBusy(busy) {
   demoButton.disabled = busy;
@@ -74,10 +79,14 @@ function showScanner(mode, offline = false) {
 function stopSession() {
   generation += 1;
   scanGeneration += 1;
+  lookupGeneration += 1;
   barcodeSession?.stop();
   barcodeSession = null;
   lookupController?.abort();
   lookupController = null;
+  window.clearTimeout(lensLostTimer);
+  lensLostTimer = null;
+  activeBarcode = null;
   stopStream(stream);
   stream = null;
   video.pause();
@@ -86,9 +95,10 @@ function stopSession() {
   arSession = null;
   releaseWakeLock?.();
   releaseWakeLock = null;
-  scanner.classList.remove("is-active", "is-demo-mode", "is-marker-mode", "is-product-mode", "is-offline-demo", "has-result", "has-manual");
+  scanner.classList.remove("is-active", "is-demo-mode", "is-marker-mode", "is-product-mode", "is-offline-demo", "has-result", "has-manual", "has-lens");
   resultSheet.hidden = true;
   manualSheet.hidden = true;
+  lensLayer.hidden = true;
   startScreen.classList.add("is-active");
   setBusy(false);
 }
@@ -113,7 +123,7 @@ function addSource(parent, label, description, href) {
   }
 }
 
-function showResult({ eyebrow, title, subtitle, quick = [], facts = [], sources = [], image = null, litres = null, minerals = [] }) {
+function showResult({ eyebrow, title, subtitle, quick = [], facts = [], sources = [], image = null, litres = null, minerals = [] }, open = true) {
   document.querySelector("#result-eyebrow").textContent = eyebrow;
   document.querySelector("#result-title").textContent = title;
   document.querySelector("#result-subtitle").textContent = subtitle;
@@ -157,8 +167,8 @@ function showResult({ eyebrow, title, subtitle, quick = [], facts = [], sources 
   priceInput.value = "";
   priceOutput.textContent = "— / L";
   selectTab("overview");
-  resultSheet.hidden = false;
-  scanner.classList.add("has-result");
+  resultSheet.hidden = !open;
+  scanner.classList.toggle("has-result", open);
   status.textContent = eyebrow === "PRODUS IDENTIFICAT" ? "Produs identificat" : "Rezultat scanare";
 }
 
@@ -170,7 +180,7 @@ function selectTab(tab) {
   }
 }
 
-function renderProductResult(product) {
+function renderProductResult(product, open = true) {
   const facts = [];
   if (!product.minerals.length) facts.push(["Date disponibile", "Nicio compoziție verificată în baza consultată"]);
   if (product.isSample) facts.push(["Ambalaj", "SGR · garanție 0,50 lei"]);
@@ -188,18 +198,113 @@ function renderProductResult(product) {
       ...(product.minerals.length ? [["Calcul Vizor", "Valorile în mg/L sunt convertite din datele nutriționale per 100 ml. Pot fi incomplete sau inexacte."]] : []),
       ...(product.isSample ? [["Garanție SGR", "Simbolul SGR este vizibil pe sticla de test. Garanția standard este 0,50 lei și nu este inclusă în prețul introdus.", "https://returosgr.ro/"]] : []),
     ],
+  }, open);
+}
+
+function formatLensValue(value) {
+  return new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 1 }).format(value);
+}
+
+function setLensMode(mode) {
+  lensLayer.dataset.mode = mode;
+  document.querySelectorAll("[data-lens-mode]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.lensMode === mode));
   });
 }
 
-async function resolveScan(raw) {
-  const turn = ++scanGeneration;
-  barcodeSession?.stop();
-  barcodeSession = null;
+function lensFacts(product) {
+  const items = product.minerals.slice(0, 3).map(({ label, value }) => ({ label, value: `${formatLensValue(value)} mg/L` }));
+  if (product.isSample) items.push({ label: "Ambalaj", value: "SGR 0,50 lei" });
+  if (items.length < 4) items.push({ label: "Cantitate", value: product.quantity });
+  if (items.length < 4) items.push({ label: "Identificare", value: product.code });
+  if (items.length < 4) items.push({ label: "Sursă", value: "Open Food Facts" });
+  return items.slice(0, 4);
+}
+
+function showLens(product) {
+  document.querySelector("#lens-code").textContent = product.code;
+  document.querySelector("#lens-title").textContent = product.name;
+  document.querySelector("#lens-subtitle").textContent = `${product.brand} · ${product.quantity}`;
+  const primary = product.minerals[0];
+  document.querySelector("#lens-card-label").textContent = primary ? primary.label : "Cantitate";
+  document.querySelector("#lens-card-value").textContent = primary ? `${formatLensValue(primary.value)} mg/L` : product.quantity;
+  lensData.replaceChildren();
+  lensFacts(product).forEach(({ label, value }, index) => {
+    const item = addText(lensData, "div", "", `lens-fact lens-fact-${index + 1}`);
+    addText(item, "span", label);
+    addText(item, "strong", value);
+  });
+  resultSheet.hidden = true;
+  scanner.classList.remove("has-result");
+  scanner.classList.add("has-lens");
+  lensLayer.hidden = false;
+  lensLayer.classList.remove("is-stale", "is-revealing");
+  void lensLayer.offsetWidth;
+  lensLayer.classList.add("is-revealing");
+  status.textContent = "Produs identificat";
+  status.dataset.status = "ok";
+}
+
+function updateLensPosition(detection = {}, persistent = false) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const sourceWidth = detection.sourceWidth || video.videoWidth || viewportWidth;
+  const sourceHeight = detection.sourceHeight || video.videoHeight || viewportHeight;
+  const points = detection.points || [];
+  let x = viewportWidth / 2;
+  let y = viewportHeight * 0.55;
+  let width = 116;
+  let angle = 0;
+  if (points.length) {
+    const scale = Math.max(viewportWidth / sourceWidth, viewportHeight / sourceHeight);
+    const offsetX = (viewportWidth - sourceWidth * scale) / 2;
+    const offsetY = (viewportHeight - sourceHeight * scale) / 2;
+    const mapped = points.map((point) => ({ x: point.x * scale + offsetX, y: point.y * scale + offsetY }));
+    x = mapped.reduce((sum, point) => sum + point.x, 0) / mapped.length;
+    y = mapped.reduce((sum, point) => sum + point.y, 0) / mapped.length;
+    if (mapped.length > 1) {
+      const first = mapped[0];
+      const last = mapped.at(-1);
+      width = Math.hypot(last.x - first.x, last.y - first.y);
+      angle = Math.atan2(last.y - first.y, last.x - first.x) * 180 / Math.PI;
+    }
+  }
+  lensLayer.style.setProperty("--lens-x", `${Math.max(28, Math.min(viewportWidth - 28, x))}px`);
+  lensLayer.style.setProperty("--lens-y", `${Math.max(130, Math.min(viewportHeight - 150, y))}px`);
+  lensLayer.style.setProperty("--lens-width", `${Math.max(72, Math.min(220, width * 1.18))}px`);
+  lensLayer.style.setProperty("--lens-angle", `${angle}deg`);
+  lensLayer.dataset.placement = y < 310 ? "below" : "above";
+  lensLayer.classList.remove("is-stale");
+  window.clearTimeout(lensLostTimer);
+  if (persistent) return;
+  lensLostTimer = window.setTimeout(() => {
+    lensLayer.classList.add("is-stale");
+    if (!lensLayer.hidden) status.textContent = "Ține codul în cadru";
+  }, 850);
+}
+
+function handleBarcodeDetection(detection) {
+  updateLensPosition(detection);
+  if (detection.text === activeBarcode) return;
+  activeBarcode = detection.text;
+  resolveScan(detection.text, { lens: true });
+}
+
+async function resolveScan(raw, { lens = false } = {}) {
+  const turn = ++lookupGeneration;
+  if (!lens) {
+    barcodeSession?.stop();
+    barcodeSession = null;
+  }
   lookupController?.abort();
   manualSheet.hidden = true;
   scanner.classList.remove("has-manual");
   const scan = classifyScan(raw);
   if (scan.kind !== "product") {
+    if (lens) {
+      barcodeSession?.stop();
+      barcodeSession = null;
+    }
     const link = scan.kind === "link";
     showResult({
       eyebrow: link ? "LINK QR DETECTAT" : "COD NECUNOSCUT",
@@ -215,33 +320,53 @@ async function resolveScan(raw) {
   lookupController = new AbortController();
   try {
     const product = await lookupProduct(scan.code, lookupController.signal);
-    if (turn !== scanGeneration || !scanner.classList.contains("is-active")) return;
-    if (product) renderProductResult(product);
-    else showResult({
-      eyebrow: "FĂRĂ REZULTAT",
-      title: "Produs negăsit",
-      subtitle: `Cod ${scan.code}`,
-      quick: [["COD", scan.code], ["DATE", "Nedisponibile"]],
-      facts: [["Ce înseamnă", "Codul este valid, dar produsul lipsește din baza consultată."]],
-      sources: [["Open Food Facts", "Căutarea nu a returnat o fișă. Nu deducem numele sau proprietățile din cifrele codului."]],
-    });
+    if (turn !== lookupGeneration || !scanner.classList.contains("is-active")) return;
+    if (product) {
+      renderProductResult(product, !lens);
+      if (lens) showLens(product);
+    } else {
+      if (lens) {
+        barcodeSession?.stop();
+        barcodeSession = null;
+      }
+      showResult({
+        eyebrow: "FĂRĂ REZULTAT",
+        title: "Produs negăsit",
+        subtitle: `Cod ${scan.code}`,
+        quick: [["COD", scan.code], ["DATE", "Nedisponibile"]],
+        facts: [["Ce înseamnă", "Codul este valid, dar produsul lipsește din baza consultată."]],
+        sources: [["Open Food Facts", "Căutarea nu a returnat o fișă. Nu deducem numele sau proprietățile din cifrele codului."]],
+      });
+    }
   } catch (error) {
-    if (error.name === "AbortError" || turn !== scanGeneration) return;
+    if (error.name === "AbortError" || turn !== lookupGeneration) return;
+    if (lens) {
+      barcodeSession?.stop();
+      barcodeSession = null;
+    }
     showResult({
       eyebrow: "CĂUTARE INDISPONIBILĂ", title: "Nu am putut verifica produsul", subtitle: `Cod ${scan.code}`,
       quick: [["COD", scan.code]], facts: [["Conexiune", error.message]],
       sources: [["Open Food Facts", "Nu am primit un răspuns. Poți scana din nou când conexiunea revine."]],
     });
   } finally {
-    if (turn === scanGeneration) lookupController = null;
+    if (turn === lookupGeneration) lookupController = null;
   }
 }
 
 async function resumeReading() {
   const turn = ++scanGeneration;
+  lookupGeneration += 1;
+  barcodeSession?.stop();
+  barcodeSession = null;
+  lookupController?.abort();
+  lookupController = null;
+  activeBarcode = null;
+  window.clearTimeout(lensLostTimer);
+  lensLayer.hidden = true;
   resultSheet.hidden = true;
   manualSheet.hidden = true;
-  scanner.classList.remove("has-result", "has-manual");
+  scanner.classList.remove("has-result", "has-manual", "has-lens");
   if (!stream) {
     status.textContent = "Pregătesc camera...";
     try {
@@ -259,8 +384,9 @@ async function resumeReading() {
   }
   if (turn !== scanGeneration) return;
   status.textContent = "Caut un cod...";
+  status.dataset.status = "";
   try {
-    const session = await startBarcodeReading(video, resolveScan);
+    const session = await startBarcodeReading(video, handleBarcodeDetection);
     if (turn !== scanGeneration) session.stop();
     else barcodeSession = session;
   } catch (error) {
@@ -272,7 +398,10 @@ function startProductScan(example = false) {
   errorBox.hidden = true;
   offlineButton.hidden = true;
   showScanner("product", example);
-  if (example) resolveScan(SAMPLE_CODE);
+  if (example) {
+    updateLensPosition({}, true);
+    resolveScan(SAMPLE_CODE, { lens: true });
+  }
   else resumeReading();
 }
 
@@ -345,6 +474,7 @@ async function startMarkers() {
 
 demoButton.addEventListener("click", () => startDemo());
 markerButton.addEventListener("click", startMarkers);
+setLensMode("card");
 productButton.addEventListener("click", () => startProductScan());
 exampleButton.addEventListener("click", () => startProductScan(true));
 offlineButton.addEventListener("click", () => startDemo(false));
@@ -353,7 +483,12 @@ document.querySelector("#open-manual").addEventListener("click", () => {
   barcodeSession?.stop();
   barcodeSession = null;
   scanGeneration += 1;
+  lookupGeneration += 1;
+  lookupController?.abort();
+  lookupController = null;
+  lensLayer.hidden = true;
   manualSheet.hidden = false;
+  scanner.classList.remove("has-lens");
   scanner.classList.add("has-manual");
   manualInput.focus();
 });
@@ -363,6 +498,18 @@ manualSheet.addEventListener("submit", (event) => {
   resolveScan(manualInput.value);
 });
 document.querySelector("#scan-again").addEventListener("click", resumeReading);
+document.querySelector("#lens-details").addEventListener("click", () => {
+  barcodeSession?.stop();
+  barcodeSession = null;
+  lensLayer.hidden = true;
+  scanner.classList.remove("has-lens");
+  scanner.classList.add("has-result");
+  resultSheet.hidden = false;
+});
+document.querySelector("#lens-rescan").addEventListener("click", resumeReading);
+document.querySelectorAll("[data-lens-mode]").forEach((button) => {
+  button.addEventListener("click", () => setLensMode(button.dataset.lensMode));
+});
 for (const tab of ["overview", "sources"]) document.querySelector(`#tab-${tab}`).addEventListener("click", () => selectTab(tab));
 priceInput.addEventListener("input", () => {
   const value = Number(priceInput.value.trim().replace(",", "."));

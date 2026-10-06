@@ -18,21 +18,32 @@ export function prepareBarcodeReader() {
   return libraryPromise;
 }
 
-export async function startBarcodeReading(video, onRead) {
+function readPoint(point) {
+  const x = typeof point?.getX === "function" ? point.getX() : point?.x;
+  const y = typeof point?.getY === "function" ? point.getY() : point?.y;
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+export async function startBarcodeReading(video, onRead, { once = false } = {}) {
   await prepareBarcodeReader();
   const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
   let controls;
   let stopped = false;
-  let detected = false;
   const stop = () => {
     stopped = true;
     controls?.stop();
   };
   controls = await reader.decodeFromVideoElement(video, (result) => {
-    if (!result || stopped || detected) return;
-    detected = true;
-    stop();
-    onRead(result.getText());
+    if (!result || stopped) return;
+    const points = (result.getResultPoints?.() || []).map(readPoint).filter(Boolean);
+    onRead({
+      text: result.getText(),
+      format: String(result.getBarcodeFormat?.() || ""),
+      points,
+      sourceWidth: video.videoWidth,
+      sourceHeight: video.videoHeight,
+    });
+    if (once) stop();
   });
   if (stopped) controls.stop();
   return { stop };

@@ -152,6 +152,29 @@ async function checkProduct(browserType, device, name) {
     assert.equal(classification[1].kind, "invalid");
     assert.equal(classification[2].code, "5942326402258");
     await page.getByRole("button", { name: "Vezi sticla Aqua Carpatica" }).click();
+    await page.locator("#lens-title").getByText("Apă minerală plată", { exact: true }).waitFor({ timeout: 20000 });
+    assert(await page.locator("#lens-layer").isVisible(), `${name}: lens should be visible`);
+    const lensBounds = await page.evaluate(() => {
+      const card = document.querySelector("#lens-card").getBoundingClientRect();
+      const controls = document.querySelector(".lens-controls").getBoundingClientRect();
+      const header = document.querySelector(".scanner-top").getBoundingClientRect();
+      return { card: { top: card.top, bottom: card.bottom, left: card.left, right: card.right }, controls: { top: controls.top, bottom: controls.bottom }, headerBottom: header.bottom, width: innerWidth, height: innerHeight };
+    });
+    assert(lensBounds.card.top >= lensBounds.headerBottom && lensBounds.card.bottom <= lensBounds.controls.top, `${name}: lens card overlaps chrome`);
+    assert(lensBounds.card.left >= 0 && lensBounds.card.right <= lensBounds.width, `${name}: lens card horizontal overflow`);
+    await page.locator("[data-lens-mode='data']").click();
+    assert(await page.locator(".lens-fact").getByText("40,5 mg/L").isVisible(), `${name}: floating facts should be visible`);
+    await page.waitForTimeout(350);
+    const factBounds = await page.locator(".lens-fact").evaluateAll((facts) => facts.map((fact) => {
+      const box = fact.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+    }));
+    for (const box of factBounds) {
+      assert(box.top >= lensBounds.headerBottom && box.bottom <= lensBounds.controls.top, `${name}: floating fact overlaps chrome`);
+      assert(box.left >= 0 && box.right <= lensBounds.width, `${name}: floating fact horizontal overflow`);
+    }
+    await page.screenshot({ path: path.join(os.tmpdir(), `vizor-lens-${name}.png`) });
+    await page.getByRole("button", { name: "Detalii", exact: true }).click();
     await page.getByRole("heading", { name: "Apă minerală plată" }).waitFor({ timeout: 20000 });
     assert(await page.locator("#result-subtitle").getByText("Aqua Carpatica", { exact: false }).isVisible(), `${name}: brand should be visible`);
     assert(await page.locator(".mineral-item").getByText("40,5").isVisible(), `${name}: mineral profile should be visible`);

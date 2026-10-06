@@ -65,6 +65,32 @@
             <button class="button scan-manual-button" id="open-manual" type="button">Introdu codul manual</button>
           </footer>
         </div>
+        <section class="lens-layer" id="lens-layer" aria-label="Vizualizare produs în cameră" hidden>
+          <div class="lens-flash" aria-hidden="true"></div>
+          <div class="lens-target" id="lens-target" aria-hidden="true">
+            <span></span><i></i>
+          </div>
+          <div class="lens-card" id="lens-card">
+            <div class="lens-card-top">
+              <span class="lens-live"><i></i> IDENTIFICAT LIVE</span>
+              <span id="lens-code"></span>
+            </div>
+            <strong id="lens-title"></strong>
+            <p id="lens-subtitle"></p>
+            <div class="lens-card-metric"><span id="lens-card-label"></span><strong id="lens-card-value"></strong></div>
+          </div>
+          <div class="lens-data" id="lens-data" aria-label="Date esențiale produs"></div>
+          <div class="lens-controls">
+            <div class="lens-modes" role="group" aria-label="Mod de afișare">
+              <button type="button" data-lens-mode="card" aria-pressed="true">Card</button>
+              <button type="button" data-lens-mode="data" aria-pressed="false">Date</button>
+            </div>
+            <div class="lens-actions">
+              <button type="button" id="lens-rescan">Alt produs</button>
+              <button type="button" id="lens-details">Detalii</button>
+            </div>
+          </div>
+        </section>
         <form class="manual-sheet" id="manual-sheet" hidden>
           <div class="sheet-handle" aria-hidden="true"></div>
           <label for="manual-code">Cod de bare sau link QR</label>

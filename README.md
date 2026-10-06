@@ -14,11 +14,17 @@ markere si demo-ul de panouri raman disponibile separat.
 
 1. Deschide aplicatia in Safari si apasa **Scaneaza un produs**. Permite camera.
 2. Indreapta camera spre un cod de bare EAN sau QR, tinand codul in cadru.
+   Dupa identificare, modul **Card** pastreaza un rezumat langa cod, iar modul
+   **Date** desface informatiile esentiale in jurul produsului. Cat timp codul
+   ramane vizibil, suprapunerea isi actualizeaza pozitia si unghiul.
 3. Pentru proba fara camera, apasa **Vezi sticla Aqua Carpatica**. Exemplul
    cauta in timp real EAN-ul `5942326402258` si arata datele disponibile.
 4. **Introdu codul manual** permite testarea fara decodare video.
 5. In fisa produsului poti vedea sursele si calcula pretul per litru. Pretul
    este introdus de utilizator; aplicatia nu citeste pretul de pe raft.
+
+Pentru o prezentare fara riscul camerei sau al luminii din sala, butonul
+**Vezi sticla Aqua Carpatica** porneste acelasi Vizor Lens intr-un mod simulat.
 
 Datele Open Food Facts sunt colaborative si pot fi incomplete sau gresite.
 Informatiile despre lot, autenticitate, pret si data expirarii nu sunt deduse
