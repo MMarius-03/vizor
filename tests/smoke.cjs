@@ -19,7 +19,7 @@ async function check(browserType, device, name) {
       });
     });
     await page.goto("http://localhost:4173/");
-    await page.getByRole("button", { name: "Testează fără card" }).click();
+    await page.getByRole("button", { name: "Demo panouri AR" }).click();
     await page.getByRole("button", { name: "Continuă fără cameră" }).click();
     await assertVisible(page, "Simulare fără cameră");
     await page.getByRole("button", { name: "Produsul următor" }).click();
@@ -46,7 +46,7 @@ async function check(browserType, device, name) {
     assert(bounds.pageWidth <= bounds.width, `${name}: page horizontal overflow`);
     await page.screenshot({ path: path.join(os.tmpdir(), `vizor-${name}.png`) });
     await page.getByRole("button", { name: "Închide camera" }).click();
-    await assertVisible(page, "Testează fără card");
+    await assertVisible(page, "Demo panouri AR");
     assert.deepEqual(errors, [], `${name}: page errors`);
     console.log(`${name}: OK`, JSON.stringify(bounds));
     await context.close();
@@ -68,14 +68,28 @@ async function checkLiveCamera() {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("http://localhost:4173/");
-    await page.getByRole("button", { name: "Testează fără card" }).click();
+    await page.getByRole("button", { name: "Demo panouri AR" }).click();
     await page.waitForFunction(() => document.querySelector("#demo-video")?.readyState >= 2);
     await assertVisible(page, "Simulare");
     await page.getByRole("button", { name: "Închide camera" }).click();
     const stopped = await page.evaluate(() => document.querySelector("#demo-video").srcObject === null);
     assert(stopped, "camera stream should be released");
 
-    await page.getByRole("button", { name: "Scanează carduri" }).click();
+    await page.getByRole("button", { name: "Scanează un produs" }).click();
+    await page.waitForFunction(() => Boolean(window.ZXingBrowser?.BrowserMultiFormatReader), null, { timeout: 30000 });
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator("#scanner-status").textContent(), "Caut un cod...", "barcode reader should be active");
+    await page.getByRole("button", { name: "Introdu codul manual" }).click();
+    await page.locator("#manual-code").fill("https://example.com/water");
+    await page.getByRole("button", { name: "Caută" }).click();
+    await assertVisible(page, "LINK QR DETECTAT");
+    await page.getByRole("tab", { name: "Date și surse" }).click();
+    await assertVisible(page, "example.com");
+    await page.getByRole("button", { name: "Scanează alt produs" }).click();
+    await page.getByRole("button", { name: "Închide camera" }).click();
+    assert(await page.evaluate(() => document.querySelector("#demo-video").srcObject === null), "product camera stream should be released");
+
+    await page.getByRole("button", { name: "Scanează carduri AR" }).click();
     try {
       await page.waitForFunction(() => window.AFRAME?.systems?.arjs && document.querySelector("a-scene"), null, { timeout: 30000 });
     } catch (error) {
@@ -122,6 +136,48 @@ async function checkLiveCamera() {
   }
 }
 
+async function checkProduct(browserType, device, name) {
+  const browser = await browserType.launch();
+  try {
+    const context = await browser.newContext(device);
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("http://localhost:4173/");
+    const classification = await page.evaluate(async () => {
+      const { classifyScan } = await import("/js/product-data.js");
+      return [classifyScan("5942326402258"), classifyScan("5942326402259"), classifyScan("https://id.example/01/05942326402258")];
+    });
+    assert.equal(classification[0].kind, "product");
+    assert.equal(classification[1].kind, "invalid");
+    assert.equal(classification[2].code, "5942326402258");
+    await page.getByRole("button", { name: "Vezi sticla Aqua Carpatica" }).click();
+    await page.getByRole("heading", { name: "Apă minerală plată" }).waitFor({ timeout: 20000 });
+    assert(await page.locator("#result-subtitle").getByText("Aqua Carpatica", { exact: false }).isVisible(), `${name}: brand should be visible`);
+    assert(await page.locator(".mineral-item").getByText("40,5").isVisible(), `${name}: mineral profile should be visible`);
+    await page.locator("#shelf-price").fill("4,50");
+    await assertVisible(page, "4,50 lei/L");
+    await page.getByRole("tab", { name: "Date și surse" }).click();
+    await assertVisible(page, "Open Food Facts");
+    const bounds = await page.evaluate(() => {
+      const sheet = document.querySelector("#product-result").getBoundingClientRect();
+      const action = document.querySelector(".result-actions").getBoundingClientRect();
+      const header = document.querySelector(".scanner-top").getBoundingClientRect();
+      return { sheetTop: sheet.top, sheetBottom: sheet.bottom, actionBottom: action.bottom, headerBottom: header.bottom, width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth };
+    });
+    assert(bounds.sheetTop >= bounds.headerBottom, `${name}: result overlaps header`);
+    assert(bounds.sheetBottom <= bounds.height && bounds.actionBottom <= bounds.height, `${name}: result below viewport`);
+    assert(bounds.scrollWidth <= bounds.width, `${name}: horizontal overflow`);
+    await page.screenshot({ path: path.join(os.tmpdir(), `vizor-product-${name}.png`) });
+    await page.getByRole("button", { name: "Închide camera" }).click();
+    assert.deepEqual(errors, [], `${name}: product page errors`);
+    console.log(`product ${name}: OK`, JSON.stringify(bounds));
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+}
+
 async function assertVisible(page, text) {
   assert(await page.getByText(text, { exact: false }).first().isVisible(), `${text} should be visible`);
 }
@@ -130,6 +186,9 @@ async function assertVisible(page, text) {
   await check(webkit, devices["iPhone 16 Pro Max"], "iphone-16-pro-max");
   await check(chromium, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, "mobile-small");
   await check(chromium, { viewport: { width: 1280, height: 800 } }, "desktop");
+  await checkProduct(webkit, devices["iPhone 16 Pro Max"], "iphone-16-pro-max");
+  await checkProduct(chromium, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }, "mobile-small");
+  await checkProduct(chromium, { viewport: { width: 1280, height: 800 } }, "desktop");
   await checkLiveCamera();
 })().catch((error) => {
   console.error(error);

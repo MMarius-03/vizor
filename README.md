@@ -1,8 +1,9 @@
 # Vizor
 
-Aplicatie web AR pentru iPhone. Proiectul este static si nu necesita build.
-Versiunea curenta este pentru teste: modul fara card permite inspectarea
-panourilor peste camera, iar modul cu markere testeaza detectia AR.
+Aplicatie web statica pentru scanarea codurilor de bare si QR pe telefon.
+Un EAN/GTIN valid este cautat in Open Food Facts; un QR obisnuit arata doar
+destinatia linkului, fara sa pretinda ca identifica produsul. Modul AR cu
+markere si demo-ul de panouri raman disponibile separat.
 
 ## Linkuri
 
@@ -11,16 +12,18 @@ panourilor peste camera, iar modul cu markere testeaza detectia AR.
 
 ## Test pe iPhone
 
-1. Deschide aplicatia in Safari si apasa **Testeaza fara card**.
-2. Permite accesul la camera. Foloseste sagetile de jos pentru a parcurge cele
-   cinci produse. Produsul 2 are marja critica si panou rosu.
-3. Inchide testul cu butonul din dreapta sus. Camera trebuie sa se opreasca.
-4. **Scaneaza carduri** porneste detectia markerelor barcode 3x3. Cardurile
-   printabile sunt inca in pregatire.
+1. Deschide aplicatia in Safari si apasa **Scaneaza un produs**. Permite camera.
+2. Indreapta camera spre un cod de bare EAN sau QR, tinand codul in cadru.
+3. Pentru proba fara camera, apasa **Vezi sticla Aqua Carpatica**. Exemplul
+   cauta in timp real EAN-ul `5942326402258` si arata datele disponibile.
+4. **Introdu codul manual** permite testarea fara decodare video.
+5. In fisa produsului poti vedea sursele si calcula pretul per litru. Pretul
+   este introdus de utilizator; aplicatia nu citeste pretul de pe raft.
 
-Daca accesul la camera este refuzat, butonul **Continua fara camera** permite
-testarea incadrarii si a datelor pe un fundal neutru. Modul acesta este o
-simulare pe ecran, nu un test de urmarire AR.
+Datele Open Food Facts sunt colaborative si pot fi incomplete sau gresite.
+Informatiile despre lot, autenticitate, pret si data expirarii nu sunt deduse
+din EAN. Linkurile QR nu se deschid automat. Imaginea camerei nu este incarcata
+pe server, dar codul detectat este trimis la Open Food Facts pentru cautare.
 
 ## Dezvoltare locala
 
@@ -29,8 +32,9 @@ python -m http.server 4173
 ```
 
 Deschide `http://localhost:4173`. Camera functioneaza in context securizat
-(`localhost` sau HTTPS). Bibliotecile A-Frame 1.6.0 si AR.js 3.4.8 sunt
-incarcate din CDN numai cand este necesar modul AR.
+(`localhost` sau HTTPS). Cititorul `@zxing/browser` 0.2.1 este incarcat din
+CDN doar la scanarea unui produs. A-Frame 1.6.0 si AR.js 3.4.8 sunt incarcate
+doar in modul AR.
 
 Verificarea automata a interfetei foloseste optional Playwright:
 
