@@ -3,136 +3,74 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#07090c" />
-    <meta name="description" content="Vizor citește coduri de bare și QR și arată datele produsului cu sursele lor." />
-    <title>Vizor</title>
-    <link rel="stylesheet" href="css/vizor.css" />
+    <meta name="theme-color" content="#050708" />
+    <meta name="description" content="HoloLab transformă gesturile mâinilor într-un laborator 3D interactiv." />
+    <title>HoloLab · Laborator spațial</title>
+    <link rel="stylesheet" href="css/hololab.css" />
   </head>
   <body>
-    <main id="app">
-      <section class="screen start-screen is-active" id="start-screen" aria-labelledby="start-title">
-        <div class="brand" aria-label="Vizor">VIZOR</div>
-        <div class="start-content">
-          <p class="eyebrow">SCANARE LIVE</p>
-          <h1 id="start-title">Ce spune<br />produsul?</h1>
-          <p class="intro">Scanează codul de bare sau QR. Vezi ce știm despre produs, de unde vin datele și ce nu poate spune codul.</p>
-          <div class="scan-types" aria-label="Coduri acceptate"><span>EAN</span><span>QR</span><span>GS1 Digital Link</span></div>
+    <main class="lab" id="lab">
+      <video id="camera" class="camera" autoplay muted playsinline webkit-playsinline aria-hidden="true"></video>
+      <div class="camera-wash" aria-hidden="true"></div>
+      <div id="scene" class="scene" aria-label="Model 3D interactiv"></div>
+      <canvas id="hands" class="hands" aria-hidden="true"></canvas>
+
+      <section class="launch" id="launch" aria-labelledby="launch-title">
+        <header class="launch-brand">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong>HOLOLAB</strong><span>SPATIAL INTERFACE / 01</span>
+        </header>
+        <div class="launch-copy">
+          <p class="kicker">GESTURE-DRIVEN LAB</p>
+          <h1 id="launch-title">Ține știința<br />în mâinile tale.</h1>
+          <p>Modele 3D care răspund la gesturi, direct în cameră. Fără markere. Fără instalare.</p>
         </div>
-        <div class="start-actions">
-          <button class="button primary" id="start-product-scan" type="button">Scanează un produs</button>
-          <button class="button secondary" id="show-example" type="button">Vezi sticla Aqua Carpatica</button>
-          <div class="start-links">
-            <button class="text-button" id="start-demo" type="button">Demo panouri AR</button>
-            <button class="text-button" id="start-camera" type="button">Scanează carduri AR</button>
-          </div>
-          <p class="privacy">Imaginea camerei rămâne pe telefon. Codul citit este trimis către baza de produse pentru căutare.</p>
-          <p class="setup-link"><a href="ar-test.html">Test tehnic marker 0</a></p>
-          <p class="start-error" id="start-error" role="alert" hidden></p>
-          <button class="text-button" id="continue-no-camera" type="button" hidden>Continuă fără cameră</button>
+        <div class="launch-actions">
+          <button class="start-button" id="start-camera" type="button"><span>Pornește HoloLab</span><i aria-hidden="true">→</i></button>
+          <button class="demo-button" id="start-demo" type="button">Explorează fără cameră</button>
+          <p>Procesarea mâinilor are loc local, în browser.</p>
         </div>
       </section>
 
-      <section class="screen scanner-screen" id="scanner-screen" aria-label="Scanner Vizor">
-        <video id="demo-video" class="camera-video" autoplay muted playsinline webkit-playsinline aria-hidden="true"></video>
-        <div id="ar-mount" class="ar-mount"></div>
-        <div class="camera-shade" aria-hidden="true"></div>
-        <div class="scanner-ui">
-          <header class="scanner-top">
-            <div class="brand" aria-label="Vizor">VIZOR</div>
-            <button class="icon-button" id="close-scanner" type="button" aria-label="Închide camera" title="Închide camera">×</button>
-          </header>
-          <div class="scanner-status" id="scanner-status" role="status">Pregătesc camera...</div>
-          <div class="scan-stage" id="scan-stage" aria-hidden="true">
-            <div class="scan-frame"><i></i><i></i><i></i><i></i><span class="scan-line"></span></div>
-          </div>
-          <div class="demo-stage" id="demo-stage">
-            <div class="mode-tag">SIMULARE · FĂRĂ CARD</div>
-            <div class="demo-panel" id="demo-panel" role="img"></div>
-          </div>
-          <footer class="scanner-bottom">
-            <div class="product-nav">
-              <button class="icon-button nav-button" id="previous-product" type="button" aria-label="Produsul anterior" title="Produsul anterior">‹</button>
-              <div class="product-nav-label">
-                <span id="product-counter">01 / 05</span>
-                <strong id="product-name">Salam Victoria</strong>
-              </div>
-              <button class="icon-button nav-button" id="next-product" type="button" aria-label="Produsul următor" title="Produsul următor">›</button>
-            </div>
-            <p class="scanner-hint">Schimbă produsul pentru a compara marjele.</p>
-          </footer>
-          <footer class="scan-bottom" id="scan-bottom">
-            <p>Încadrează codul de bare sau QR.</p>
-            <button class="button scan-manual-button" id="open-manual" type="button">Introdu codul manual</button>
-          </footer>
-        </div>
-        <section class="lens-layer" id="lens-layer" aria-label="Vizualizare produs în cameră" hidden>
-          <div class="lens-flash" aria-hidden="true"></div>
-          <div class="lens-target" id="lens-target" aria-hidden="true">
-            <span></span><i></i>
-          </div>
-          <div class="lens-card" id="lens-card">
-            <div class="lens-card-top">
-              <span class="lens-live"><i></i> IDENTIFICAT LIVE</span>
-              <span id="lens-code"></span>
-            </div>
-            <strong id="lens-title"></strong>
-            <p id="lens-subtitle"></p>
-            <div class="lens-card-metric"><span id="lens-card-label"></span><strong id="lens-card-value"></strong></div>
-          </div>
-          <div class="lens-data" id="lens-data" aria-label="Date esențiale produs"></div>
-          <div class="lens-controls">
-            <div class="lens-modes" role="group" aria-label="Mod de afișare">
-              <button type="button" data-lens-mode="card" aria-pressed="true">Card</button>
-              <button type="button" data-lens-mode="data" aria-pressed="false">Date</button>
-            </div>
-            <div class="lens-actions">
-              <button type="button" id="lens-rescan">Alt produs</button>
-              <button type="button" id="lens-details">Detalii</button>
-            </div>
-          </div>
-        </section>
-        <form class="manual-sheet" id="manual-sheet" hidden>
-          <div class="sheet-handle" aria-hidden="true"></div>
-          <label for="manual-code">Cod de bare sau link QR</label>
-          <div class="manual-row">
-            <input id="manual-code" name="code" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="5942326402258" required />
-            <button class="button primary" type="submit">Caută</button>
-          </div>
-          <button class="text-button" id="close-manual" type="button">Înapoi la cameră</button>
-        </form>
-        <section class="product-result" id="product-result" aria-label="Date despre produs" hidden>
-          <div class="sheet-handle" aria-hidden="true"></div>
-          <div class="result-scroll">
-            <div class="result-head">
-              <div class="result-image" id="result-image"></div>
-              <div class="result-identity">
-                <p class="eyebrow" id="result-eyebrow">PRODUS IDENTIFICAT</p>
-                <h2 id="result-title"></h2>
-                <p id="result-subtitle"></p>
-              </div>
-            </div>
-            <div class="result-quick" id="result-quick"></div>
-            <div class="result-tabs" role="tablist" aria-label="Detalii produs">
-              <button id="tab-overview" type="button" role="tab" aria-controls="panel-overview" aria-selected="true">Pe scurt</button>
-              <button id="tab-sources" type="button" role="tab" aria-controls="panel-sources" aria-selected="false">Date și surse</button>
-            </div>
-            <div class="result-tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
-              <div id="result-facts"></div>
-              <div class="price-tool" id="price-tool" hidden>
-                <label for="shelf-price">Preț la raft, fără garanție</label>
-                <div class="price-row"><input id="shelf-price" type="text" inputmode="decimal" placeholder="ex. 4,50" /><span>lei</span><strong id="price-per-litre">— / L</strong></div>
-              </div>
-            </div>
-            <div class="result-tab-panel" id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" hidden>
-              <div id="result-sources"></div>
-            </div>
-          </div>
-          <div class="result-actions">
-            <button class="button primary" id="scan-again" type="button">Scanează alt produs</button>
-          </div>
-        </section>
+      <section class="loading" id="loading" aria-live="polite" hidden>
+        <div class="loader-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <strong id="loading-title">Inițializez laboratorul</strong>
+        <span id="loading-detail">Pregătesc camera și detecția gesturilor...</span>
       </section>
+
+      <section class="interface" id="interface" aria-label="Controale HoloLab" hidden>
+        <header class="topbar">
+          <div class="lab-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>HOLOLAB</strong><span>LIVE SPATIAL LAB</span></div></div>
+          <div class="tracking-status" id="tracking-status" data-state="searching"><i aria-hidden="true"></i><span>CAUT MÂINILE</span></div>
+          <button class="icon-button" id="close-lab" type="button" aria-label="Închide laboratorul" title="Închide laboratorul">×</button>
+        </header>
+
+        <aside class="specimen-info">
+          <span id="specimen-index">SPECIMEN 01</span>
+          <h2 id="specimen-name">ATOM // CARBON</h2>
+          <p id="specimen-detail">6 protoni · 6 neutroni · 6 electroni</p>
+          <div class="signal-line" aria-hidden="true"><i></i></div>
+        </aside>
+
+        <div class="gesture-readout"><span id="gesture-code">AUTO</span><strong id="gesture-title">Orbită autonomă</strong></div>
+        <div class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><span></span></div>
+
+        <footer class="control-deck">
+          <div class="gesture-guide" aria-label="Ghid de gesturi">
+            <div data-guide="pinch"><span class="gesture-icon pinch-icon" aria-hidden="true"><i></i><i></i></span><p><strong>PRINDE</strong>rotește</p></div>
+            <div data-guide="open"><span class="gesture-icon palm-icon" aria-hidden="true">✋</span><p><strong>DESCHIDE</strong>descompune</p></div>
+            <div data-guide="scale"><span class="gesture-icon scale-icon" aria-hidden="true">↔</span><p><strong>2 MÂINI</strong>scalează</p></div>
+          </div>
+          <div class="specimen-switcher" role="group" aria-label="Alege specimenul">
+            <button type="button" data-model="atom" aria-pressed="true"><span>01</span>ATOM</button>
+            <button type="button" data-model="dna" aria-pressed="false"><span>02</span>ADN</button>
+            <button type="button" data-model="orbital" aria-pressed="false"><span>03</span>ORBITAL</button>
+          </div>
+          <p class="mode-note" id="mode-note">Ridică o mână în cadru</p>
+        </footer>
+      </section>
+      <div class="toast" id="toast" role="status" hidden></div>
     </main>
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/hololab.js"></script>
   </body>
 </html>

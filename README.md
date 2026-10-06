@@ -1,35 +1,38 @@
-# Vizor
+# HoloLab
 
-Aplicatie web statica pentru scanarea codurilor de bare si QR pe telefon.
-Un EAN/GTIN valid este cautat in Open Food Facts; un QR obisnuit arata doar
-destinatia linkului, fara sa pretinda ca identifica produsul. Modul AR cu
-markere si demo-ul de panouri raman disponibile separat.
+Experienta web 3D controlata prin gesturile mainilor. Camera frontala este
+procesata local cu MediaPipe Hand Landmarker, iar scena este randata cu
+Three.js. Aplicatia nu necesita marker, instalare sau backend.
 
-## Linkuri
+## Link
 
 - Aplicatie: https://mmarius-03.github.io/vizor/
-- Test tehnic marker 0: https://mmarius-03.github.io/vizor/ar-test.html
+
+## Interactiuni
+
+- **Pinch**: prinde si roteste specimenul prin miscarea mainii.
+- **Palma deschisa**: activeaza vederea descompusa.
+- **Doua maini**: scaleaza specimenul prin distanta dintre palme.
+- **Touch / mouse**: trage pentru rotire; dublu tap activeaza vederea
+  descompusa; scroll-ul controleaza scala.
+
+Sunt incluse trei specimene procedurale: atom de carbon, ADN si un sistem
+orbital. Schimbarea specimenului declanseaza o noua materializare.
+
+Sistemul vizual foloseste 7.000 de particule pe mobil si 14.000 pe desktop.
+Pozitiile sunt calculate intr-un shader WebGL, cu doua puncte de atractie care
+urmaresc palmele. Astfel, efectul ramane fluid si pe dispozitive fara WebGPU.
 
 ## Test pe iPhone
 
-1. Deschide aplicatia in Safari si apasa **Scaneaza un produs**. Permite camera.
-2. Indreapta camera spre un cod de bare EAN sau QR, tinand codul in cadru.
-   Dupa identificare, modul **Card** pastreaza un rezumat langa cod, iar modul
-   **Date** desface informatiile esentiale in jurul produsului. Cat timp codul
-   ramane vizibil, suprapunerea isi actualizeaza pozitia si unghiul.
-3. Pentru proba fara camera, apasa **Vezi sticla Aqua Carpatica**. Exemplul
-   cauta in timp real EAN-ul `5942326402258` si arata datele disponibile.
-4. **Introdu codul manual** permite testarea fara decodare video.
-5. In fisa produsului poti vedea sursele si calcula pretul per litru. Pretul
-   este introdus de utilizator; aplicatia nu citeste pretul de pe raft.
+1. Deschide aplicatia in Safari si apasa **Porneste HoloLab**.
+2. Permite camera frontala si tine mana in jumatatea superioara a cadrului.
+3. Apropie degetul mare de aratator si misca mana pentru rotatie.
+4. Deschide palma pentru a descompune modelul.
+5. Ridica ambele maini si modifica distanta dintre ele pentru scalare.
 
-Pentru o prezentare fara riscul camerei sau al luminii din sala, butonul
-**Vezi sticla Aqua Carpatica** porneste acelasi Vizor Lens intr-un mod simulat.
-
-Datele Open Food Facts sunt colaborative si pot fi incomplete sau gresite.
-Informatiile despre lot, autenticitate, pret si data expirarii nu sunt deduse
-din EAN. Linkurile QR nu se deschid automat. Imaginea camerei nu este incarcata
-pe server, dar codul detectat este trimis la Open Food Facts pentru cautare.
+Butonul **Exploreaza fara camera** porneste acelasi laborator in mod tactil,
+util ca fallback pentru prezentare.
 
 ## Dezvoltare locala
 
@@ -37,16 +40,16 @@ pe server, dar codul detectat este trimis la Open Food Facts pentru cautare.
 python -m http.server 4173
 ```
 
-Deschide `http://localhost:4173`. Camera functioneaza in context securizat
-(`localhost` sau HTTPS). Cititorul `@zxing/browser` 0.2.1 este incarcat din
-CDN doar la scanarea unui produs. A-Frame 1.6.0 si AR.js 3.4.8 sunt incarcate
-doar in modul AR.
+Deschide `http://localhost:4173`. Camera functioneaza in context securizat,
+adica pe `localhost` sau prin HTTPS. Three.js 0.170.0 si MediaPipe Tasks Vision
+1.0.1 sunt incarcate din CDN.
 
-Verificarea automata a interfetei foloseste optional Playwright:
+Suita smoke verifica WebKit iPhone 16 Pro Max, un viewport mobil compact,
+desktop si pornirea camerei cu un stream simulat:
 
 ```powershell
-node tests/smoke.cjs
+node tests/smoke.cjs <cale-catre-playwright>
 ```
 
-Scriptul presupune ca Playwright este disponibil local. Nu face parte din
-aplicatia publicata si nu este necesar pentru rularea ei.
+Scannerul Vizor si experimentul AR anterior raman disponibile in istoricul
+Git al proiectului.
