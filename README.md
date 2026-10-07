@@ -10,20 +10,25 @@ Three.js. Aplicatia nu necesita marker, instalare sau backend.
 
 ## Interactiuni
 
-- **Arată cu degetul**: direcționează fluxul de particule; un reper luminos
-  urmărește vârful arătătorului.
+- **Arată cu degetul**: direcționează particulele și evidențiază componentele
+  specimenului cu etichete.
 - **Pinch**: roteste si deplaseaza specimenul; tine degetele apropiate pentru
   a incarca energia, apoi elibereaza pentru un impuls de particule.
-- **Palma deschisa**: activeaza vederea descompusa.
+- **Palma deschisa**: descompune specimenul si il proiecteaza deasupra palmei
+  cand aceasta este orientata spre camera.
 - **Doua maini**: scaleaza specimenul prin distanta dintre palme.
+- **Swipe**: schimba specimenul; **pumn tinut**: colaps energetic, urmat de
+  un impuls la deschiderea palmei; **clap**: super-impuls.
 - **Touch / mouse**: trage pentru rotire, tine apasat si elibereaza pentru
   impuls; dublu tap activeaza vederea descompusa; scroll-ul controleaza scala.
 - **Camera**: butonul din partea de sus comuta intre camera frontala si cea
   din spate. Imaginea este oglindita doar pentru camera frontala.
 
 Sunt incluse trei specimene procedurale: atom de carbon, ADN si un sistem
-orbital. ADN-ul are 16 perechi animate, iar schimbarea specimenului produce o
-animatie de dispersie si reasamblare.
+orbital. ADN-ul are 16 perechi animate. La schimbare, particulele se desprind
+si se reasambleaza pe suprafata noului specimen. Holograma foloseste bloom,
+materiale cu margini luminoase si scanlines; controlul de calitate reduce
+efectele automat cand randarea devine lenta.
 
 Sistemul vizual foloseste 3.600 de particule pe mobil si 7.200 pe desktop.
 Pozitiile sunt calculate intr-un shader WebGL, cu puncte de atractie care
@@ -42,6 +47,14 @@ dispozitive fara WebGPU.
 
 Butonul **Exploreaza fara camera** porneste acelasi laborator in mod tactil,
 util ca fallback pentru prezentare.
+
+Din meniul de optiuni poti schimba intensitatea scheletului, ascunde
+interfata si salva o captura PNG. Sunetul poate fi oprit din bara de sus.
+Fara interactiune timp de 8 secunde, laboratorul intra in modul prezentare.
+
+Aspectul si incadrarea au fost verificate in WebKit la dimensiunea iPhone 16
+Pro Max. Fluiditatea si stabilitatea gesturilor trebuie confirmate pe iPhone-ul
+real, in Safari, cu lumina si fundalul folosite la prezentare.
 
 ## Dezvoltare locala
 
