@@ -14,11 +14,15 @@ const gestureCode = $("#gesture-code");
 const gestureTitle = $("#gesture-title");
 const modeNote = $("#mode-note");
 const toast = $("#toast");
+const cameraButton = $("#switch-camera");
+const energyMeter = $("#energy-meter");
+const energyValue = $("#energy-value");
+const energyWave = $("#energy-wave");
 
 const MODEL_INFO = {
-  atom: { index: "SPECIMEN 01", name: "ATOM // CARBON", detail: "6 protoni · 6 neutroni · 6 electroni" },
-  dna: { index: "SPECIMEN 02", name: "ADN // HELIX", detail: "24 perechi de baze · structură dublu helix" },
-  orbital: { index: "SPECIMEN 03", name: "ORBITAL // KEPLER", detail: "nucleu energetic · 4 corpuri orbitale" },
+  atom: { index: "SPECIMEN 01", name: "ATOM // CARBON", detail: "6 protoni · 6 neutroni · 6 electroni", visualScale: 1 },
+  dna: { index: "SPECIMEN 02", name: "ADN // HELIX", detail: "24 perechi de baze · structură dublu helix", visualScale: .9 },
+  orbital: { index: "SPECIMEN 03", name: "ORBITAL // KEPLER", detail: "nucleu energetic · 4 corpuri orbitale", visualScale: .68 },
 };
 
 const state = {
@@ -41,6 +45,18 @@ const state = {
   lastVideoTime: -1,
   lastDetection: 0,
   pointer: null,
+  cameraFacing: "user",
+  sessionId: 0,
+  switchingCamera: false,
+  pinching: false,
+  pinchStarted: 0,
+  charge: 0,
+  pulseStart: -Infinity,
+  pulsePower: 0,
+  transition: null,
+  modelTarget: new THREE.Vector3(),
+  modelPosition: new THREE.Vector3(),
+  lastFrame: 0,
   attractorA: new THREE.Vector3(-1.35, 0.2, 0),
   attractorB: new THREE.Vector3(1.35, -0.2, 0),
   attractorATarget: new THREE.Vector3(-1.35, 0.2, 0),
@@ -119,12 +135,18 @@ const particleMaterial = new THREE.ShaderMaterial({
     uAttractorB: { value: state.attractorB },
     uActive: { value: 0.36 },
     uExplode: { value: 0 },
+    uCharge: { value: 0 },
+    uPulse: { value: 0 },
+    uTransition: { value: 0 },
     uPixelRatio: { value: Math.min(devicePixelRatio, 2) },
   },
   vertexShader: `
     uniform float uTime;
     uniform float uActive;
     uniform float uExplode;
+    uniform float uCharge;
+    uniform float uPulse;
+    uniform float uTransition;
     uniform float uPixelRatio;
     uniform vec3 uAttractorA;
     uniform vec3 uAttractorB;
@@ -136,8 +158,8 @@ const particleMaterial = new THREE.ShaderMaterial({
       vec3 attractor = mix(uAttractorA, uAttractorB, selector);
       float phase = aSeed * 83.7;
       float speed = 0.34 + fract(aSeed * 29.1) * 1.18;
-      float angle = uTime * speed + phase;
-      float radius = 0.12 + pow(fract(aSeed * 43.7), 1.7) * 1.65;
+      float angle = uTime * speed + phase + uTransition * (2.0 + aSeed * 5.0);
+      float radius = (0.12 + pow(fract(aSeed * 43.7), 1.7) * 1.65) * (1.0 - uCharge * 0.42);
       vec3 orbit = vec3(
         cos(angle) * radius,
         sin(angle * 1.37 + phase) * radius * 0.58,
@@ -149,13 +171,17 @@ const particleMaterial = new THREE.ShaderMaterial({
       float bridgeMix = smoothstep(0.62, 0.98, fract(aSeed * 19.7));
       vec3 attracted = mix(attractor + orbit, bridge, bridgeMix);
       vec3 transformed = mix(position, attracted, uActive);
-      transformed += normalize(position + vec3(0.001)) * uExplode * (0.75 + aSeed * 2.4);
+      transformed += normalize(position + vec3(0.001)) * (
+        uExplode * (0.75 + aSeed * 2.4) +
+        uPulse * (0.9 + aSeed * 2.6) +
+        uTransition * (0.35 + aSeed * 1.8)
+      );
       transformed.y += sin(uTime * 0.4 + phase) * 0.035;
 
       vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
       gl_Position = projectionMatrix * mvPosition;
-      gl_PointSize = (2.1 + fract(aSeed * 51.0) * 2.8 + uExplode * 1.4) * uPixelRatio * (5.0 / max(2.0, -mvPosition.z));
-      vEnergy = clamp(speed * 0.55 + bridgeMix * 0.35 + uExplode * 0.35, 0.0, 1.0);
+      gl_PointSize = (2.1 + fract(aSeed * 51.0) * 2.8 + (uExplode + uCharge + uPulse) * 1.4) * uPixelRatio * (5.0 / max(2.0, -mvPosition.z));
+      vEnergy = clamp(speed * 0.55 + bridgeMix * 0.35 + uExplode * 0.25 + uCharge * 0.25 + uPulse * 0.45 + uTransition * 0.4, 0.0, 1.0);
     }
   `,
   fragmentShader: `
@@ -262,8 +288,6 @@ function createDNA() {
       const direction = index % 2 ? 1 : -1;
       step.group.position.x = direction * explode * (0.4 + Math.abs(index - 12) * 0.025);
       step.group.rotation.y = Math.sin(time * .7 + index * .2) * .018;
-      step.left.position.x = step.leftBase.x - explode * .55;
-      step.right.position.x = step.rightBase.x + explode * .55;
     });
   };
   return group;
@@ -303,18 +327,32 @@ function createOrbital() {
 
 const modelFactories = { atom: createAtom, dna: createDNA, orbital: createOrbital };
 let activeModel = createAtom();
+let activeModelKey = "atom";
 labRoot.add(activeModel);
+
+function releaseModel(model) {
+  const sharedMaterials = new Set(Object.values(materials));
+  model.traverse((object) => {
+    object.geometry?.dispose();
+    if (object.material && !sharedMaterials.has(object.material)) object.material.dispose();
+  });
+}
+
+function triggerPulse(power = 1) {
+  state.pulseStart = performance.now();
+  state.pulsePower = power;
+  energyWave.classList.remove("is-active");
+  void energyWave.offsetWidth;
+  energyWave.classList.add("is-active");
+}
 
 function switchModel(key) {
   if (!modelFactories[key] || key === state.modelKey) return;
-  labRoot.remove(activeModel);
-  activeModel = modelFactories[key]();
-  activeModel.scale.setScalar(0.01);
-  labRoot.add(activeModel);
   state.modelKey = key;
-  state.reveal = 0;
-  state.explode = 0;
+  state.transition = { key, started: performance.now(), swapped: false };
   state.explodeTarget = 0;
+  state.charge = 0;
+  triggerPulse(.8);
   document.querySelectorAll("[data-model]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.model === key)));
   const info = MODEL_INFO[key];
   $("#specimen-index").textContent = info.index;
@@ -329,11 +367,11 @@ function setGesture(gesture) {
   const labels = {
     auto: ["AUTO", "Orbită autonomă", "Ridică o mână în cadru"],
     tracking: ["HAND", "Mână detectată", "Apropie degetul mare de arătător"],
-    pinch: ["PINCH", "Control de rotație", "Mișcă mâna pentru a roti modelul"],
+    pinch: ["PINCH", "Energie în creștere", "Mișcă mâna, apoi eliberează pinch-ul"],
     open: ["OPEN", "Vedere descompusă", "Ține palma deschisă"],
     scale: ["DUAL", "Scalare bimanuală", "Apropie sau depărtează mâinile"],
     materialize: ["LOAD", "Materializare", "Specimen nou sincronizat"],
-    demo: ["TOUCH", "Control tactil", "Trage pentru rotire · dublu tap pentru straturi"],
+    demo: ["TOUCH", "Control tactil", "Trage · ține apăsat pentru impuls · dublu tap pentru straturi"],
   };
   const [code, title, note] = labels[gesture] || labels.auto;
   gestureCode.textContent = code;
@@ -365,25 +403,39 @@ function palmCenter(hand) {
   return indices.reduce((center, index) => ({ x: center.x + hand[index].x / indices.length, y: center.y + hand[index].y / indices.length }), { x: 0, y: 0 });
 }
 
+function viewX(x) {
+  return state.cameraFacing === "user" ? 1 - x : x;
+}
+
 function handToWorld(center) {
-  return new THREE.Vector3(((1 - center.x) - .5) * 5.2, -(center.y - .5) * 5.8, 0);
+  return new THREE.Vector3((viewX(center.x) - .5) * 5.2, -(center.y - .5) * 5.8, 0);
+}
+
+function releasePinch() {
+  if (state.pinching && state.charge > .2) triggerPulse(.5 + state.charge * .85);
+  state.pinching = false;
+  state.charge = 0;
 }
 
 function readGestures(hands) {
   state.explodeTarget = 0;
   if (!hands.length) {
+    releasePinch();
+    state.modelTarget.set(0, 0, 0);
     state.attractorATarget.set(-1.35, .2, 0);
     state.attractorBTarget.set(1.35, -.2, 0);
     setGesture("auto");
     return;
   }
   if (hands.length > 1) {
+    releasePinch();
+    state.modelTarget.set(0, 0, 0);
     const first = palmCenter(hands[0]);
     const second = palmCenter(hands[1]);
     state.attractorATarget.copy(handToWorld(first));
     state.attractorBTarget.copy(handToWorld(second));
     state.scaleTarget = THREE.MathUtils.clamp(distance(first, second) * 2.9, .68, 1.62);
-    state.rotYTarget = ((1 - (first.x + second.x) / 2) - .5) * 1.8;
+    state.rotYTarget = (viewX((first.x + second.x) / 2) - .5) * 1.8;
     setGesture("scale");
     return;
   }
@@ -395,14 +447,22 @@ function readGestures(hands) {
   const pinching = distance(hand[4], hand[8]) / palmSize < .42;
   const extended = [8, 12, 16, 20].filter((tip, index) => hand[tip].y < hand[[6, 10, 14, 18][index]].y - .018).length;
   if (pinching) {
-    state.rotYTarget = ((1 - center.x) - .5) * 3.4;
+    if (!state.pinching) state.pinchStarted = performance.now();
+    state.pinching = true;
+    const world = handToWorld(center);
+    state.modelTarget.set(THREE.MathUtils.clamp(world.x * .16, -.42, .42), THREE.MathUtils.clamp(world.y * .13, -.34, .34), 0);
+    state.rotYTarget = (viewX(center.x) - .5) * 3.4;
     state.rotXTarget = (center.y - .5) * 2.4;
     setGesture("pinch");
   } else if (extended >= 3) {
+    releasePinch();
+    state.modelTarget.set(0, 0, 0);
     state.explodeTarget = 1;
-    state.rotYTarget = ((1 - center.x) - .5) * 1.3;
+    state.rotYTarget = (viewX(center.x) - .5) * 1.3;
     setGesture("open");
   } else {
+    releasePinch();
+    state.modelTarget.set(0, 0, 0);
     setGesture("tracking");
   }
 }
@@ -412,11 +472,11 @@ const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],
 function mapLandmark(point) {
   const width = handCanvas.width / devicePixelRatio;
   const height = handCanvas.height / devicePixelRatio;
-  if (!video.videoWidth) return { x: (1 - point.x) * width, y: point.y * height };
+  if (!video.videoWidth) return { x: viewX(point.x) * width, y: point.y * height };
   const scale = Math.max(width / video.videoWidth, height / video.videoHeight);
   const renderedWidth = video.videoWidth * scale;
   const renderedHeight = video.videoHeight * scale;
-  return { x: ((1 - point.x) * renderedWidth) + (width - renderedWidth) / 2, y: point.y * renderedHeight + (height - renderedHeight) / 2 };
+  return { x: (viewX(point.x) * renderedWidth) + (width - renderedWidth) / 2, y: point.y * renderedHeight + (height - renderedHeight) / 2 };
 }
 
 function drawHands(hands) {
@@ -462,33 +522,145 @@ async function createLandmarker() {
   }
 }
 
+function cameraConstraints(facing, exact = false) {
+  return {
+    audio: false,
+    video: {
+      facingMode: exact ? { exact: facing } : { ideal: facing },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
+  };
+}
+
+function setFacing(facing) {
+  state.cameraFacing = facing;
+  lab.dataset.facing = facing;
+  $("#camera-facing-label").textContent = facing === "user" ? "FAȚĂ" : "SPATE";
+  const destination = facing === "user" ? "spate" : "față";
+  cameraButton.setAttribute("aria-label", `Comută la camera din ${destination}`);
+  cameraButton.title = `Comută la camera din ${destination}`;
+}
+
+async function switchCamera() {
+  if (!state.active || state.demo || state.switchingCamera) return;
+  const session = state.sessionId;
+  const previous = state.cameraFacing;
+  const next = previous === "user" ? "environment" : "user";
+  state.switchingCamera = true;
+  cameraButton.disabled = true;
+  trackingStatus.dataset.state = "searching";
+  trackingStatus.querySelector("span").textContent = "COMUT CAMERA";
+  state.hands = [];
+  releasePinch();
+  drawHands([]);
+  state.stream?.getTracks().forEach((track) => track.stop());
+  state.stream = null;
+  video.srcObject = null;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(cameraConstraints(next, true));
+    if (session !== state.sessionId) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    state.stream = stream;
+    video.srcObject = stream;
+    await video.play();
+    if (session !== state.sessionId) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    setFacing(next);
+    state.lastVideoTime = -1;
+    updateTrackingUi(0);
+  } catch {
+    state.stream?.getTracks().forEach((track) => track.stop());
+    state.stream = null;
+    video.srcObject = null;
+    if (session !== state.sessionId) return;
+    try {
+      const restored = await navigator.mediaDevices.getUserMedia(cameraConstraints(previous, true));
+      if (session !== state.sessionId) {
+        restored.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      state.stream = restored;
+      video.srcObject = restored;
+      await video.play();
+      if (session !== state.sessionId) {
+        restored.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      setFacing(previous);
+      state.lastVideoTime = -1;
+      updateTrackingUi(0);
+      showToast("Camera selectată nu este disponibilă pe acest dispozitiv.");
+    } catch {
+      if (session !== state.sessionId) return;
+      state.stream?.getTracks().forEach((track) => track.stop());
+      state.stream = null;
+      video.srcObject = null;
+      lab.classList.remove("has-camera");
+      state.demo = true;
+      cameraButton.hidden = true;
+      updateTrackingUi(0);
+      setGesture("demo");
+      showToast("Camera nu a mai pornit. Laboratorul rămâne disponibil prin touch.");
+    }
+  } finally {
+    state.switchingCamera = false;
+    cameraButton.disabled = false;
+  }
+}
+
 async function startLab(withCamera) {
+  const session = ++state.sessionId;
   loading.hidden = false;
   launch.hidden = true;
   state.demo = !withCamera;
   try {
     if (withCamera) {
       loadingDetail.textContent = "Cer accesul la cameră...";
-      state.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } });
+      const stream = await navigator.mediaDevices.getUserMedia(cameraConstraints("user"));
+      if (session !== state.sessionId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      state.stream = stream;
       video.srcObject = state.stream;
       await video.play();
+      if (session !== state.sessionId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const actualFacing = stream.getVideoTracks()[0]?.getSettings?.().facingMode;
+      setFacing(actualFacing === "environment" ? "environment" : "user");
       lab.classList.add("has-camera");
       loadingDetail.textContent = "Calibrez cele 21 de puncte pentru fiecare mână...";
-      state.landmarker = await createLandmarker();
+      const landmarker = await createLandmarker();
+      if (session !== state.sessionId) {
+        landmarker.close();
+        return;
+      }
+      state.landmarker = landmarker;
     }
     state.active = true;
     state.reveal = 0;
+    state.transition = null;
+    cameraButton.hidden = state.demo;
     interfaceLayer.hidden = false;
     loading.hidden = true;
     updateTrackingUi(0);
     setGesture(state.demo ? "demo" : "auto");
   } catch (error) {
+    if (session !== state.sessionId) return;
     state.stream?.getTracks().forEach((track) => track.stop());
     state.stream = null;
     video.srcObject = null;
     lab.classList.remove("has-camera");
     state.demo = true;
     state.active = true;
+    cameraButton.hidden = true;
     interfaceLayer.hidden = false;
     loading.hidden = true;
     updateTrackingUi(0);
@@ -498,6 +670,7 @@ async function startLab(withCamera) {
 }
 
 function stopLab() {
+  state.sessionId += 1;
   state.active = false;
   state.stream?.getTracks().forEach((track) => track.stop());
   state.stream = null;
@@ -506,6 +679,18 @@ function stopLab() {
   state.landmarker = null;
   state.hands = [];
   state.demo = false;
+  state.pinching = false;
+  state.charge = 0;
+  state.pointer = null;
+  state.transition = null;
+  state.modelKey = activeModelKey;
+  document.querySelectorAll("[data-model]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.model === activeModelKey)));
+  const info = MODEL_INFO[activeModelKey];
+  $("#specimen-index").textContent = info.index;
+  $("#specimen-name").textContent = info.name;
+  $("#specimen-detail").textContent = info.detail;
+  state.modelTarget.set(0, 0, 0);
+  cameraButton.hidden = true;
   drawHands([]);
   lab.classList.remove("has-camera");
   interfaceLayer.hidden = true;
@@ -541,28 +726,76 @@ function detectHands(now) {
 function animate(now) {
   requestAnimationFrame(animate);
   const time = now * .001;
+  const delta = Math.min((now - (state.lastFrame || now)) * .001, .05);
+  state.lastFrame = now;
+  const follow = 1 - Math.exp(-8 * delta);
   detectHands(now);
   if (!state.active || (!state.hands.length && !state.demo)) {
-    state.rotYTarget += .003;
+    state.rotYTarget += delta * .18;
   }
-  state.reveal += (1 - state.reveal) * .055;
-  state.explode += (state.explodeTarget - state.explode) * .075;
-  state.scale += (state.scaleTarget - state.scale) * .08;
-  state.rotX += (state.rotXTarget - state.rotX) * .075;
-  state.rotY += (state.rotYTarget - state.rotY) * .075;
-  state.attractorA.lerp(state.attractorATarget, .14);
-  state.attractorB.lerp(state.attractorBTarget, .14);
-  const revealEase = 1 - Math.pow(1 - Math.min(1, state.reveal), 3);
-  activeModel.scale.setScalar(Math.max(.01, revealEase) * state.scale);
+  const touchCharge = state.pointer ? Math.max(0, (now - state.pointer.time - 190) * .0009) : 0;
+  const handCharge = state.pinching ? Math.max(0, (now - state.pinchStarted) * .0009) : 0;
+  if (state.pinching || state.pointer) state.charge = Math.min(1, Math.max(touchCharge, handCharge));
+  else state.charge = Math.max(0, state.charge - delta * 2.6);
+  energyMeter.hidden = state.charge < .02;
+  energyMeter.style.setProperty("--energy", `${Math.round(state.charge * 100)}%`);
+  energyValue.textContent = `${Math.round(state.charge * 100)}%`;
+
+  state.explode += (state.explodeTarget - state.explode) * follow;
+  state.scale += (state.scaleTarget - state.scale) * follow;
+  state.rotX += (state.rotXTarget - state.rotX) * follow;
+  state.rotY += (state.rotYTarget - state.rotY) * follow;
+  state.modelPosition.lerp(state.modelTarget, follow);
+  state.attractorA.lerp(state.attractorATarget, follow * 1.45);
+  state.attractorB.lerp(state.attractorBTarget, follow * 1.45);
+
+  let appearance;
+  let transitionEnergy = 0;
+  if (state.transition) {
+    const progress = Math.min((now - state.transition.started) / 1050, 1);
+    transitionEnergy = Math.sin(Math.PI * progress);
+    if (progress >= .33 && !state.transition.swapped) {
+      labRoot.remove(activeModel);
+      releaseModel(activeModel);
+      activeModel = modelFactories[state.transition.key]();
+      activeModelKey = state.transition.key;
+      labRoot.add(activeModel);
+      state.transition.swapped = true;
+    }
+    if (state.transition.swapped) {
+      const phase = THREE.MathUtils.clamp((progress - .33) / .67, 0, 1);
+      appearance = 1 + 2.7 * Math.pow(phase - 1, 3) + 1.7 * Math.pow(phase - 1, 2);
+    } else {
+      appearance = Math.pow(1 - progress / .33, 2);
+    }
+    if (progress >= 1) {
+      state.transition = null;
+      state.reveal = 1;
+      if (state.demo) setGesture("demo");
+    }
+  } else {
+    state.reveal = Math.min(1, state.reveal + delta * 1.05);
+    appearance = 1 - Math.pow(1 - state.reveal, 3);
+  }
+  const mobileFit = THREE.MathUtils.clamp((innerWidth / innerHeight) / .75, .52, 1);
+  activeModel.scale.setScalar(Math.max(.01, appearance) * state.scale * mobileFit * MODEL_INFO[activeModelKey].visualScale);
+  activeModel.position.copy(state.modelPosition);
   activeModel.rotation.x = state.rotX + Math.sin(time * .38) * .04;
   activeModel.rotation.y = state.rotY + time * (state.gesture === "pinch" ? .025 : .09);
   activeModel.userData.update?.(time, state.explode);
-  aura.material.opacity = .16 + state.explode * .16 + Math.sin(time * 1.8) * .025;
-  aura.scale.setScalar(4.7 + state.explode * 1.5 + Math.sin(time * 1.2) * .12);
+  const pulseAge = (now - state.pulseStart) * .001;
+  const pulse = pulseAge > 0 && pulseAge < 2 ? state.pulsePower * Math.exp(-pulseAge * 3.3) : 0;
+  aura.material.opacity = .16 + state.explode * .13 + state.charge * .16 + pulse * .24 + Math.sin(time * 1.8) * .025;
+  aura.scale.setScalar(4.7 + state.explode * 1.5 + state.charge * .45 + pulse * 1.5 + Math.sin(time * 1.2) * .12);
+  keyLight.intensity = 22 + state.charge * 11 + pulse * 17;
+  warmLight.intensity = 14 + transitionEnergy * 13 + pulse * 8;
   particles.rotation.y = time * .025;
   particleMaterial.uniforms.uTime.value = time;
   particleMaterial.uniforms.uExplode.value = state.explode;
-  particleMaterial.uniforms.uActive.value += (((state.hands.length || state.demo) ? .94 : .4) - particleMaterial.uniforms.uActive.value) * .06;
+  particleMaterial.uniforms.uCharge.value = state.charge;
+  particleMaterial.uniforms.uPulse.value = pulse;
+  particleMaterial.uniforms.uTransition.value = transitionEnergy;
+  particleMaterial.uniforms.uActive.value += (((state.hands.length || state.demo) ? .94 : .55) - particleMaterial.uniforms.uActive.value) * follow;
   renderer.render(scene, renderCamera);
 }
 
@@ -582,6 +815,10 @@ function resize() {
 lab.addEventListener("pointerdown", (event) => {
   if (!state.active || event.target.closest("button")) return;
   state.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, rotX: state.rotXTarget, rotY: state.rotYTarget, time: performance.now() };
+  if (state.demo) {
+    state.attractorATarget.set((event.clientX / innerWidth - .5) * 5.2, -(event.clientY / innerHeight - .5) * 5.8, 0);
+    state.attractorBTarget.set(0, 0, 0);
+  }
 });
 lab.addEventListener("pointermove", (event) => {
   if (!state.pointer || event.pointerId !== state.pointer.id) return;
@@ -592,15 +829,25 @@ lab.addEventListener("pointermove", (event) => {
     state.attractorATarget.set((event.clientX / innerWidth - .5) * 5.2, -(event.clientY / innerHeight - .5) * 5.8, 0);
     state.attractorBTarget.set(0, 0, 0);
   }
+  state.modelTarget.set(THREE.MathUtils.clamp((event.clientX / innerWidth - .5) * .7, -.35, .35), THREE.MathUtils.clamp((.5 - event.clientY / innerHeight) * .7, -.3, .3), 0);
 });
 lab.addEventListener("pointerup", (event) => {
   if (!state.pointer || event.pointerId !== state.pointer.id) return;
+  const heldCharge = Math.min(1, Math.max(0, (performance.now() - state.pointer.time - 190) * .0009));
+  if (heldCharge > .2) triggerPulse(.5 + heldCharge * .85);
+  state.charge = 0;
+  state.modelTarget.set(0, 0, 0);
   if (performance.now() - state.pointer.time < 240 && Math.hypot(event.clientX - state.pointer.x, event.clientY - state.pointer.y) < 12) {
     const previousTap = lab.dataset.lastTap || 0;
     if (performance.now() - previousTap < 340) state.explodeTarget = state.explodeTarget > .5 ? 0 : 1;
     lab.dataset.lastTap = performance.now();
   }
   state.pointer = null;
+});
+lab.addEventListener("pointercancel", () => {
+  state.pointer = null;
+  state.charge = 0;
+  state.modelTarget.set(0, 0, 0);
 });
 lab.addEventListener("wheel", (event) => {
   if (!state.active) return;
@@ -610,9 +857,10 @@ lab.addEventListener("wheel", (event) => {
 $("#start-camera").addEventListener("click", () => startLab(true));
 $("#start-demo").addEventListener("click", () => startLab(false));
 $("#close-lab").addEventListener("click", stopLab);
+cameraButton.addEventListener("click", switchCamera);
 document.querySelectorAll("[data-model]").forEach((button) => button.addEventListener("click", () => switchModel(button.dataset.model)));
 window.addEventListener("resize", resize);
-window.addEventListener("pagehide", () => state.stream?.getTracks().forEach((track) => track.stop()));
+window.addEventListener("pagehide", stopLab);
 
 resize();
 requestAnimationFrame(animate);

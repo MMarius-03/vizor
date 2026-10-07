@@ -14,6 +14,7 @@
       <div class="camera-wash" aria-hidden="true"></div>
       <div id="scene" class="scene" aria-label="Model 3D interactiv"></div>
       <canvas id="hands" class="hands" aria-hidden="true"></canvas>
+      <div class="energy-wave" id="energy-wave" aria-hidden="true"></div>
 
       <section class="launch" id="launch" aria-labelledby="launch-title">
         <header class="launch-brand">
@@ -42,7 +43,18 @@
         <header class="topbar">
           <div class="lab-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>HOLOLAB</strong><span>LIVE SPATIAL LAB</span></div></div>
           <div class="tracking-status" id="tracking-status" data-state="searching"><i aria-hidden="true"></i><span>CAUT MÂINILE</span></div>
-          <button class="icon-button" id="close-lab" type="button" aria-label="Închide laboratorul" title="Închide laboratorul">×</button>
+          <div class="topbar-actions">
+            <button class="icon-button camera-switch" id="switch-camera" type="button" aria-label="Comută la camera din spate" title="Comută la camera din spate" hidden>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /><path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+                <circle cx="12" cy="12" r="3" /><path d="m18 22-3-3 3-3" /><path d="m6 2 3 3-3 3" />
+              </svg>
+              <span id="camera-facing-label">FAȚĂ</span>
+            </button>
+            <button class="icon-button" id="close-lab" type="button" aria-label="Închide laboratorul" title="Închide laboratorul">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
         </header>
 
         <aside class="specimen-info">
@@ -52,12 +64,15 @@
           <div class="signal-line" aria-hidden="true"><i></i></div>
         </aside>
 
-        <div class="gesture-readout"><span id="gesture-code">AUTO</span><strong id="gesture-title">Orbită autonomă</strong></div>
+        <div class="gesture-readout">
+          <span id="gesture-code">AUTO</span><strong id="gesture-title">Orbită autonomă</strong>
+          <div class="energy-meter" id="energy-meter" aria-label="Energie încărcată" hidden><i></i><b id="energy-value">0%</b></div>
+        </div>
         <div class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><span></span></div>
 
         <footer class="control-deck">
           <div class="gesture-guide" aria-label="Ghid de gesturi">
-            <div data-guide="pinch"><span class="gesture-icon pinch-icon" aria-hidden="true"><i></i><i></i></span><p><strong>PRINDE</strong>rotește</p></div>
+            <div data-guide="pinch"><span class="gesture-icon pinch-icon" aria-hidden="true"><i></i><i></i></span><p><strong>PRINDE</strong>încarcă</p></div>
             <div data-guide="open"><span class="gesture-icon palm-icon" aria-hidden="true">✋</span><p><strong>DESCHIDE</strong>descompune</p></div>
             <div data-guide="scale"><span class="gesture-icon scale-icon" aria-hidden="true">↔</span><p><strong>2 MÂINI</strong>scalează</p></div>
           </div>

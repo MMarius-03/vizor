@@ -15,12 +15,25 @@ async function checkDemo(browserType, contextOptions, name) {
     await page.getByRole("button", { name: "Explorează fără cameră" }).click();
     await page.locator("#interface").waitFor({ state: "visible" });
     assert.equal(await page.locator("#tracking-status span").textContent(), "MOD DEMO");
+    assert(await page.locator("#switch-camera").isHidden(), `${name}: camera switch is only available with a live camera`);
 
     for (const key of ["dna", "orbital", "atom"]) {
       await page.locator(`[data-model="${key}"]`).click();
-      await page.waitForTimeout(250);
       assert.equal(await page.evaluate(() => window.__HOLOLAB__.state.modelKey), key, `${name}: ${key} model should load`);
+      assert(await page.evaluate(() => Boolean(window.__HOLOLAB__.state.transition)), `${name}: specimen change should animate`);
+      await page.waitForFunction(() => window.__HOLOLAB__.state.transition === null, null, { timeout: 4000 });
+      if (name === "iphone-16-pro-max") await page.screenshot({ path: path.join(os.tmpdir(), `hololab-${key}-iphone.png`) });
     }
+    assert.equal(await page.locator("#gesture-title").textContent(), "Control tactil", `${name}: transition status should clear`);
+    await page.evaluate(() => document.querySelector("#lab").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, clientX: innerWidth / 2, clientY: innerHeight / 2 })));
+    await page.waitForTimeout(540);
+    const chargeState = await page.evaluate(() => ({ charge: window.__HOLOLAB__.state.charge, pointer: window.__HOLOLAB__.state.pointer, active: window.__HOLOLAB__.state.active }));
+    assert(chargeState.charge > .15, `${name}: holding should charge energy: ${JSON.stringify(chargeState)}`);
+    await page.evaluate(() => document.querySelector("#lab").dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerId: 7, clientX: innerWidth * .65, clientY: innerHeight * .45 })));
+    assert(await page.evaluate(() => window.__HOLOLAB__.state.modelTarget.x > .05), `${name}: drag should move the specimen`);
+    await page.evaluate(() => document.querySelector("#lab").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, clientX: innerWidth / 2, clientY: innerHeight / 2 })));
+    assert(await page.evaluate(() => performance.now() - window.__HOLOLAB__.state.pulseStart < 300), `${name}: release should trigger pulse`);
+    await page.waitForTimeout(950);
 
     const metrics = await page.evaluate(() => {
       const deck = document.querySelector(".control-deck").getBoundingClientRect();
@@ -59,11 +72,38 @@ async function checkCamera() {
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await page.addInitScript(() => {
+      const nativeGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      window.__cameraRequests = [];
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        const requestedFacing = constraints.video?.facingMode?.exact || constraints.video?.facingMode?.ideal;
+        window.__cameraRequests.push(requestedFacing);
+        if (window.__rejectRear && requestedFacing === "environment") throw Object.assign(new Error("No rear camera"), { name: "NotFoundError" });
+        return nativeGetUserMedia({ audio: false, video: { width: 1280, height: 720 } });
+      };
+    });
     await page.goto("http://localhost:4173/");
     await page.getByRole("button", { name: "Pornește HoloLab" }).click();
     await page.locator("#interface").waitFor({ state: "visible", timeout: 45000 });
     const state = await page.evaluate(() => ({ hasCamera: document.querySelector("#lab").classList.contains("has-camera"), demo: window.__HOLOLAB__.state.demo, videoReady: document.querySelector("#camera").readyState }));
     assert(state.hasCamera && !state.demo && state.videoReady >= 2, `camera should initialize: ${JSON.stringify(state)}`);
+    assert.equal(await page.locator("#camera-facing-label").textContent(), "FAȚĂ");
+    await page.evaluate(() => { window.__oldCameraTrack = window.__HOLOLAB__.state.stream.getVideoTracks()[0]; });
+    await page.getByRole("button", { name: "Comută la camera din spate" }).click();
+    await page.waitForFunction(() => window.__HOLOLAB__.state.cameraFacing === "environment" && !window.__HOLOLAB__.state.switchingCamera);
+    assert.equal(await page.locator("#camera-facing-label").textContent(), "SPATE");
+    assert(await page.evaluate(() => window.__oldCameraTrack.readyState === "ended"), "previous track should stop before switching");
+    assert.equal(await page.locator("#camera").evaluate((element) => getComputedStyle(element).transform), "none", "rear view should not be mirrored");
+    await page.screenshot({ path: path.join(os.tmpdir(), "hololab-camera-rear.png") });
+    await page.getByRole("button", { name: "Comută la camera din față" }).click();
+    await page.waitForFunction(() => window.__HOLOLAB__.state.cameraFacing === "user" && !window.__HOLOLAB__.state.switchingCamera);
+    assert.equal(await page.locator("#camera-facing-label").textContent(), "FAȚĂ");
+    assert.deepEqual(await page.evaluate(() => window.__cameraRequests), ["user", "environment", "user"]);
+    await page.evaluate(() => { window.__rejectRear = true; });
+    await page.getByRole("button", { name: "Comută la camera din spate" }).click();
+    await page.waitForFunction(() => !window.__HOLOLAB__.state.switchingCamera);
+    assert.equal(await page.locator("#camera-facing-label").textContent(), "FAȚĂ", "unavailable camera should restore previous view");
+    assert(await page.evaluate(() => window.__HOLOLAB__.state.stream?.getVideoTracks()[0]?.readyState === "live"), "restored camera should remain live");
     await page.getByRole("button", { name: "Închide laboratorul" }).click();
     assert.equal(await page.evaluate(() => document.querySelector("#camera").srcObject), null, "camera stream should be released");
     assert.deepEqual(errors, [], `camera browser errors: ${errors.join(" | ")}`);
