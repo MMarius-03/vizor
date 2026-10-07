@@ -244,29 +244,31 @@ function createAtom() {
     [-.29,-.18,-.1],[.14,.3,.18],[.18,-.04,-.29],[-.06,.32,-.18],[-.36,.04,.22],[.02,-.36,-.2],
   ];
   nucleusVectors.forEach((values, index) => {
-    const mesh = sphere(0.17, index % 2 ? materials.coral : materials.ivory, 2);
+    const mesh = sphere(0.22, index % 2 ? materials.coral : materials.ivory, 2);
     mesh.position.fromArray(values);
     mesh.userData.base = mesh.position.clone();
     mesh.userData.burst = mesh.position.clone().normalize().multiplyScalar(0.85 + Math.random() * 0.45);
     nucleons.push(mesh);
     group.add(mesh);
   });
-  const rotations = [new THREE.Euler(0.2,0.1,0.15), new THREE.Euler(1.05,.2,.7)];
+  const rotations = [new THREE.Euler(0.2,0.1,0.15), new THREE.Euler(1.05,.2,.7), new THREE.Euler(.4,1.15,-.45)];
   rotations.forEach((rotation) => {
-    const orbit = orbitLine(1.82, 0.68, rotation);
-    orbit.material.opacity = .3;
+    const orbit = orbitLine(1.85, 0.66, rotation);
+    orbit.material.opacity = .24;
     group.add(orbit);
   });
   for (let index = 0; index < 6; index += 1) {
     const mesh = sphere(0.075, materials.cyan, 2);
-    electrons.push({ mesh, phase: index / 6 * Math.PI * 2, speed: .72 + (index % 3) * .13, rotation: rotations[index % 3] });
+    electrons.push({ mesh, phase: index / 6 * Math.PI * 2, speed: .72 + (index % 3) * .13, rotation: rotations[index % rotations.length] });
     group.add(mesh);
   }
-  group.userData.update = (time, explode) => {
+  group.userData.update = (time, explode, charge = 0) => {
     nucleons.forEach((mesh) => mesh.position.copy(mesh.userData.base).addScaledVector(mesh.userData.burst, explode));
+    const nucleusBeat = 1 + Math.sin(time * 2.4) * .025 + charge * .12;
+    nucleons.forEach((mesh) => mesh.scale.setScalar(nucleusBeat));
     electrons.forEach((electron) => {
       const angle = time * electron.speed + electron.phase;
-      electron.mesh.position.set(Math.cos(angle) * (1.82 + explode * .55), Math.sin(angle) * (.68 + explode * .2), 0).applyEuler(electron.rotation);
+      electron.mesh.position.set(Math.cos(angle) * (1.85 + explode * .55 + charge * .36), Math.sin(angle) * (.66 + explode * .2 + charge * .12), 0).applyEuler(electron.rotation);
     });
   };
   return group;
@@ -303,12 +305,12 @@ function createDNA() {
     group.add(backbone);
   });
   group.rotation.z = -0.1;
-  group.userData.update = (time, explode) => {
+  group.userData.update = (time, explode, charge = 0) => {
     steps.forEach((step, index) => {
       const direction = index % 2 ? 1 : -1;
       step.group.position.x = direction * explode * (0.32 + Math.abs(index - 7.5) * 0.025);
       step.group.rotation.y = Math.sin(time * .8 + index * .34) * .025;
-      const beat = 1 + Math.sin(time * 2.2 - index * .48) * .045;
+      const beat = 1 + Math.sin(time * 2.2 - index * .48) * (.045 + charge * .07);
       step.left.scale.setScalar(beat);
       step.right.scale.setScalar(beat);
     });
@@ -327,18 +329,18 @@ function createOrbital() {
     { radius: 2.65, speed: .31, tilt: new THREE.Euler(1.22,.2,.62), color: materials.ivory },
   ];
   rings.forEach((ring, index) => {
-    const line = orbitLine(ring.radius, ring.radius, ring.tilt);
+    const line = orbitLine(ring.radius, ring.radius * .7, ring.tilt);
     const body = sphere(.09 + index * .025, ring.color, 2);
     ring.line = line;
     ring.body = body;
     group.add(line, body);
   });
-  group.userData.update = (time, explode) => {
-    core.scale.setScalar(1 + Math.sin(time * 2.4) * .035 + explode * .28);
+  group.userData.update = (time, explode, charge = 0) => {
+    core.scale.setScalar(1 + Math.sin(time * 2.4) * .035 + explode * .28 + charge * .12);
     coreWire.rotation.x = time * .16;
     coreWire.rotation.y = time * .23;
     rings.forEach((ring, index) => {
-      const radius = ring.radius + explode * (.55 + index * .23);
+      const radius = ring.radius + explode * (.55 + index * .23) + charge * (.18 + index * .08);
       const position = new THREE.Vector3(Math.cos(time * ring.speed + index) * radius, Math.sin(time * ring.speed + index) * radius, 0).applyEuler(ring.tilt);
       ring.body.position.copy(position);
       ring.line.scale.setScalar(1 + explode * (.28 + index * .05));
@@ -846,7 +848,7 @@ function animate(now) {
   activeModel.position.copy(state.modelPosition);
   activeModel.rotation.x = state.rotX + Math.sin(time * .38) * .04;
   activeModel.rotation.y = state.rotY + time * (state.gesture === "pinch" ? .025 : .09);
-  activeModel.userData.update?.(time, state.explode);
+  activeModel.userData.update?.(time, state.explode, state.charge);
   const pulseAge = (now - state.pulseStart) * .001;
   const pulse = pulseAge > 0 && pulseAge < 2 ? state.pulsePower * Math.exp(-pulseAge * 3.3) : 0;
   aura.material.opacity = .12 + state.explode * .1 + state.charge * .13 + pulse * .2 + Math.sin(time * 1.8) * .018;
