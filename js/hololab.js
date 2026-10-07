@@ -21,8 +21,8 @@ const energyWave = $("#energy-wave");
 
 const MODEL_INFO = {
   atom: { index: "SPECIMEN 01", name: "ATOM // CARBON", detail: "6 protoni · 6 neutroni · 6 electroni", visualScale: 1 },
-  dna: { index: "SPECIMEN 02", name: "ADN // HELIX", detail: "24 perechi de baze · structură dublu helix", visualScale: .9 },
-  orbital: { index: "SPECIMEN 03", name: "ORBITAL // KEPLER", detail: "nucleu energetic · 4 corpuri orbitale", visualScale: .68 },
+  dna: { index: "SPECIMEN 02", name: "ADN // HELIX", detail: "16 perechi · dublu helix", visualScale: .9 },
+  orbital: { index: "SPECIMEN 03", name: "ORBITAL // KEPLER", detail: "nucleu energetic · 3 orbite", visualScale: .72 },
 };
 
 const state = {
@@ -61,6 +61,8 @@ const state = {
   attractorB: new THREE.Vector3(1.35, -0.2, 0),
   attractorATarget: new THREE.Vector3(-1.35, 0.2, 0),
   attractorBTarget: new THREE.Vector3(1.35, -0.2, 0),
+  fingertip: new THREE.Vector3(),
+  fingertipTarget: new THREE.Vector3(),
 };
 
 const scene = new THREE.Scene();
@@ -78,6 +80,12 @@ $("#scene").append(renderer.domElement);
 
 const labRoot = new THREE.Group();
 scene.add(labRoot);
+const fingertipMarker = new THREE.Mesh(
+  new THREE.TorusGeometry(0.13, 0.012, 6, 36),
+  new THREE.MeshBasicMaterial({ color: 0x8dffeb, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+);
+fingertipMarker.visible = false;
+labRoot.add(fingertipMarker);
 scene.add(new THREE.HemisphereLight(0xb9fff0, 0x32140f, 2.3));
 const keyLight = new THREE.PointLight(0x5ff1d2, 22, 18);
 keyLight.position.set(3, 4, 5);
@@ -107,15 +115,16 @@ function glowTexture() {
 }
 
 const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x5ff1d2, transparent: true, opacity: 0.27, blending: THREE.AdditiveBlending, depthWrite: false }));
-aura.scale.set(5.4, 5.4, 1);
+aura.material.opacity = .18;
+aura.scale.set(4.4, 4.4, 1);
 labRoot.add(aura);
 
 const particleGeometry = new THREE.BufferGeometry();
-const particleCount = innerWidth < 700 ? 7000 : 14000;
+const particleCount = innerWidth < 700 ? 3600 : 7200;
 const particlePositions = new Float32Array(particleCount * 3);
 const particleSeeds = new Float32Array(particleCount);
 for (let index = 0; index < particleCount; index += 1) {
-  const radius = 1.1 + Math.random() * 3.8;
+  const radius = 1.25 + Math.random() * 2.7;
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
   particlePositions[index * 3] = Math.sin(phi) * Math.cos(theta) * radius;
@@ -180,7 +189,7 @@ const particleMaterial = new THREE.ShaderMaterial({
 
       vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
       gl_Position = projectionMatrix * mvPosition;
-      gl_PointSize = (2.1 + fract(aSeed * 51.0) * 2.8 + (uExplode + uCharge + uPulse) * 1.4) * uPixelRatio * (5.0 / max(2.0, -mvPosition.z));
+      gl_PointSize = (1.35 + fract(aSeed * 51.0) * 1.6 + (uExplode + uCharge + uPulse) * 1.1) * uPixelRatio * (5.0 / max(2.0, -mvPosition.z));
       vEnergy = clamp(speed * 0.55 + bridgeMix * 0.35 + uExplode * 0.25 + uCharge * 0.25 + uPulse * 0.45 + uTransition * 0.4, 0.0, 1.0);
     }
   `,
@@ -235,17 +244,21 @@ function createAtom() {
     [-.29,-.18,-.1],[.14,.3,.18],[.18,-.04,-.29],[-.06,.32,-.18],[-.36,.04,.22],[.02,-.36,-.2],
   ];
   nucleusVectors.forEach((values, index) => {
-    const mesh = sphere(0.25, index % 2 ? materials.coral : materials.ivory, 2);
+    const mesh = sphere(0.17, index % 2 ? materials.coral : materials.ivory, 2);
     mesh.position.fromArray(values);
     mesh.userData.base = mesh.position.clone();
     mesh.userData.burst = mesh.position.clone().normalize().multiplyScalar(0.85 + Math.random() * 0.45);
     nucleons.push(mesh);
     group.add(mesh);
   });
-  const rotations = [new THREE.Euler(0.2,0.1,0.15), new THREE.Euler(1.05,.2,.7), new THREE.Euler(.4,1.15,-.45)];
-  rotations.forEach((rotation) => group.add(orbitLine(2.1, 0.72, rotation)));
+  const rotations = [new THREE.Euler(0.2,0.1,0.15), new THREE.Euler(1.05,.2,.7)];
+  rotations.forEach((rotation) => {
+    const orbit = orbitLine(1.82, 0.68, rotation);
+    orbit.material.opacity = .3;
+    group.add(orbit);
+  });
   for (let index = 0; index < 6; index += 1) {
-    const mesh = sphere(0.11, materials.cyan, 2);
+    const mesh = sphere(0.075, materials.cyan, 2);
     electrons.push({ mesh, phase: index / 6 * Math.PI * 2, speed: .72 + (index % 3) * .13, rotation: rotations[index % 3] });
     group.add(mesh);
   }
@@ -253,7 +266,7 @@ function createAtom() {
     nucleons.forEach((mesh) => mesh.position.copy(mesh.userData.base).addScaledVector(mesh.userData.burst, explode));
     electrons.forEach((electron) => {
       const angle = time * electron.speed + electron.phase;
-      electron.mesh.position.set(Math.cos(angle) * (2.1 + explode * .75), Math.sin(angle) * (.72 + explode * .26), 0).applyEuler(electron.rotation);
+      electron.mesh.position.set(Math.cos(angle) * (1.82 + explode * .55), Math.sin(angle) * (.68 + explode * .2), 0).applyEuler(electron.rotation);
     });
   };
   return group;
@@ -262,32 +275,42 @@ function createAtom() {
 function createDNA() {
   const group = new THREE.Group();
   const steps = [];
-  const count = 24;
+  const count = 16;
   for (let index = 0; index < count; index += 1) {
-    const y = (index - (count - 1) / 2) * 0.19;
-    const angle = index * 0.47;
-    const leftPosition = new THREE.Vector3(Math.cos(angle) * 1.06, y, Math.sin(angle) * 1.06);
+    const y = (index - (count - 1) / 2) * 0.25;
+    const angle = index * 0.58;
+    const leftPosition = new THREE.Vector3(Math.cos(angle) * 0.76, y, Math.sin(angle) * 0.76);
     const rightPosition = new THREE.Vector3(-leftPosition.x, y, -leftPosition.z);
     const step = new THREE.Group();
-    const left = sphere(0.115, index % 2 ? materials.cyan : materials.ivory, 1);
-    const right = sphere(0.115, index % 3 ? materials.coral : materials.amber, 1);
+    const left = sphere(0.085, index % 2 ? materials.cyan : materials.ivory, 1);
+    const right = sphere(0.085, index % 3 ? materials.coral : materials.amber, 1);
     left.position.copy(leftPosition);
     right.position.copy(rightPosition);
-    step.add(left, right, connector(leftPosition, rightPosition, 0.035, index % 2 ? materials.amber : materials.coral));
-    if (index > 0) {
-      const previous = steps[index - 1];
-      step.add(connector(previous.leftBase, leftPosition, 0.028, materials.cyan));
-      step.add(connector(previous.rightBase, rightPosition, 0.028, materials.coral));
-    }
+    const rung = connector(leftPosition, rightPosition, 0.021, index % 2 ? materials.amber : materials.coral);
+    rung.material.transparent = true;
+    rung.material.opacity = .72;
+    step.add(left, right, rung);
     steps.push({ group: step, left, right, leftBase: leftPosition, rightBase: rightPosition });
     group.add(step);
   }
+  const backbonePoints = (side) => steps.map((step) => (side ? step.rightBase : step.leftBase).clone());
+  [false, true].forEach((side) => {
+    const curve = new THREE.CatmullRomCurve3(backbonePoints(side));
+    const backbone = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, count * 8, 0.025, 6, false),
+      side ? materials.coral : materials.cyan,
+    );
+    group.add(backbone);
+  });
   group.rotation.z = -0.1;
   group.userData.update = (time, explode) => {
     steps.forEach((step, index) => {
       const direction = index % 2 ? 1 : -1;
-      step.group.position.x = direction * explode * (0.4 + Math.abs(index - 12) * 0.025);
-      step.group.rotation.y = Math.sin(time * .7 + index * .2) * .018;
+      step.group.position.x = direction * explode * (0.32 + Math.abs(index - 7.5) * 0.025);
+      step.group.rotation.y = Math.sin(time * .8 + index * .34) * .025;
+      const beat = 1 + Math.sin(time * 2.2 - index * .48) * .045;
+      step.left.scale.setScalar(beat);
+      step.right.scale.setScalar(beat);
     });
   };
   return group;
@@ -296,17 +319,16 @@ function createDNA() {
 function createOrbital() {
   const group = new THREE.Group();
   const core = sphere(0.72, materials.amber, 3);
-  const coreWire = new THREE.Mesh(new THREE.IcosahedronGeometry(0.94, 2), new THREE.MeshBasicMaterial({ color: 0xff765f, wireframe: true, transparent: true, opacity: .28 }));
+  const coreWire = new THREE.Mesh(new THREE.IcosahedronGeometry(0.84, 1), new THREE.MeshBasicMaterial({ color: 0xff765f, wireframe: true, transparent: true, opacity: .2 }));
   group.add(core, coreWire);
   const rings = [
-    { radius: 1.45, speed: .72, tilt: new THREE.Euler(.9,.1,.2), color: materials.cyan },
-    { radius: 2.05, speed: -.46, tilt: new THREE.Euler(.35,.65,-.2), color: materials.coral },
-    { radius: 2.55, speed: .31, tilt: new THREE.Euler(1.22,.2,.62), color: materials.ivory },
-    { radius: 3.0, speed: -.24, tilt: new THREE.Euler(.7,1.05,.2), color: materials.amber },
+    { radius: 1.5, speed: .72, tilt: new THREE.Euler(.9,.1,.2), color: materials.cyan },
+    { radius: 2.1, speed: -.46, tilt: new THREE.Euler(.35,.65,-.2), color: materials.coral },
+    { radius: 2.65, speed: .31, tilt: new THREE.Euler(1.22,.2,.62), color: materials.ivory },
   ];
   rings.forEach((ring, index) => {
     const line = orbitLine(ring.radius, ring.radius, ring.tilt);
-    const body = sphere(.12 + index * .035, ring.color, 2);
+    const body = sphere(.09 + index * .025, ring.color, 2);
     ring.line = line;
     ring.body = body;
     group.add(line, body);
@@ -366,8 +388,9 @@ function setGesture(gesture) {
   state.gesture = gesture;
   const labels = {
     auto: ["AUTO", "Orbită autonomă", "Ridică o mână în cadru"],
-    tracking: ["HAND", "Mână detectată", "Apropie degetul mare de arătător"],
-    pinch: ["PINCH", "Energie în creștere", "Mișcă mâna, apoi eliberează pinch-ul"],
+    tracking: ["HAND", "Mână detectată", "Arată cu degetul ca să ghidezi particulele"],
+    point: ["POINT", "Flux direcționat", "Ghidează particulele cu vârful degetului"],
+    pinch: ["PINCH", "Energie în creștere", "Mișcă mâna, apoi eliberează pentru impuls"],
     open: ["OPEN", "Vedere descompusă", "Ține palma deschisă"],
     scale: ["DUAL", "Scalare bimanuală", "Apropie sau depărtează mâinile"],
     materialize: ["LOAD", "Materializare", "Specimen nou sincronizat"],
@@ -421,6 +444,7 @@ function readGestures(hands) {
   state.explodeTarget = 0;
   if (!hands.length) {
     releasePinch();
+    fingertipMarker.visible = false;
     state.modelTarget.set(0, 0, 0);
     state.attractorATarget.set(-1.35, .2, 0);
     state.attractorBTarget.set(1.35, -.2, 0);
@@ -429,6 +453,7 @@ function readGestures(hands) {
   }
   if (hands.length > 1) {
     releasePinch();
+    fingertipMarker.visible = false;
     state.modelTarget.set(0, 0, 0);
     const first = palmCenter(hands[0]);
     const second = palmCenter(hands[1]);
@@ -445,23 +470,42 @@ function readGestures(hands) {
   state.attractorBTarget.set(0, 0, 0);
   const palmSize = Math.max(distance(hand[0], hand[9]), .04);
   const pinching = distance(hand[4], hand[8]) / palmSize < .42;
-  const extended = [8, 12, 16, 20].filter((tip, index) => hand[tip].y < hand[[6, 10, 14, 18][index]].y - .018).length;
+  const fingerTips = [8, 12, 16, 20];
+  const fingerPips = [6, 10, 14, 18];
+  const fingerExtended = fingerTips.map((tip, index) => hand[tip].y < hand[fingerPips[index]].y - .018);
+  const extended = fingerExtended.filter(Boolean).length;
   if (pinching) {
+    fingertipMarker.visible = false;
     if (!state.pinching) state.pinchStarted = performance.now();
     state.pinching = true;
     const world = handToWorld(center);
+    const pinchPoint = { x: (hand[4].x + hand[8].x) * .5, y: (hand[4].y + hand[8].y) * .5 };
+    state.attractorATarget.copy(handToWorld(pinchPoint));
     state.modelTarget.set(THREE.MathUtils.clamp(world.x * .16, -.42, .42), THREE.MathUtils.clamp(world.y * .13, -.34, .34), 0);
     state.rotYTarget = (viewX(center.x) - .5) * 3.4;
     state.rotXTarget = (center.y - .5) * 2.4;
     setGesture("pinch");
+  } else if (fingerExtended[0] && !fingerExtended[1] && !fingerExtended[2] && !fingerExtended[3]) {
+    releasePinch();
+    const point = handToWorld(hand[8]);
+    state.fingertipTarget.copy(point);
+    state.attractorATarget.copy(point);
+    state.attractorBTarget.copy(point).multiplyScalar(.42);
+    state.modelTarget.set(THREE.MathUtils.clamp(point.x * .055, -.24, .24), THREE.MathUtils.clamp(point.y * .055, -.2, .2), 0);
+    state.rotYTarget = (viewX(hand[8].x) - .5) * 1.5;
+    state.rotXTarget = (hand[8].y - .5) * .8;
+    fingertipMarker.visible = true;
+    setGesture("point");
   } else if (extended >= 3) {
     releasePinch();
+    fingertipMarker.visible = false;
     state.modelTarget.set(0, 0, 0);
     state.explodeTarget = 1;
     state.rotYTarget = (viewX(center.x) - .5) * 1.3;
     setGesture("open");
   } else {
     releasePinch();
+    fingertipMarker.visible = false;
     state.modelTarget.set(0, 0, 0);
     setGesture("tracking");
   }
@@ -496,6 +540,19 @@ function drawHands(hands) {
     points.forEach((point, index) => {
       handContext.beginPath(); handContext.arc(point.x, point.y, [4,8,12,16,20].includes(index) ? 3.1 : 1.7, 0, Math.PI * 2); handContext.fill();
     });
+    if (state.gesture === "point" && handIndex === 0) {
+      const tip = points[8];
+      const radius = 8 + Math.sin(performance.now() * .008) * 2;
+      handContext.strokeStyle = "rgba(141,255,235,.9)";
+      handContext.lineWidth = 1.5;
+      handContext.beginPath();
+      handContext.arc(tip.x, tip.y, radius, 0, Math.PI * 2);
+      handContext.stroke();
+      handContext.beginPath();
+      handContext.arc(tip.x, tip.y, 2.2, 0, Math.PI * 2);
+      handContext.fillStyle = "#e8fff9";
+      handContext.fill();
+    }
     handContext.shadowBlur = 0;
   });
 }
@@ -683,6 +740,7 @@ function stopLab() {
   state.charge = 0;
   state.pointer = null;
   state.transition = null;
+  fingertipMarker.visible = false;
   state.modelKey = activeModelKey;
   document.querySelectorAll("[data-model]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.model === activeModelKey)));
   const info = MODEL_INFO[activeModelKey];
@@ -746,6 +804,12 @@ function animate(now) {
   state.rotX += (state.rotXTarget - state.rotX) * follow;
   state.rotY += (state.rotYTarget - state.rotY) * follow;
   state.modelPosition.lerp(state.modelTarget, follow);
+  state.fingertip.lerp(state.fingertipTarget, follow * 1.7);
+  if (fingertipMarker.visible) {
+    fingertipMarker.position.copy(state.fingertip);
+    fingertipMarker.rotation.z = time * 1.1;
+    fingertipMarker.scale.setScalar(1 + Math.sin(time * 5.2) * .12);
+  }
   state.attractorA.lerp(state.attractorATarget, follow * 1.45);
   state.attractorB.lerp(state.attractorBTarget, follow * 1.45);
 
@@ -785,8 +849,8 @@ function animate(now) {
   activeModel.userData.update?.(time, state.explode);
   const pulseAge = (now - state.pulseStart) * .001;
   const pulse = pulseAge > 0 && pulseAge < 2 ? state.pulsePower * Math.exp(-pulseAge * 3.3) : 0;
-  aura.material.opacity = .16 + state.explode * .13 + state.charge * .16 + pulse * .24 + Math.sin(time * 1.8) * .025;
-  aura.scale.setScalar(4.7 + state.explode * 1.5 + state.charge * .45 + pulse * 1.5 + Math.sin(time * 1.2) * .12);
+  aura.material.opacity = .12 + state.explode * .1 + state.charge * .13 + pulse * .2 + Math.sin(time * 1.8) * .018;
+  aura.scale.setScalar(3.9 + state.explode * 1.1 + state.charge * .35 + pulse * 1.2 + Math.sin(time * 1.2) * .08);
   keyLight.intensity = 22 + state.charge * 11 + pulse * 17;
   warmLight.intensity = 14 + transitionEnergy * 13 + pulse * 8;
   particles.rotation.y = time * .025;

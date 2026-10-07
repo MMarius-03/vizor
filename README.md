@@ -10,6 +10,8 @@ Three.js. Aplicatia nu necesita marker, instalare sau backend.
 
 ## Interactiuni
 
+- **Arată cu degetul**: direcționează fluxul de particule; un reper luminos
+  urmărește vârful arătătorului.
 - **Pinch**: roteste si deplaseaza specimenul; tine degetele apropiate pentru
   a incarca energia, apoi elibereaza pentru un impuls de particule.
 - **Palma deschisa**: activeaza vederea descompusa.
@@ -20,21 +22,23 @@ Three.js. Aplicatia nu necesita marker, instalare sau backend.
   din spate. Imaginea este oglindita doar pentru camera frontala.
 
 Sunt incluse trei specimene procedurale: atom de carbon, ADN si un sistem
-orbital. Schimbarea specimenului produce o animatie de dispersie si reasamblare.
+orbital. ADN-ul are 16 perechi animate, iar schimbarea specimenului produce o
+animatie de dispersie si reasamblare.
 
-Sistemul vizual foloseste 7.000 de particule pe mobil si 14.000 pe desktop.
-Pozitiile sunt calculate intr-un shader WebGL, cu doua puncte de atractie care
-urmaresc palmele. Astfel, efectul ramane fluid si pe dispozitive fara WebGPU.
+Sistemul vizual foloseste 3.600 de particule pe mobil si 7.200 pe desktop.
+Pozitiile sunt calculate intr-un shader WebGL, cu puncte de atractie care
+urmaresc degetul, pinch-ul sau palmele. Astfel, efectul ramane fluid si pe
+dispozitive fara WebGPU.
 
 ## Test pe iPhone
 
 1. Deschide aplicatia in Safari si apasa **Porneste HoloLab**.
 2. Permite camera frontala si tine mana in cadru. Butonul cu pictograma
    camerei trece la camera din spate.
-3. Apropie degetul mare de aratator, misca mana pentru rotatie, apoi
-   elibereaza dupa o secunda pentru impulsul de energie.
-4. Deschide palma pentru a descompune modelul.
-5. Ridica ambele maini si modifica distanta dintre ele pentru scalare.
+3. Arata cu degetul catre scena pentru a atrage fluxul de particule.
+4. Apropie degetul mare de aratator, misca mana, apoi elibereaza pentru impuls.
+5. Deschide palma pentru a descompune modelul.
+6. Ridica ambele maini si modifica distanta dintre ele pentru scalare.
 
 Butonul **Exploreaza fara camera** porneste acelasi laborator in mod tactil,
 util ca fallback pentru prezentare.
