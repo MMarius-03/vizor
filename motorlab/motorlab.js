@@ -1,706 +1,592 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { createRunningClip } from "./engine-motion.js?v=2";
+import { createHandControl } from "./hand-control.js?v=2";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
   viewport: $("#viewport"), stage: $(".stage"), loading: $("#loading"),
-  error: $("#error-panel"), errorDetail: $("#error-detail"),
-  manualMode: $("#manual-mode"), clipMode: $("#clip-mode"),
-  list: $("#parts-list"), count: $("#parts-count"),
-  stageStatus: $("#stage-status"), instruction: $("#instruction"),
-  marker: $("#part-marker"), handCursor: $("#hand-cursor"),
-  index: $("#inspector-index"), symbol: $("#part-symbol"),
-  kicker: $("#part-kicker"), title: $("#part-title"),
-  description: $("#part-description"), slider: $("#part-slider"),
-  progressLabel: $("#part-progress-label"), action: $("#part-action"),
-  timeline: $("#timeline"), play: $("#play-toggle"),
-  timeSlider: $("#time-slider"), timeReadout: $("#time-readout"),
-  camera: $("#camera-feed"), cameraToggle: $("#camera-toggle"),
+  loadingDetail: $("#loading-detail"), error: $("#error-panel"),
+  status: $("#stage-status"), count: $("#parts-count"), label: $("#part-label"),
+  card: $("#selected-card"), partName: $("#part-name"), partState: $("#part-state"),
+  mount: $("#mount-part"), assemble: $("#assemble-all"),
+  power: $("#engine-toggle"), powerLabel: $("#engine-button-label"),
+  throttle: $("#throttle"), rpm: $("#rpm-value"),
+  interior: $("#interior-toggle"), orbit: $("#orbit-toggle"),
   gestureStatus: $("#gesture-status"), toast: $("#toast"),
 };
-
-// Numele sunt identități stabile ale exportului curent, nu indicii de mesh.
-// Maparea fizică este provizorie până la inventarul complet al modelului.
-const PART_DEFS = [
-  {
-    id: "piston",
-    name: "Cap de piston",
-    subtitle: "CILINDRUL 01",
-    symbol: "◉",
-    description: "Piesa superioară a primului piston. O poți extrage separat și o poți pune înapoi pe același traseu.",
-    meshName: "Cylinder_028_76_0",
-    distance: 1.55,
-    axis: [0.25, 0.9, 0.35],
-  },
-  {
-    id: "rod",
-    name: "Bielă",
-    subtitle: "CILINDRUL 01",
-    symbol: "⌁",
-    description: "Brațul asociat pistonului. Se mișcă independent de capul de piston în modul atelier.",
-    meshName: "Cylinder_001_72_0",
-    distance: 1.75,
-    axis: [-0.35, -0.7, 0.5],
-  },
-  {
-    id: "shell",
-    name: "Carcasă transparentă",
-    subtitle: "STRUCTURĂ FIXĂ",
-    symbol: "⬡",
-    description: "Elementul transparent de protecție. Acesta nu primește canale de animație în clipul original.",
-    meshName: "Cube_116_0",
-    distance: 2.05,
-    axis: [0.2, 0.9, -0.35],
-  },
-];
-
 const state = {
-  ready: false,
-  mode: "manual",
-  playing: false,
-  clipTime: 0,
-  duration: 10.42,
-  selectedId: null,
-  drag: null,
-  tweens: new Map(),
-  gesture: null,
-  cameraToken: 0,
-  lastFrame: 0,
-  toastTimer: null,
+  ready: false, interior: true, orbit: false, running: false,
+  rpm: 0, targetRpm: 800, motionTime: 0, lastFrame: 0, lastUi: 0,
+  selected: null, hovered: null, grab: null, pointerAction: null,
+  pointers: new Map(), pinchDistance: null, tweens: new Map(),
+  toastTimer: null, loading: false,
 };
-
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
-camera.position.set(6, 3.7, 8.8);
+// Detached parts render on a separate workbench layer. They stay visible when
+// placed over the engine, with depth sorting between the detached parts.
+const bench = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.03, 150);
+const viewTarget = new THREE.Vector3();
+camera.position.set(6, 3.6, 8);
+camera.lookAt(viewTarget);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
 renderer.setClearColor(0x000000, 0);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.autoClear = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.35;
+renderer.toneMappingExposure = 1.25;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 ui.viewport.append(renderer.domElement);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.07;
-controls.minDistance = 4;
-controls.maxDistance = 22;
-controls.maxPolarAngle = Math.PI * 0.9;
-controls.enablePan = false;
-controls.target.set(0, 0, 0);
 
-scene.add(new THREE.HemisphereLight(0xcfe9e6, 0x182125, 3.15));
-const keyLight = new THREE.DirectionalLight(0xffdfbc, 4.5);
-keyLight.position.set(4, 7, 7);
-scene.add(keyLight);
-const rimLight = new THREE.DirectionalLight(0x7de0de, 3.2);
-rimLight.position.set(-6, 1, -5);
-scene.add(rimLight);
-const modelRoot = new THREE.Group();
-scene.add(modelRoot);
-
+const environmentRoom = new RoomEnvironment();
+const pmrem = new THREE.PMREMGenerator(renderer);
+const environment = pmrem.fromScene(environmentRoom, 0.04);
+scene.environment = bench.environment = environment.texture;
+environmentRoom.dispose();
+pmrem.dispose();
+for (const destination of [scene, bench]) {
+  destination.add(new THREE.HemisphereLight(0xd3f0e9, 0x29424b, 2.25));
+  const warm = new THREE.DirectionalLight(0xffe0bf, 3);
+  warm.position.set(3, 6, 7);
+  destination.add(warm);
+  const cool = new THREE.DirectionalLight(0x96ecf2, 2);
+  cool.position.set(-5, 2, -4);
+  destination.add(cool);
+}
+const root = new THREE.Group();
+scene.add(root);
 const raycaster = new THREE.Raycaster();
-const pointerNdc = new THREE.Vector2();
-const scratchVector = new THREE.Vector3();
-const scratchMatrix = new THREE.Matrix3();
-const scratchMatrix4 = new THREE.Matrix4();
-const parts = new Map();
+const ndc = new THREE.Vector2();
+const parts = [];
+const partForMesh = new Map();
+const selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0xffc595);
+selectionBox.material.depthTest = false;
+selectionBox.material.transparent = true;
+selectionBox.material.opacity = 0.72;
+selectionBox.renderOrder = 100;
+selectionBox.visible = false;
+bench.add(selectionBox);
 let engine = null;
 let mixer = null;
-let selectionHelper = null;
-let originalMaxDimension = 1;
+let runningClip = null;
+let loadToken = 0;
 
-function showToast(message) {
+const pistonNames = new Set(["Cylinder_028", "Cylinder_013", "Cylinder_003", "Cylinder_007", "Cylinder_010", "Cylinder_018", "Cylinder_021", "Cylinder_024"]);
+const rodNames = new Set(["Cylinder_001", "Cylinder_014", "Cylinder_008", "Cylinder_011", "Cylinder_005", "Cylinder_015", "Cylinder_019", "Cylinder_022"]);
+function family(name) {
+  if (pistonNames.has(name)) return { label: "Piston", kind: "piston", color: 0xe8b17c };
+  if (rodNames.has(name)) return { label: "Bielă", kind: "rod", color: 0xd9e1e0 };
+  if (name === "Cylinder_004") return { label: "Arbore cotit", kind: "crank", color: 0x68bfc2 };
+  if (name.startsWith("Gear")) return { label: "Roată dințată", kind: "gear", color: 0xd7bd86 };
+  if (name.startsWith("NurbsPath")) return { label: "Cablu", kind: "cable", color: 0x526b71 };
+  if (["Plane_008", "Plane_012", "Plane_013", "Plane_006"].includes(name)) return { label: "Capac", kind: "cover", color: 0x92a7ad };
+  if (name === "Cube_026" || name === "Plane_011") return { label: "Carcasă", kind: "cover", color: 0x83979c };
+  return { label: "Componentă", kind: "component", color: 0xa9bec0 };
+}
+
+function toast(message) {
+  clearTimeout(state.toastTimer);
   ui.toast.textContent = message;
   ui.toast.hidden = false;
-  clearTimeout(state.toastTimer);
-  state.toastTimer = setTimeout(() => { ui.toast.hidden = true; }, 3700);
+  state.toastTimer = setTimeout(() => { ui.toast.hidden = true; }, 3900);
 }
-
-function setStatus(text) {
-  ui.stageStatus.textContent = text;
-}
-
-function formatTime(time) {
-  const seconds = Math.floor(time);
-  return `00:${String(seconds).padStart(2, "0")}`;
-}
-
-function renderPartRows() {
-  ui.list.replaceChildren();
-  PART_DEFS.forEach((definition, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "part-row";
-    button.dataset.part = definition.id;
-    button.innerHTML = `<span class="part-number">${String(index + 1).padStart(2, "0")}</span><span><span class="part-name"></span><span class="part-subtitle"></span></span><i class="part-state" aria-hidden="true"></i>`;
-    button.querySelector(".part-name").textContent = definition.name;
-    button.querySelector(".part-subtitle").textContent = definition.subtitle;
-    button.addEventListener("click", () => selectPart(definition.id));
-    ui.list.append(button);
-  });
-}
-
-function refreshPartUi() {
-  let extracted = 0;
-  parts.forEach((part) => {
-    if (part.progress > 0.95) extracted += 1;
-    const row = ui.list.querySelector(`[data-part="${part.id}"]`);
-    row?.classList.toggle("is-selected", part.id === state.selectedId);
-    row?.classList.toggle("is-extracted", part.progress > 0.95);
-    row?.setAttribute("aria-pressed", String(part.id === state.selectedId));
-  });
-  ui.count.textContent = `${String(extracted).padStart(2, "0")} / 03 EXTRASE`;
-  const selected = parts.get(state.selectedId);
-  if (!selected) return;
-  ui.slider.value = Math.round(selected.progress * 100);
-  ui.progressLabel.textContent = `${Math.round(selected.progress * 100)}%`;
-  ui.action.firstChild.textContent = selected.progress > 0.5 ? "MONTEAZĂ PIESA " : "EXTRAGE PIESA ";
-}
-
-function setMode(mode) {
-  if (!state.ready) return;
-  if (mode === state.mode) return;
-  state.mode = mode;
-  state.playing = false;
-  ui.manualMode.classList.toggle("is-active", mode === "manual");
-  ui.clipMode.classList.toggle("is-active", mode === "clip");
-  ui.manualMode.setAttribute("aria-pressed", String(mode === "manual"));
-  ui.clipMode.setAttribute("aria-pressed", String(mode === "clip"));
-  ui.timeline.hidden = mode !== "clip";
-  ui.play.textContent = "▶";
-  ui.play.setAttribute("aria-label", "Pornește animația");
-  ui.instruction.textContent = mode === "manual"
-    ? "Atinge o piesă și trage pe direcția de extragere"
-    : "Trage cursorul pentru a inspecta animația originală";
-  if (mode === "clip") {
-    state.tweens.clear();
-    parts.forEach((part) => setProgress(part, 0, false));
-    state.clipTime = 0;
-    mixer?.setTime(0);
-    setStatus("ANIMAȚIA ORIGINALĂ / PAUZĂ");
-  } else {
-    state.clipTime = 0;
-    mixer?.setTime(0);
-    setStatus("ATELIER / 3 PIESE ACTIVE");
+function boundsOf(collection) {
+  const box = new THREE.Box3();
+  for (const part of collection) {
+    part.mesh.updateWorldMatrix(true, false);
+    part.mesh.geometry.computeBoundingBox();
+    box.union(part.mesh.geometry.boundingBox.clone().applyMatrix4(part.mesh.matrixWorld));
   }
-  refreshPartUi();
-  updateTimeline();
+  return box;
 }
-
-function updateTimeline() {
-  ui.timeSlider.value = String(Math.round(state.clipTime / state.duration * 1000));
-  ui.timeReadout.textContent = `${formatTime(state.clipTime)} / ${formatTime(state.duration)}`;
+function isGhost(part) {
+  return state.interior && !part.mechanical && !part.detached;
 }
-
-function setProgress(part, value, updateUi = true) {
-  part.progress = THREE.MathUtils.clamp(value, 0, 1);
-  part.mesh.parent.updateWorldMatrix(true, false);
-  scratchMatrix4.copy(part.mesh.parent.matrixWorld).invert();
-  scratchMatrix.setFromMatrix4(scratchMatrix4);
-  const localOffset = part.axisWorld.clone().multiplyScalar(part.distance * part.progress).applyMatrix3(scratchMatrix);
-  part.mesh.position.copy(part.basePosition).add(localOffset);
-  part.mesh.updateWorldMatrix(false, false);
-  if (updateUi) refreshPartUi();
+function stylePart(part) {
+  const ghost = isGhost(part);
+  const highlighted = part === state.selected || part === state.hovered;
+  const material = part.mesh.material;
+  material.transparent = ghost;
+  material.opacity = ghost ? 0.055 : 1;
+  material.depthWrite = !ghost;
+  material.emissive.setHex(highlighted && !ghost ? 0xe89256 : 0x000000);
+  material.emissiveIntensity = highlighted ? 0.28 : 0;
+  part.mesh.renderOrder = ghost ? 0 : 1;
+  material.needsUpdate = material.userData.ghost !== ghost;
+  material.userData.ghost = ghost;
 }
-
-function ease(value) {
-  return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
-}
-
-function animatePart(part, target, delay = 0) {
-  state.tweens.set(part.id, {
-    from: part.progress,
-    to: target,
-    start: performance.now() + delay,
-    duration: 550,
-  });
-}
-
-function snapPart(part) {
-  animatePart(part, part.progress >= 0.5 ? 1 : 0);
-}
-
-function animateAll(target) {
-  if (!state.ready) return;
-  setMode("manual");
-  const order = target === 1 ? ["shell", "piston", "rod"] : ["rod", "piston", "shell"];
-  order.forEach((id, index) => animatePart(parts.get(id), target, index * 245));
-  setStatus(target === 1 ? "DESFAC CELE 3 PIESE" : "REASAMBLEZ CELE 3 PIESE");
-}
-
-function selectPart(id) {
-  if (!state.ready || !parts.has(id)) return;
-  setMode("manual");
-  state.selectedId = id;
-  const part = parts.get(id);
-  const index = PART_DEFS.findIndex((item) => item.id === id);
-  ui.index.textContent = `${String(index + 1).padStart(2, "0")} / 03`;
-  ui.symbol.textContent = part.symbol;
-  ui.kicker.textContent = part.subtitle;
-  ui.title.textContent = part.name;
-  ui.description.textContent = part.description;
-  ui.slider.disabled = false;
-  ui.action.disabled = false;
-  if (selectionHelper) {
-    scene.remove(selectionHelper);
-    selectionHelper.geometry.dispose();
-    selectionHelper.material.dispose();
+function refreshUi() {
+  const detached = parts.filter((part) => part.detached);
+  ui.count.textContent = detached.length === 1 ? "1 piesă așezată" : detached.length ? `${detached.length} piese așezate` : `${parts.length} elemente detașabile`;
+  ui.assemble.disabled = !detached.length || !state.ready;
+  ui.power.disabled = !state.ready || !runningClip;
+  ui.power.setAttribute("aria-pressed", String(state.running));
+  ui.powerLabel.textContent = state.running ? "Oprește motorul" : "Pornește motorul";
+  ui.status.textContent = state.grab ? "PIESĂ ÎN MÂNĂ" : `${state.running ? "MOTOR PORNIT" : "MOTOR OPRIT"} · ${state.interior ? "INTERIOR" : "EXTERIOR"}`;
+  ui.card.hidden = !state.selected;
+  if (state.selected) {
+    ui.partName.textContent = state.selected.label;
+    ui.partState.textContent = state.selected.detached ? "PE BANC · POȚI MUTA DIN NOU" : "PRINDE ȘI TRAGE";
+    ui.mount.disabled = !state.selected.detached || state.tweens.has(state.selected.id);
   }
-  selectionHelper = new THREE.BoxHelper(part.mesh, 0xffae85);
-  selectionHelper.material.transparent = true;
-  selectionHelper.material.opacity = 0.7;
-  selectionHelper.material.depthTest = false;
-  selectionHelper.renderOrder = 9;
-  scene.add(selectionHelper);
-  parts.forEach((candidate) => {
-    if (candidate.mesh.material.emissive) {
-      candidate.mesh.material.emissive.setHex(candidate.id === id ? 0xff9167 : 0x000000);
-      candidate.mesh.material.emissiveIntensity = candidate.id === id ? 0.42 : 0;
+}
+function selectPart(part) {
+  const previous = state.selected;
+  state.selected = part;
+  if (previous) stylePart(previous);
+  if (part) stylePart(part);
+  refreshUi();
+}
+function hoverPart(part) {
+  if (state.hovered === part) return;
+  const previous = state.hovered;
+  state.hovered = part;
+  if (previous) stylePart(previous);
+  if (part) stylePart(part);
+}
+
+function stopMotor(immediate = false) {
+  state.running = false;
+  if (immediate) state.rpm = 0;
+  refreshUi();
+}
+function toggleMotor() {
+  if (!state.ready) return;
+  if (state.running) { stopMotor(); return; }
+  if (state.tweens.size || state.grab) { toast("Așază sau montează piesa înainte să pornești motorul."); return; }
+  if (parts.some((part) => part.detached && part.mechanical)) {
+    toast("Montează piesele mecanismului înainte de pornire. Capacele pot rămâne pe banc.");
+    return;
+  }
+  state.running = true;
+  refreshUi();
+}
+
+function setRay(x, y) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  ndc.set((x - rect.left) / rect.width * 2 - 1, -(y - rect.top) / rect.height * 2 + 1);
+  camera.updateMatrixWorld();
+  raycaster.setFromCamera(ndc, camera);
+}
+function pick(x, y, radius = 0) {
+  if (!state.ready) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+  const offsets = [[0, 0]];
+  if (radius) offsets.push([radius, 0], [-radius, 0], [0, radius], [0, -radius]);
+  const detached = parts.filter((part) => part.detached && !state.tweens.has(part.id));
+  const mounted = parts.filter((part) => !part.detached && !isGhost(part));
+  // Picking follows the workbench's draw order, including the enlarged touch target.
+  for (const group of [detached, mounted]) {
+    const meshes = group.map((part) => part.mesh);
+    for (const [dx, dy] of offsets) {
+      setRay(x + dx, y + dy);
+      const hit = raycaster.intersectObjects(meshes, false)[0];
+      if (hit) return { part: partForMesh.get(hit.object), point: hit.point.clone() };
     }
+  }
+  return null;
+}
+
+function detach(part) {
+  if (part.detached) return;
+  part.mesh.updateWorldMatrix(true, false);
+  const exactWorldMatrix = part.mesh.matrixWorld.clone();
+  // Keep the entire matrix: the GLB has negative and nonuniform parent scales.
+  // Decomposing through Object3D.attach would distort some of the rods/covers.
+  bench.add(part.mesh);
+  part.mesh.matrixAutoUpdate = false;
+  part.mesh.matrix.copy(exactWorldMatrix);
+  part.mesh.matrixWorldNeedsUpdate = true;
+  part.detached = true;
+  stylePart(part);
+}
+function beginGrab(x, y, radius = 10, hand = false) {
+  if (state.grab || state.pointers.size > 1) return false;
+  const hit = pick(x, y, radius);
+  if (!hit) return false;
+  stopMotor(true);
+  selectPart(hit.part);
+  hoverPart(null);
+  state.tweens.delete(hit.part.id);
+  setRay(x, y);
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), hit.point);
+  const anchor = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+  if (!anchor) return false;
+  hit.part.mesh.updateWorldMatrix(true, false);
+  state.grab = {
+    part: hit.part, plane, anchor, start: hit.part.mesh.getWorldPosition(new THREE.Vector3()),
+    x, y, hand, moved: false,
+  };
+  refreshUi();
+  return true;
+}
+function moveGrab(x, y) {
+  const grab = state.grab;
+  if (!grab) return;
+  if (!grab.moved && Math.hypot(x - grab.x, y - grab.y) < (grab.hand ? 7 : 4)) return;
+  setRay(x, y);
+  const intersection = raycaster.ray.intersectPlane(grab.plane, new THREE.Vector3());
+  if (!intersection) return;
+  if (!grab.moved) {
+    detach(grab.part);
+    grab.moved = true;
+    refreshUi();
+  }
+  const position = intersection.sub(grab.anchor).add(grab.start);
+  grab.part.mesh.matrix.setPosition(position);
+  grab.part.mesh.matrixWorldNeedsUpdate = true;
+}
+function endGrab() {
+  if (!state.grab) return;
+  // No snapping or return tween on release: the matrix stays where it was dropped.
+  state.grab = null;
+  refreshUi();
+}
+function mountPart(part, delay = 0) {
+  if (!part?.detached) return;
+  stopMotor(true);
+  if (state.grab?.part === part) endGrab();
+  part.mesh.updateWorldMatrix(true, false);
+  state.tweens.set(part.id, {
+    from: part.mesh.getWorldPosition(new THREE.Vector3()),
+    start: performance.now() + delay, duration: 460,
   });
-  refreshPartUi();
-  setStatus(`ATELIER / ${part.name.toUpperCase()}`);
+  refreshUi();
+}
+function finishMount(part) {
+  part.parent.add(part.mesh);
+  part.mesh.position.copy(part.homePosition);
+  part.mesh.quaternion.copy(part.homeQuaternion);
+  part.mesh.scale.copy(part.homeScale);
+  part.mesh.matrixAutoUpdate = part.homeAutoUpdate;
+  part.mesh.matrix.copy(part.homeMatrix);
+  part.mesh.matrixWorldNeedsUpdate = true;
+  part.detached = false;
+  stylePart(part);
+}
+function updateMounts(now) {
+  for (const [id, tween] of state.tweens) {
+    if (now < tween.start) continue;
+    const part = parts[id];
+    const t = Math.min(1, (now - tween.start) / tween.duration);
+    const eased = t * t * (3 - 2 * t);
+    part.parent.updateWorldMatrix(true, false);
+    const target = new THREE.Vector3().setFromMatrixPosition(
+      new THREE.Matrix4().multiplyMatrices(part.parent.matrixWorld, part.homeMatrix),
+    );
+    part.mesh.matrix.setPosition(tween.from.clone().lerp(target, eased));
+    part.mesh.matrixWorldNeedsUpdate = true;
+    if (t >= 1) {
+      finishMount(part);
+      state.tweens.delete(id);
+      refreshUi();
+    }
+  }
 }
 
-function installParts(gltf) {
-  parts.clear();
-  for (const definition of PART_DEFS) {
-    const mesh = gltf.scene.getObjectByName(definition.meshName);
-    if (!mesh?.isMesh) throw new Error(`Piesa ${definition.meshName} lipsește din model.`);
-    // Materialele originale sunt partajate; clonăm doar materialele celor trei piese.
-    mesh.material = mesh.material.clone();
-    const part = {
-      ...definition,
-      mesh,
-      basePosition: mesh.position.clone(),
-      axisWorld: new THREE.Vector3(...definition.axis).normalize(),
-      progress: 0,
-    };
-    parts.set(part.id, part);
+function rotateView(dx, dy) {
+  const orbit = new THREE.Spherical().setFromVector3(camera.position.clone().sub(viewTarget));
+  orbit.theta -= dx * 0.006;
+  orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.006, 0.15, Math.PI - 0.15);
+  camera.position.copy(viewTarget).add(new THREE.Vector3().setFromSpherical(orbit));
+  camera.lookAt(viewTarget);
+}
+function zoomView(factor) {
+  const offset = camera.position.clone().sub(viewTarget);
+  offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, 2.5, 45));
+  camera.position.copy(viewTarget).add(offset);
+}
+function fitView(includeBench = false) {
+  if (!parts.length) return;
+  const visible = parts.filter((part) => includeBench || !part.detached);
+  if (!visible.length) return;
+  const box = boundsOf(visible);
+  viewTarget.copy(box.getCenter(new THREE.Vector3()));
+  const direction = new THREE.Vector3(0.63, 0.32, 1).normalize();
+  const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
+  const up = new THREE.Vector3().crossVectors(direction, right);
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const tanH = tanV * camera.aspect;
+  let distance = 0;
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const corner = new THREE.Vector3(x, y, z).sub(viewTarget);
+    distance = Math.max(distance,
+      Math.abs(corner.dot(right)) / tanH + corner.dot(direction),
+      Math.abs(corner.dot(up)) / tanV + corner.dot(direction));
   }
-  refreshPartUi();
+  camera.position.copy(viewTarget).addScaledVector(direction, Math.max(4, distance * 1.32));
+  camera.lookAt(viewTarget);
 }
 
-function disposeEngine() {
-  if (selectionHelper) {
-    scene.remove(selectionHelper);
-    selectionHelper.geometry.dispose();
-    selectionHelper.material.dispose();
-    selectionHelper = null;
+function pointerPairDistance() {
+  const pair = [...state.pointers.values()];
+  return pair.length < 2 ? null : Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y);
+}
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (!state.ready) return;
+  event.preventDefault();
+  hands.release();
+  renderer.domElement.setPointerCapture(event.pointerId);
+  state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (state.pointers.size > 1) {
+    endGrab();
+    state.pointerAction = null;
+    state.pinchDistance = pointerPairDistance();
+    return;
   }
-  if (engine) {
-    modelRoot.remove(engine);
-    engine.traverse((object) => {
-      object.geometry?.dispose?.();
-      if (object.material) {
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => material.dispose());
-      }
-    });
-    engine = null;
+  const grabbing = event.button === 0 && !state.orbit && beginGrab(event.clientX, event.clientY, event.pointerType === "touch" ? 13 : 3);
+  state.pointerAction = { id: event.pointerId, kind: grabbing ? "grab" : "orbit", x: event.clientX, y: event.clientY };
+});
+renderer.domElement.addEventListener("pointermove", (event) => {
+  if (!state.pointers.has(event.pointerId)) {
+    if (event.pointerType === "mouse" && !state.orbit && !state.grab) hoverPart(pick(event.clientX, event.clientY)?.part || null);
+    return;
   }
-  parts.clear();
+  event.preventDefault();
+  state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (state.pointers.size > 1) {
+    const distance = pointerPairDistance();
+    if (state.pinchDistance > 0 && distance > 0) zoomView(state.pinchDistance / distance);
+    state.pinchDistance = distance;
+    return;
+  }
+  const action = state.pointerAction;
+  if (!action || action.id !== event.pointerId) return;
+  if (action.kind === "grab") moveGrab(event.clientX, event.clientY);
+  else rotateView(event.clientX - action.x, event.clientY - action.y);
+  action.x = event.clientX;
+  action.y = event.clientY;
+});
+function releasePointer(event) {
+  state.pointers.delete(event.pointerId);
+  if (state.pointerAction?.id === event.pointerId) { endGrab(); state.pointerAction = null; }
+  if (!state.pointers.size) state.pinchDistance = null;
+}
+renderer.domElement.addEventListener("pointerup", releasePointer);
+renderer.domElement.addEventListener("pointercancel", releasePointer);
+renderer.domElement.addEventListener("lostpointercapture", releasePointer);
+renderer.domElement.addEventListener("pointerleave", () => { if (!state.grab) hoverPart(null); });
+renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
+renderer.domElement.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  if (!state.grab) zoomView(Math.exp(event.deltaY * 0.001));
+}, { passive: false });
+
+function disposeModel() {
+  endGrab();
   mixer?.stopAllAction();
-  mixer = null;
+  state.selected = state.hovered = null;
+  selectionBox.visible = false;
+  ui.label.hidden = true;
+  state.tweens.clear();
+  for (const part of parts) {
+    if (part.detached) part.mesh.removeFromParent();
+    part.mesh.geometry.dispose();
+    part.mesh.material.dispose();
+  }
+  parts.length = 0;
+  partForMesh.clear();
+  engine?.removeFromParent();
+  engine = mixer = runningClip = null;
+  root.scale.setScalar(1);
 }
-
-function fitCamera() {
-  const box = new THREE.Box3().setFromObject(modelRoot);
-  const size = box.getSize(new THREE.Vector3());
-  const aspect = ui.viewport.clientWidth / Math.max(1, ui.viewport.clientHeight);
-  const fov = THREE.MathUtils.degToRad(camera.fov);
-  const vertical = size.y / (2 * Math.tan(fov / 2));
-  const horizontalSpan = aspect < 1 ? Math.hypot(size.x, size.z) : Math.max(size.x, size.z);
-  const horizontal = horizontalSpan / (2 * Math.tan(fov / 2) * aspect);
-  const distance = Math.max(6.7, vertical, horizontal) * 1.25;
-  camera.position.set(distance * 0.5, distance * 0.28, distance * 0.86);
-  controls.target.set(0, 0, 0);
-  controls.update();
-}
-
-function loadEngine() {
+function loadModel() {
+  const token = ++loadToken;
+  state.loading = true;
   state.ready = false;
+  state.running = false;
+  state.rpm = 0;
   ui.loading.hidden = false;
   ui.error.hidden = true;
-  setStatus("ÎNCARC MODELUL V8");
-  disposeEngine();
-  new GLTFLoader().load(
-    "./assets/engine.glb",
-    (gltf) => {
-      try {
-        engine = gltf.scene;
-        modelRoot.add(engine);
-        const box = new THREE.Box3();
-        engine.traverse((object) => {
-          if (!object.isMesh) return;
-          const material = object.material;
-          if (material.transparent && material.opacity < 0.3) return;
-          box.expandByObject(object);
-        });
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        originalMaxDimension = Math.max(size.x, size.y, size.z);
-        engine.position.sub(center);
-        modelRoot.scale.setScalar(4.75 / originalMaxDimension);
-        engine.updateMatrixWorld(true);
-        if (gltf.animations.length) {
-          mixer = new THREE.AnimationMixer(engine);
-          mixer.clipAction(gltf.animations[0]).play();
-          state.duration = gltf.animations[0].duration;
-          mixer.setTime(0);
-        }
-        installParts(gltf);
-        fitCamera();
-        state.ready = true;
-        ui.loading.hidden = true;
-        state.mode = "clip";
-        setMode("manual");
-        selectPart("piston");
-        updateTimeline();
-      } catch (error) {
-        showLoadError(error);
+  disposeModel();
+  refreshUi();
+  new GLTFLoader().load("./assets/engine.glb", (gltf) => {
+    if (token !== loadToken) return;
+    try {
+      engine = gltf.scene;
+      root.add(engine);
+      if (gltf.animations[0]) {
+        runningClip = createRunningClip(gltf.animations[0]);
+        mixer = new THREE.AnimationMixer(engine);
+        mixer.clipAction(runningClip).play();
+        mixer.setTime(0);
       }
-    },
-    (event) => {
-      if (event.total) ui.loading.querySelector("span").textContent = `Încarc geometria și animația · ${Math.round(event.loaded / event.total * 100)}%`;
-    },
-    showLoadError,
-  );
+      engine.updateWorldMatrix(true, true);
+      const originalMaterials = new Set();
+      const counts = new Map();
+      engine.traverse((mesh) => {
+        if (!mesh.isMesh) return;
+        const source = mesh.material;
+        originalMaterials.add(source);
+        // Nine nearly transparent meshes are visualization sleeves, not useful
+        // physical pieces. They must not intercept touches or hide real parts.
+        if (source.transparent && source.opacity < 0.3) { mesh.visible = false; return; }
+        const definition = family(source.name || mesh.name);
+        const number = (counts.get(definition.label) || 0) + 1;
+        counts.set(definition.label, number);
+        const label = definition.kind === "crank" ? definition.label : `${definition.label} ${String(number).padStart(2, "0")}`;
+        mesh.material = new THREE.MeshStandardMaterial({
+          color: definition.color, metalness: definition.kind === "cable" ? 0.05 : 0.52,
+          roughness: definition.kind === "cable" ? 0.78 : 0.32, side: THREE.DoubleSide,
+        });
+        mesh.updateMatrix();
+        const part = {
+          id: parts.length, mesh, label, kind: definition.kind, detached: false,
+          mechanical: ["piston", "rod", "crank", "gear"].includes(definition.kind),
+          parent: mesh.parent, homeMatrix: mesh.matrix.clone(),
+          homePosition: mesh.position.clone(), homeQuaternion: mesh.quaternion.clone(),
+          homeScale: mesh.scale.clone(), homeAutoUpdate: mesh.matrixAutoUpdate,
+        };
+        parts.push(part);
+        partForMesh.set(mesh, part);
+      });
+      const box = boundsOf(parts);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      engine.position.sub(center);
+      root.scale.setScalar(4.8 / Math.max(size.x, size.y, size.z));
+      root.updateWorldMatrix(true, true);
+      const initialMatrices = parts.map((part) => part.mesh.matrixWorld.clone());
+      mixer?.setTime(0.19);
+      root.updateWorldMatrix(true, true);
+      parts.forEach((part, index) => {
+        const a = initialMatrices[index].elements;
+        const b = part.mesh.matrixWorld.elements;
+        const difference = Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+        part.mechanical ||= difference > 0.005;
+      });
+      mixer?.setTime(0);
+      state.motionTime = 0;
+      root.updateWorldMatrix(true, true);
+      // Clean metal materials make the mechanism legible and release baked maps.
+      const oldTextures = new Set();
+      originalMaterials.forEach((material) => {
+        for (const value of Object.values(material)) if (value?.isTexture) oldTextures.add(value);
+        material.dispose();
+      });
+      oldTextures.forEach((texture) => texture.dispose());
+      parts.forEach(stylePart);
+      state.ready = true;
+      state.loading = false;
+      ui.loading.hidden = true;
+      fitView();
+      refreshUi();
+    } catch (error) { loadError(error); }
+  }, (event) => {
+    if (event.total && token === loadToken) ui.loadingDetail.textContent = `Încarc motorul · ${Math.round(event.loaded / event.total * 100)}%`;
+  }, (error) => { if (token === loadToken) loadError(error); });
 }
-
-function showLoadError(error) {
+function loadError(error) {
+  state.loading = false;
+  state.ready = false;
   ui.loading.hidden = true;
   ui.error.hidden = false;
-  ui.errorDetail.textContent = error?.message || "Verifică fișierul GLB și conexiunea la internet.";
-  setStatus("MODEL INDISPONIBIL");
-  state.ready = false;
+  $("#error-detail").textContent = error.message || "Verifică conexiunea și încearcă din nou.";
+  refreshUi();
 }
 
-function setPointerFromClient(clientX, clientY) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointerNdc.x = (clientX - rect.left) / rect.width * 2 - 1;
-  pointerNdc.y = -(clientY - rect.top) / rect.height * 2 + 1;
-  raycaster.setFromCamera(pointerNdc, camera);
-}
+const hands = createHandControl({
+  video: $("#camera-feed"), stage: ui.stage, toggle: $("#camera-toggle"),
+  switchButton: $("#camera-switch"), facingLabel: $("#camera-facing"),
+  cursor: $("#hand-cursor"), status: ui.gestureStatus, toast,
+  onHover: (point) => {
+    if (!state.pointers.size) hoverPart(point && !state.orbit ? pick(point.x, point.y, 15)?.part || null : null);
+  },
+  onGrab: (x, y) => !state.pointers.size && !state.orbit && beginGrab(x, y, 20, true),
+  onMove: (x, y) => { if (state.grab?.hand) moveGrab(x, y); },
+  onRelease: () => { if (state.grab?.hand) endGrab(); },
+});
 
-function pickPart(clientX, clientY) {
-  if (!state.ready) return null;
-  setPointerFromClient(clientX, clientY);
-  const hits = raycaster.intersectObjects([...parts.values()].map((part) => part.mesh), false);
-  return hits.length ? [...parts.values()].find((part) => part.mesh === hits[0].object) : null;
-}
-
-function screenDirection(part) {
-  const box = new THREE.Box3().setFromObject(part.mesh);
-  const center = box.getCenter(new THREE.Vector3());
-  const end = center.clone().addScaledVector(part.axisWorld, part.distance);
-  center.project(camera);
-  end.project(camera);
-  const rect = renderer.domElement.getBoundingClientRect();
-  const dx = (end.x - center.x) * rect.width / 2;
-  const dy = -(end.y - center.y) * rect.height / 2;
-  const length = Math.hypot(dx, dy);
-  if (length < 24) return { x: 0, y: -1, pixels: Math.min(rect.width, rect.height) * 0.35 };
-  return { x: dx / length, y: dy / length, pixels: length };
-}
-
-function updateDrag(part, startX, startY, startProgress, axis, clientX, clientY) {
-  const movement = (clientX - startX) * axis.x + (clientY - startY) * axis.y;
-  state.tweens.delete(part.id);
-  setProgress(part, startProgress + movement / Math.max(75, axis.pixels));
-}
-
-renderer.domElement.addEventListener("pointerdown", (event) => {
-  if (state.mode !== "manual" || event.button > 0) return;
-  const part = pickPart(event.clientX, event.clientY);
-  if (!part) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  selectPart(part.id);
-  state.tweens.delete(part.id);
-  state.drag = {
-    pointerId: event.pointerId,
-    part,
-    x: event.clientX,
-    y: event.clientY,
-    progress: part.progress,
-    axis: screenDirection(part),
-    moved: false,
-  };
-  renderer.domElement.setPointerCapture(event.pointerId);
-}, true);
-
-renderer.domElement.addEventListener("pointermove", (event) => {
-  if (!state.drag || state.drag.pointerId !== event.pointerId) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  const drag = state.drag;
-  drag.moved ||= Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 5;
-  updateDrag(drag.part, drag.x, drag.y, drag.progress, drag.axis, event.clientX, event.clientY);
-}, true);
-
-function finishDrag(event, snap) {
-  if (!state.drag || state.drag.pointerId !== event.pointerId) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  if (snap && state.drag.moved) snapPart(state.drag.part);
-  state.drag = null;
-}
-renderer.domElement.addEventListener("pointerup", (event) => finishDrag(event, true), true);
-renderer.domElement.addEventListener("pointercancel", (event) => finishDrag(event, false), true);
-
-function updatePartMarker() {
-  const part = parts.get(state.selectedId);
-  if (!part || state.mode !== "manual") {
-    ui.marker.hidden = true;
+function updateSelection() {
+  const part = state.grab?.part || state.hovered || state.selected;
+  if (!part || isGhost(part)) {
+    selectionBox.visible = false;
+    ui.label.hidden = true;
     return;
   }
-  const center = new THREE.Box3().setFromObject(part.mesh).getCenter(scratchVector);
-  center.project(camera);
-  if (center.z < -1 || center.z > 1) {
-    ui.marker.hidden = true;
-    return;
-  }
-  const width = ui.viewport.clientWidth;
-  const height = ui.viewport.clientHeight;
-  const x = (center.x * 0.5 + 0.5) * width;
-  const y = (-center.y * 0.5 + 0.5) * height;
-  ui.marker.hidden = x < 0 || x > width || y < 0 || y > height;
-  ui.marker.style.left = `${Math.min(width - 95, x + 17)}px`;
-  ui.marker.style.top = `${Math.max(50, y - 16)}px`;
-  ui.marker.querySelector("span").textContent = part.name.toUpperCase();
+  part.mesh.updateWorldMatrix(true, false);
+  selectionBox.setFromObject(part.mesh);
+  selectionBox.visible = true;
+  const center = part.mesh.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(part.mesh.matrixWorld).project(camera);
+  const width = ui.viewport.clientWidth, height = ui.viewport.clientHeight;
+  const x = (center.x + 1) / 2 * width;
+  const y = (1 - center.y) / 2 * height;
+  ui.label.hidden = center.z < -1 || center.z > 1 || x < 0 || x > width || y < 0 || y > height;
+  ui.label.textContent = part.label;
+  ui.label.style.left = `${Math.max(8, Math.min(width - 150, x + 18))}px`;
+  ui.label.style.top = `${Math.max(112, Math.min(height - 125, y - 24))}px`;
 }
-
-function landmarkDistance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function landmarkToScreen(point) {
-  const rect = ui.viewport.getBoundingClientRect();
-  const videoWidth = ui.camera.videoWidth || rect.width;
-  const videoHeight = ui.camera.videoHeight || rect.height;
-  const scale = Math.max(rect.width / videoWidth, rect.height / videoHeight);
-  const drawnWidth = videoWidth * scale;
-  const drawnHeight = videoHeight * scale;
-  const offsetX = (rect.width - drawnWidth) / 2;
-  const offsetY = (rect.height - drawnHeight) / 2;
-  return { x: rect.left + rect.width - (offsetX + point.x * drawnWidth), y: rect.top + offsetY + point.y * drawnHeight };
-}
-
-function processHand(landmarks, now) {
-  const gesture = state.gesture;
-  const point = landmarkToScreen(landmarks[8]);
-  gesture.lastHand = now;
-  ui.handCursor.hidden = false;
-  ui.handCursor.style.left = `${point.x - ui.viewport.getBoundingClientRect().left}px`;
-  ui.handCursor.style.top = `${point.y - ui.viewport.getBoundingClientRect().top}px`;
-  const palmSize = Math.max(landmarkDistance(landmarks[0], landmarks[9]), 0.04);
-  const ratio = landmarkDistance(landmarks[4], landmarks[8]) / palmSize;
-  const pinching = ratio < (gesture.pinching ? 0.56 : 0.39);
-  const hovered = pickPart(point.x, point.y);
-  if (hovered?.id !== gesture.hoveredId) {
-    gesture.hoveredId = hovered?.id || null;
-    gesture.hoverStarted = now;
-  } else if (hovered && now - gesture.hoverStarted > 620 && state.selectedId !== hovered.id) {
-    selectPart(hovered.id);
-    gesture.hoverStarted = now + 2000;
-  }
-  if (pinching && !gesture.pinching) {
-    if (hovered) selectPart(hovered.id);
-    const selected = parts.get(state.selectedId);
-    if (selected) {
-      gesture.drag = { part: selected, x: point.x, y: point.y, progress: selected.progress, axis: screenDirection(selected) };
-      state.tweens.delete(selected.id);
-    }
-  } else if (pinching && gesture.drag) {
-    const drag = gesture.drag;
-    updateDrag(drag.part, drag.x, drag.y, drag.progress, drag.axis, point.x, point.y);
-  } else if (!pinching && gesture.pinching && gesture.drag) {
-    snapPart(gesture.drag.part);
-    gesture.drag = null;
-  }
-  gesture.pinching = pinching;
-  ui.handCursor.classList.toggle("is-pinching", pinching);
-  ui.gestureStatus.textContent = pinching
-    ? "Pinch activ: trage piesa de-a lungul traseului."
-    : "Arată spre piesă pentru selecție; unește degetele pentru a o trage.";
-}
-
-function updateGesture(now) {
-  const gesture = state.gesture;
-  if (!gesture?.landmarker || ui.camera.readyState < 2 || now - gesture.lastDetection < 46) return;
-  if (ui.camera.currentTime === gesture.lastVideoTime) return;
-  gesture.lastDetection = now;
-  gesture.lastVideoTime = ui.camera.currentTime;
-  try {
-    const result = gesture.landmarker.detectForVideo(ui.camera, now);
-    if (result.landmarks?.length) {
-      processHand(result.landmarks[0], now);
-    } else if (now - gesture.lastHand > 450) {
-      // Pierderea tracking-ului păstrează piesa în ultima poziție stabilă.
-      gesture.drag = null;
-      gesture.pinching = false;
-      gesture.hoveredId = null;
-      ui.handCursor.hidden = true;
-      ui.gestureStatus.textContent = "Caut mâna în cadru. Poți folosi în continuare touch.";
-    }
-  } catch (error) {
-    ui.gestureStatus.textContent = "Detecția mâinii s-a oprit. Touch rămâne disponibil.";
-    stopGesture();
-    showToast(error?.message || "Camera nu mai poate detecta mâna.");
-  }
-}
-
-async function startGesture() {
-  if (state.gesture) return;
-  const token = ++state.cameraToken;
-  ui.cameraToggle.disabled = true;
-  ui.gestureStatus.textContent = "Pornesc camera și modelul pentru mână...";
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: "user" }, width: { ideal: 960 }, height: { ideal: 720 } },
-    });
-    if (token !== state.cameraToken) {
-      stream.getTracks().forEach((track) => track.stop());
-      return;
-    }
-    ui.camera.srcObject = stream;
-    await ui.camera.play();
-    const visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/+esm");
-    const vision = await visionModule.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm");
-    const options = {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        delegate: "GPU",
-      },
-      runningMode: "VIDEO",
-      numHands: 1,
-      minHandDetectionConfidence: 0.55,
-      minTrackingConfidence: 0.5,
-    };
-    let landmarker;
-    try {
-      landmarker = await visionModule.HandLandmarker.createFromOptions(vision, options);
-    } catch {
-      delete options.baseOptions.delegate;
-      landmarker = await visionModule.HandLandmarker.createFromOptions(vision, options);
-    }
-    if (token !== state.cameraToken) {
-      landmarker.close();
-      stream.getTracks().forEach((track) => track.stop());
-      return;
-    }
-    state.gesture = {
-      stream, landmarker, lastDetection: 0, lastVideoTime: -1,
-      lastHand: 0, hoveredId: null, hoverStarted: 0, pinching: false, drag: null,
-    };
-    ui.stage.classList.add("has-camera");
-    ui.cameraToggle.setAttribute("aria-pressed", "true");
-    ui.cameraToggle.setAttribute("aria-label", "Oprește controlul cu mâna");
-    ui.cameraToggle.querySelector("span").textContent = "OPREȘTE CAMERA";
-    ui.gestureStatus.textContent = "Arată spre piesă pentru selecție; unește degetele pentru a o trage.";
-    setMode("manual");
-  } catch (error) {
-    ui.camera.srcObject?.getTracks().forEach((track) => track.stop());
-    ui.camera.srcObject = null;
-    ui.gestureStatus.textContent = "Camera nu a pornit. Touch / mouse rămâne disponibil.";
-    showToast(error?.name === "NotAllowedError" ? "Accesul la cameră a fost refuzat." : "Camera sau detecția mâinii nu este disponibilă.");
-  } finally {
-    ui.cameraToggle.disabled = false;
-  }
-}
-
-function stopGesture() {
-  state.cameraToken += 1;
-  state.gesture?.landmarker.close();
-  state.gesture?.stream.getTracks().forEach((track) => track.stop());
-  ui.camera.srcObject?.getTracks().forEach((track) => track.stop());
-  ui.camera.srcObject = null;
-  state.gesture = null;
-  ui.stage.classList.remove("has-camera");
-  ui.handCursor.hidden = true;
-  ui.handCursor.classList.remove("is-pinching");
-  ui.cameraToggle.setAttribute("aria-pressed", "false");
-  ui.cameraToggle.setAttribute("aria-label", "Pornește controlul cu mâna");
-  ui.cameraToggle.querySelector("span").textContent = "CONTROL CU MÂNA";
-  ui.gestureStatus.textContent = "Touch / mouse activ. Poți porni camera pentru indicare și pinch.";
-}
-
+let previousWidth = 0;
 function resize() {
-  const width = Math.max(1, ui.viewport.clientWidth);
-  const height = Math.max(1, ui.viewport.clientHeight);
+  const width = Math.max(1, ui.viewport.clientWidth), height = Math.max(1, ui.viewport.clientHeight);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
+  if (state.ready && previousWidth && Math.abs(width - previousWidth) > 80 && !state.grab) fitView(true);
+  previousWidth = width;
 }
+new ResizeObserver(resize).observe(ui.viewport);
 
-function animate(now) {
-  requestAnimationFrame(animate);
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (document.hidden) { state.lastFrame = now; return; }
   const dt = Math.min(0.05, (now - (state.lastFrame || now)) / 1000);
   state.lastFrame = now;
   if (state.ready) {
-    if (state.mode === "clip" && state.playing && mixer) {
-      state.clipTime = (state.clipTime + dt) % state.duration;
-      mixer.setTime(state.clipTime);
-      updateTimeline();
+    const requested = state.running ? state.targetRpm : 0;
+    state.rpm += (requested - state.rpm) * (1 - Math.exp(-dt * 5));
+    if (!state.running && state.rpm < 3) state.rpm = 0;
+    if (state.rpm > 0 && mixer) {
+      // Slowed down for inspection, proportional to the throttle setting.
+      state.motionTime = (state.motionTime + dt * state.rpm / 1600) % runningClip.duration;
+      mixer.setTime(state.motionTime);
     }
-    for (const [id, tween] of state.tweens) {
-      if (now < tween.start) continue;
-      const t = Math.min(1, (now - tween.start) / tween.duration);
-      setProgress(parts.get(id), THREE.MathUtils.lerp(tween.from, tween.to, ease(t)));
-      if (t >= 1) state.tweens.delete(id);
+    root.updateWorldMatrix(true, true);
+    updateMounts(now);
+    hands.update(now);
+    updateSelection();
+    if (now - state.lastUi > 100) {
+      ui.rpm.textContent = String(Math.round(state.rpm / 10) * 10);
+      state.lastUi = now;
     }
-    updateGesture(now);
-    selectionHelper?.update();
-    updatePartMarker();
   }
-  controls.update();
+  renderer.clear();
   renderer.render(scene, camera);
+  renderer.clearDepth();
+  renderer.render(bench, camera);
 }
 
-ui.manualMode.addEventListener("click", () => setMode("manual"));
-ui.clipMode.addEventListener("click", () => setMode("clip"));
-$("#explode-all").addEventListener("click", () => animateAll(1));
-$("#assemble-all").addEventListener("click", () => animateAll(0));
-ui.action.addEventListener("click", () => {
-  const part = parts.get(state.selectedId);
-  if (part) animatePart(part, part.progress > 0.5 ? 0 : 1);
+ui.power.addEventListener("click", toggleMotor);
+ui.throttle.addEventListener("input", () => { state.targetRpm = Number(ui.throttle.value); });
+ui.interior.addEventListener("click", () => {
+  endGrab();
+  state.interior = !state.interior;
+  ui.interior.setAttribute("aria-pressed", String(state.interior));
+  hoverPart(null);
+  parts.forEach(stylePart);
+  refreshUi();
 });
-ui.slider.addEventListener("input", () => {
-  const part = parts.get(state.selectedId);
-  if (!part) return;
-  state.tweens.delete(part.id);
-  setProgress(part, Number(ui.slider.value) / 100);
+ui.orbit.addEventListener("click", () => {
+  endGrab();
+  state.orbit = !state.orbit;
+  ui.orbit.setAttribute("aria-pressed", String(state.orbit));
+  $("#instruction").textContent = state.orbit ? "Trage motorul pentru a-l roti. Două degete pentru zoom." : "Prinde direct o piesă și las-o unde vrei.";
+  hoverPart(null);
 });
-ui.play.addEventListener("click", () => {
-  if (!state.ready) return;
-  setMode("clip");
-  state.playing = !state.playing;
-  ui.play.textContent = state.playing ? "Ⅱ" : "▶";
-  ui.play.setAttribute("aria-label", state.playing ? "Pauză animație" : "Pornește animația");
-  setStatus(state.playing ? "ANIMAȚIA ORIGINALĂ / REDARE" : "ANIMAȚIA ORIGINALĂ / PAUZĂ");
+ui.mount.addEventListener("click", () => mountPart(state.selected));
+ui.assemble.addEventListener("click", () => {
+  endGrab();
+  parts.filter((part) => part.detached).forEach((part, index) => mountPart(part, Math.min(index * 65, 600)));
 });
-ui.timeSlider.addEventListener("input", () => {
-  if (!state.ready) return;
-  setMode("clip");
-  state.clipTime = Number(ui.timeSlider.value) / 1000 * state.duration;
-  mixer?.setTime(state.clipTime);
-  updateTimeline();
-});
-ui.cameraToggle.addEventListener("click", () => state.gesture ? stopGesture() : startGesture());
-$("#retry-load").addEventListener("click", loadEngine);
-window.addEventListener("resize", resize);
-window.addEventListener("pagehide", stopGesture);
+$("#clear-selection").addEventListener("click", () => selectPart(null));
+$("#fit-view").addEventListener("click", () => { endGrab(); fitView(true); });
+$("#retry-load").addEventListener("click", loadModel);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    state.playing = false;
-    ui.play.textContent = "▶";
-  }
+  if (document.hidden) { endGrab(); hands.release(); state.pointers.clear(); state.pointerAction = null; state.pinchDistance = null; stopMotor(true); }
 });
-
-renderPartRows();
 resize();
-loadEngine();
-requestAnimationFrame(animate);
+loadModel();
+requestAnimationFrame(frame);
