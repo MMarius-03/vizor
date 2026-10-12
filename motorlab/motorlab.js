@@ -1,20 +1,22 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createRunningClip } from "./engine-motion.js?v=2";
-import { createHandControl } from "./hand-control.js?v=2";
+import { createRunningClip } from "./engine-motion.js?v=3";
+import { createHandControl } from "./hand-control.js?v=3";
+import { createSurfaceMaterial, createGhostMaterial } from "./engine-appearance.js?v=3";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
   viewport: $("#viewport"), stage: $(".stage"), loading: $("#loading"),
   loadingDetail: $("#loading-detail"), error: $("#error-panel"),
-  status: $("#stage-status"), count: $("#parts-count"), label: $("#part-label"),
+  count: $("#parts-count"), label: $("#part-label"),
   card: $("#selected-card"), partName: $("#part-name"), partState: $("#part-state"),
   mount: $("#mount-part"), assemble: $("#assemble-all"),
   power: $("#engine-toggle"), powerLabel: $("#engine-button-label"),
   throttle: $("#throttle"), rpm: $("#rpm-value"),
   interior: $("#interior-toggle"), orbit: $("#orbit-toggle"),
   gestureStatus: $("#gesture-status"), toast: $("#toast"),
+  throttlePanel: $("#throttle-panel"), menu: $("#options-panel"), guide: $("#gesture-guide"),
 };
 const state = {
   ready: false, interior: true, orbit: false, running: false,
@@ -22,6 +24,7 @@ const state = {
   selected: null, hovered: null, grab: null, pointerAction: null,
   pointers: new Map(), pinchDistance: null, tweens: new Map(),
   toastTimer: null, loading: false,
+  handAction: null, handTarget: null,
 };
 const scene = new THREE.Scene();
 // Detached parts render on a separate workbench layer. They stay visible when
@@ -36,22 +39,32 @@ renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
 renderer.setClearColor(0x000000, 0);
 renderer.autoClear = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
+renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 ui.viewport.append(renderer.domElement);
 
 const environmentRoom = new RoomEnvironment();
 const pmrem = new THREE.PMREMGenerator(renderer);
 const environment = pmrem.fromScene(environmentRoom, 0.04);
 scene.environment = bench.environment = environment.texture;
+scene.environmentIntensity = bench.environmentIntensity = .85;
 environmentRoom.dispose();
 pmrem.dispose();
 for (const destination of [scene, bench]) {
-  destination.add(new THREE.HemisphereLight(0xd3f0e9, 0x29424b, 2.25));
-  const warm = new THREE.DirectionalLight(0xffe0bf, 3);
-  warm.position.set(3, 6, 7);
+  destination.add(new THREE.HemisphereLight(0xdbe5eb, 0x202b30, .8));
+  const warm = new THREE.DirectionalLight(0xffedda, 3);
+  warm.position.set(-3, 6, 5);
+  if (destination === scene) {
+    warm.castShadow = true;
+    warm.shadow.mapSize.set(1024, 1024);
+    Object.assign(warm.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: .1, far: 20 });
+    warm.shadow.bias = -.0003;
+    warm.shadow.normalBias = .012;
+  }
   destination.add(warm);
-  const cool = new THREE.DirectionalLight(0x96ecf2, 2);
+  const cool = new THREE.DirectionalLight(0xb9d8ec, 1.5);
   cool.position.set(-5, 2, -4);
   destination.add(cool);
 }
@@ -61,13 +74,11 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const parts = [];
 const partForMesh = new Map();
-const selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0xffc595);
-selectionBox.material.depthTest = false;
-selectionBox.material.transparent = true;
-selectionBox.material.opacity = 0.72;
-selectionBox.renderOrder = 100;
-selectionBox.visible = false;
-bench.add(selectionBox);
+const selectionOutline = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf1b28a, depthTest: false, transparent: true, opacity: .7 }));
+selectionOutline.matrixAutoUpdate = false;
+selectionOutline.renderOrder = 100;
+selectionOutline.visible = false;
+bench.add(selectionOutline);
 let engine = null;
 let mixer = null;
 let runningClip = null;
@@ -106,29 +117,27 @@ function isGhost(part) {
 }
 function stylePart(part) {
   const ghost = isGhost(part);
-  const highlighted = part === state.selected || part === state.hovered;
-  const material = part.mesh.material;
-  material.transparent = ghost;
-  material.opacity = ghost ? 0.055 : 1;
-  material.depthWrite = !ghost;
-  material.emissive.setHex(highlighted && !ghost ? 0xe89256 : 0x000000);
-  material.emissiveIntensity = highlighted ? 0.28 : 0;
+  const highlighted = part === state.hovered || part === state.grab?.part;
+  part.mesh.material = ghost ? part.ghostMaterial : part.solidMaterial;
+  part.solidMaterial.emissive.setHex(highlighted ? 0xb56e3c : 0x000000);
+  part.solidMaterial.emissiveIntensity = highlighted ? .13 : 0;
+  part.mesh.castShadow = !ghost;
   part.mesh.renderOrder = ghost ? 0 : 1;
-  material.needsUpdate = material.userData.ghost !== ghost;
-  material.userData.ghost = ghost;
 }
 function refreshUi() {
   const detached = parts.filter((part) => part.detached);
-  ui.count.textContent = detached.length === 1 ? "1 piesă așezată" : detached.length ? `${detached.length} piese așezate` : `${parts.length} elemente detașabile`;
+  ui.count.textContent = detached.length === 1 ? "1 piesă scoasă" : `${detached.length} piese scoase`;
   ui.assemble.disabled = !detached.length || !state.ready;
   ui.power.disabled = !state.ready || !runningClip;
   ui.power.setAttribute("aria-pressed", String(state.running));
-  ui.powerLabel.textContent = state.running ? "Oprește motorul" : "Pornește motorul";
-  ui.status.textContent = state.grab ? "PIESĂ ÎN MÂNĂ" : `${state.running ? "MOTOR PORNIT" : "MOTOR OPRIT"} · ${state.interior ? "INTERIOR" : "EXTERIOR"}`;
-  ui.card.hidden = !state.selected;
+  ui.powerLabel.textContent = state.running ? "Oprește" : "Pornește";
+  ui.power.setAttribute("aria-label", state.running ? "Oprește motorul" : "Pornește motorul");
+  ui.throttlePanel.hidden = !state.running;
+  ui.stage.classList.toggle("is-interacting", Boolean(state.grab || detached.length || state.running));
+  ui.card.hidden = !state.selected?.detached || Boolean(state.grab);
   if (state.selected) {
     ui.partName.textContent = state.selected.label;
-    ui.partState.textContent = state.selected.detached ? "PE BANC · POȚI MUTA DIN NOU" : "PRINDE ȘI TRAGE";
+    ui.partState.textContent = "Pe banc · rămâne aici";
     ui.mount.disabled = !state.selected.detached || state.tweens.has(state.selected.id);
   }
 }
@@ -175,7 +184,7 @@ function pick(x, y, radius = 0) {
   const rect = renderer.domElement.getBoundingClientRect();
   if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
   const offsets = [[0, 0]];
-  if (radius) offsets.push([radius, 0], [-radius, 0], [0, radius], [0, -radius]);
+  if (radius) offsets.push([radius, 0], [-radius, 0], [0, radius], [0, -radius], [radius * .7, radius * .7], [-radius * .7, radius * .7], [radius * .7, -radius * .7], [-radius * .7, -radius * .7]);
   const detached = parts.filter((part) => part.detached && !state.tweens.has(part.id));
   const mounted = parts.filter((part) => !part.detached && !isGhost(part));
   // Picking follows the workbench's draw order, including the enlarged touch target.
@@ -203,10 +212,10 @@ function detach(part) {
   part.detached = true;
   stylePart(part);
 }
-function beginGrab(x, y, radius = 10, hand = false) {
+function beginGrab(x, y, radius = 10, hand = false, aimed = null) {
   if (state.grab || state.pointers.size > 1) return false;
-  const hit = pick(x, y, radius);
-  if (!hit) return false;
+  const hit = aimed || pick(x, y, radius);
+  if (!hit || !state.ready || isGhost(hit.part) || state.tweens.has(hit.part.id)) return false;
   stopMotor(true);
   selectPart(hit.part);
   hoverPart(null);
@@ -220,6 +229,7 @@ function beginGrab(x, y, radius = 10, hand = false) {
     part: hit.part, plane, anchor, start: hit.part.mesh.getWorldPosition(new THREE.Vector3()),
     x, y, hand, moved: false,
   };
+  stylePart(hit.part);
   refreshUi();
   return true;
 }
@@ -242,7 +252,9 @@ function moveGrab(x, y) {
 function endGrab() {
   if (!state.grab) return;
   // No snapping or return tween on release: the matrix stays where it was dropped.
+  const part = state.grab.part;
   state.grab = null;
+  stylePart(part);
   refreshUi();
 }
 function mountPart(part, delay = 0) {
@@ -299,25 +311,32 @@ function zoomView(factor) {
   offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, 2.5, 45));
   camera.position.copy(viewTarget).add(offset);
 }
-function fitView(includeBench = false) {
+function fitView(includeBench = false, preserveDirection = false) {
   if (!parts.length) return;
-  const visible = parts.filter((part) => includeBench || !part.detached);
+  const visible = parts.filter((part) => (includeBench || !part.detached) && !isGhost(part));
   if (!visible.length) return;
   const box = boundsOf(visible);
+  const direction = preserveDirection ? camera.position.clone().sub(viewTarget).normalize() : new THREE.Vector3(0.63, 0.32, 1).normalize();
   viewTarget.copy(box.getCenter(new THREE.Vector3()));
-  const direction = new THREE.Vector3(0.63, 0.32, 1).normalize();
   const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
   const up = new THREE.Vector3().crossVectors(direction, right);
+  const landscape = ui.viewport.clientHeight <= 540 && camera.aspect > 1;
+  const desktop = ui.viewport.clientWidth > 700 && !landscape;
   const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const tanH = tanV * camera.aspect;
+  const tanH = tanV * camera.aspect * (landscape ? .54 : desktop ? .7 : 1);
   let distance = 0;
-  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
-    const corner = new THREE.Vector3(x, y, z).sub(viewTarget);
-    distance = Math.max(distance,
-      Math.abs(corner.dot(right)) / tanH + corner.dot(direction),
-      Math.abs(corner.dot(up)) / tanV + corner.dot(direction));
+  // Fit each component's transformed bounds, not the large empty corners of a
+  // single world-aligned engine box. This gives fingers a larger target.
+  for (const part of visible) {
+    const local = part.mesh.geometry.boundingBox;
+    for (const x of [local.min.x, local.max.x]) for (const y of [local.min.y, local.max.y]) for (const z of [local.min.z, local.max.z]) {
+      const corner = new THREE.Vector3(x, y, z).applyMatrix4(part.mesh.matrixWorld).sub(viewTarget);
+      distance = Math.max(distance,
+        Math.abs(corner.dot(right)) / tanH + corner.dot(direction),
+        Math.abs(corner.dot(up)) / (tanV * (landscape ? .72 : desktop ? .57 : .8)) + corner.dot(direction));
+    }
   }
-  camera.position.copy(viewTarget).addScaledVector(direction, Math.max(4, distance * 1.32));
+  camera.position.copy(viewTarget).addScaledVector(direction, Math.max(4, distance * 1.14));
   camera.lookAt(viewTarget);
 }
 
@@ -379,14 +398,19 @@ function disposeModel() {
   endGrab();
   mixer?.stopAllAction();
   state.selected = state.hovered = null;
-  selectionBox.visible = false;
+  selectionOutline.visible = false;
   ui.label.hidden = true;
   state.tweens.clear();
+  const textures = new Set();
   for (const part of parts) {
     if (part.detached) part.mesh.removeFromParent();
     part.mesh.geometry.dispose();
-    part.mesh.material.dispose();
+    for (const value of Object.values(part.solidMaterial)) if (value?.isTexture) textures.add(value);
+    part.solidMaterial.dispose();
+    part.ghostMaterial.dispose();
+    part.edgeGeometry?.dispose();
   }
+  textures.forEach(texture => texture.dispose());
   parts.length = 0;
   partForMesh.clear();
   engine?.removeFromParent();
@@ -428,13 +452,12 @@ function loadModel() {
         const number = (counts.get(definition.label) || 0) + 1;
         counts.set(definition.label, number);
         const label = definition.kind === "crank" ? definition.label : `${definition.label} ${String(number).padStart(2, "0")}`;
-        mesh.material = new THREE.MeshStandardMaterial({
-          color: definition.color, metalness: definition.kind === "cable" ? 0.05 : 0.52,
-          roughness: definition.kind === "cable" ? 0.78 : 0.32, side: THREE.DoubleSide,
-        });
+        mesh.material = createSurfaceMaterial(source, definition.kind, renderer);
+        mesh.receiveShadow = true;
         mesh.updateMatrix();
         const part = {
           id: parts.length, mesh, label, kind: definition.kind, detached: false,
+          solidMaterial: mesh.material, ghostMaterial: createGhostMaterial(), edgeGeometry: null,
           mechanical: ["piston", "rod", "crank", "gear"].includes(definition.kind),
           parent: mesh.parent, homeMatrix: mesh.matrix.clone(),
           homePosition: mesh.position.clone(), homeQuaternion: mesh.quaternion.clone(),
@@ -461,13 +484,15 @@ function loadModel() {
       mixer?.setTime(0);
       state.motionTime = 0;
       root.updateWorldMatrix(true, true);
-      // Clean metal materials make the mechanism legible and release baked maps.
+      // Keep the UV-matched maps now used by the metal/paint finishes.
       const oldTextures = new Set();
+      const usedTextures = new Set();
+      parts.forEach(part => Object.values(part.solidMaterial).forEach(value => { if (value?.isTexture) usedTextures.add(value); }));
       originalMaterials.forEach((material) => {
         for (const value of Object.values(material)) if (value?.isTexture) oldTextures.add(value);
         material.dispose();
       });
-      oldTextures.forEach((texture) => texture.dispose());
+      oldTextures.forEach((texture) => { if (!usedTextures.has(texture)) texture.dispose(); });
       parts.forEach(stylePart);
       state.ready = true;
       state.loading = false;
@@ -488,44 +513,115 @@ function loadError(error) {
   refreshUi();
 }
 
+function clearHandTarget() {
+  state.handTarget?.element?.classList.remove("hand-targeted");
+  state.handTarget = null;
+}
+function resolveHandTarget(point) {
+  clearHandTarget();
+  if (!point || state.pointers.size || !state.ready) { hoverPart(null); return null; }
+  const { x, y } = point;
+  const candidates = [...document.querySelectorAll("[data-hand]")].filter(element => !element.disabled && element.getClientRects().length);
+  let target = null, best = Infinity;
+  for (const element of candidates) {
+    const rect = element.getBoundingClientRect();
+    const dx = Math.max(rect.left - x, 0, x - rect.right), dy = Math.max(rect.top - y, 0, y - rect.bottom);
+    if (dx > 16 || dy > 16) continue;
+    const score = dx + dy + Math.hypot(x - (rect.left + rect.right) / 2, y - (rect.top + rect.bottom) / 2) * .01;
+    if (score < best) { best = score; target = { id: element.id, kind: element.matches('input[type="range"]') ? "range" : "ui", element, label: element.dataset.hand }; }
+  }
+  if (target) {
+    hoverPart(null);
+    target.element.classList.add("hand-targeted");
+    state.handTarget = target;
+    return target;
+  }
+  // Panels capture the hand, so pointing at their text cannot grab the engine.
+  if (!ui.menu.hidden || !ui.guide.hidden) { hoverPart(null); return null; }
+  if (state.orbit) { hoverPart(null); return { id: "view-orbit", kind: "orbit", label: "Rotește motorul" }; }
+  const hit = pick(x, y, 22);
+  hoverPart(hit?.part || null);
+  target = hit ? { ...hit, id: `part-${hit.part.id}`, kind: "part", label: hit.part.label } : null;
+  state.handTarget = target;
+  return target;
+}
+function setHandRange(element, x) {
+  const rect = element.getBoundingClientRect();
+  const ratio = THREE.MathUtils.clamp((x - rect.left - 12) / Math.max(1, rect.width - 24), 0, 1);
+  const min = Number(element.min), max = Number(element.max), step = Number(element.step) || 1;
+  element.value = String(min + Math.round(ratio * (max - min) / step) * step);
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+}
+function releaseHandAction() {
+  if (state.grab?.hand) endGrab();
+  state.handAction = null;
+  clearHandTarget();
+  hoverPart(null);
+}
 const hands = createHandControl({
   video: $("#camera-feed"), stage: ui.stage, toggle: $("#camera-toggle"),
   switchButton: $("#camera-switch"), facingLabel: $("#camera-facing"),
-  cursor: $("#hand-cursor"), status: ui.gestureStatus, toast,
-  onHover: (point) => {
-    if (!state.pointers.size) hoverPart(point && !state.orbit ? pick(point.x, point.y, 15)?.part || null : null);
+  cursor: $("#hand-cursor"), secondCursor: $("#second-cursor"), status: ui.gestureStatus,
+  trackingLabel: $("#tracking-label"), trackingStatus: $("#tracking-status"), toast,
+  onHover: resolveHandTarget,
+  onGrab: (x, y, target) => {
+    if (state.pointers.size) return null;
+    if (target.kind === "ui" || target.kind === "range") {
+      if (target.element.disabled || !target.element.getClientRects().length) return null;
+      state.handAction = target;
+      if (target.kind === "range") setHandRange(target.element, x);
+      // Avoid resetting the gesture session from inside its own close transition.
+      else queueMicrotask(() => target.element.click());
+    } else if (target.kind === "orbit") state.handAction = { kind: "orbit", x, y };
+    else if (beginGrab(x, y, 0, true, target)) state.handAction = { kind: "part" };
+    else return null;
+    return state.handAction;
   },
-  onGrab: (x, y) => !state.pointers.size && !state.orbit && beginGrab(x, y, 20, true),
-  onMove: (x, y) => { if (state.grab?.hand) moveGrab(x, y); },
-  onRelease: () => { if (state.grab?.hand) endGrab(); },
+  onMove: (x, y) => {
+    const action = state.handAction;
+    if (action?.kind === "range") setHandRange(action.element, x);
+    else if (action?.kind === "orbit") { rotateView((x - action.x) * .8, (y - action.y) * .8); action.x = x; action.y = y; }
+    else if (state.grab?.hand) moveGrab(x, y);
+  },
+  onRelease: releaseHandAction,
+  onNavigate: (dx, dy, scale) => { releaseHandAction(); rotateView(dx * .8, dy * .8); zoomView(THREE.MathUtils.clamp(scale, .88, 1.12)); },
 });
 
 function updateSelection() {
-  const part = state.grab?.part || state.hovered || state.selected;
+  const part = state.grab?.part || state.hovered;
   if (!part || isGhost(part)) {
-    selectionBox.visible = false;
+    selectionOutline.visible = false;
     ui.label.hidden = true;
     return;
   }
   part.mesh.updateWorldMatrix(true, false);
-  selectionBox.setFromObject(part.mesh);
-  selectionBox.visible = true;
+  part.edgeGeometry ||= new THREE.EdgesGeometry(part.mesh.geometry, 38);
+  selectionOutline.geometry = part.edgeGeometry;
+  selectionOutline.matrix.copy(part.mesh.matrixWorld);
+  selectionOutline.matrixWorldNeedsUpdate = true;
+  selectionOutline.visible = true;
   const center = part.mesh.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(part.mesh.matrixWorld).project(camera);
   const width = ui.viewport.clientWidth, height = ui.viewport.clientHeight;
   const x = (center.x + 1) / 2 * width;
   const y = (1 - center.y) / 2 * height;
-  ui.label.hidden = center.z < -1 || center.z > 1 || x < 0 || x > width || y < 0 || y > height;
+  ui.label.hidden = hands.active || center.z < -1 || center.z > 1 || x < 0 || x > width || y < 0 || y > height;
   ui.label.textContent = part.label;
   ui.label.style.left = `${Math.max(8, Math.min(width - 150, x + 18))}px`;
   ui.label.style.top = `${Math.max(112, Math.min(height - 125, y - 24))}px`;
 }
 let previousWidth = 0;
+let handQuality = false;
 function resize() {
   const width = Math.max(1, ui.viewport.clientWidth), height = Math.max(1, ui.viewport.clientHeight);
   camera.aspect = width / height;
+  camera.clearViewOffset();
+  // On a landscape phone, leave the right side for the hand-operated dock.
+  if (height <= 540 && width > height) camera.setViewOffset(width, height, width * .22, 0, width, height);
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
-  if (state.ready && previousWidth && Math.abs(width - previousWidth) > 80 && !state.grab) fitView(true);
+  if (state.ready && previousWidth && Math.abs(width - previousWidth) > 80) {
+    hands.release(); endGrab(); fitView(true, true);
+  }
   previousWidth = width;
 }
 new ResizeObserver(resize).observe(ui.viewport);
@@ -535,6 +631,11 @@ function frame(now) {
   if (document.hidden) { state.lastFrame = now; return; }
   const dt = Math.min(0.05, (now - (state.lastFrame || now)) / 1000);
   state.lastFrame = now;
+  if (hands.active !== handQuality) {
+    handQuality = hands.active;
+    // Reserve some GPU budget for two-hand tracking on high-density phones.
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, handQuality ? 1.5 : 1.75));
+  }
   if (state.ready) {
     const requested = state.running ? state.targetRpm : 0;
     state.rpm += (requested - state.rpm) * (1 - Math.exp(-dt * 5));
@@ -567,14 +668,16 @@ ui.interior.addEventListener("click", () => {
   ui.interior.setAttribute("aria-pressed", String(state.interior));
   hoverPart(null);
   parts.forEach(stylePart);
+  fitView(true, true);
   refreshUi();
 });
 ui.orbit.addEventListener("click", () => {
   endGrab();
   state.orbit = !state.orbit;
   ui.orbit.setAttribute("aria-pressed", String(state.orbit));
-  $("#instruction").textContent = state.orbit ? "Trage motorul pentru a-l roti. Două degete pentru zoom." : "Prinde direct o piesă și las-o unde vrei.";
+  $("#instruction").textContent = state.orbit ? "Pinch + mișcare pentru rotire. Sau trage pe ecran." : "Sau trage o piesă direct pe ecran.";
   hoverPart(null);
+  setPanel(null);
 });
 ui.mount.addEventListener("click", () => mountPart(state.selected));
 ui.assemble.addEventListener("click", () => {
@@ -584,6 +687,19 @@ ui.assemble.addEventListener("click", () => {
 $("#clear-selection").addEventListener("click", () => selectPart(null));
 $("#fit-view").addEventListener("click", () => { endGrab(); fitView(true); });
 $("#retry-load").addEventListener("click", loadModel);
+function setPanel(panel) {
+  ui.menu.hidden = panel !== "menu";
+  ui.guide.hidden = panel !== "guide";
+  $("#menu-toggle").setAttribute("aria-expanded", String(panel === "menu"));
+  $("#help-toggle").setAttribute("aria-expanded", String(panel === "guide"));
+  clearHandTarget();
+  hoverPart(null);
+}
+$("#menu-toggle").addEventListener("click", () => setPanel(ui.menu.hidden ? "menu" : null));
+$("#menu-close").addEventListener("click", () => setPanel(null));
+$("#help-toggle").addEventListener("click", () => setPanel("guide"));
+$("#help-close").addEventListener("click", () => setPanel(null));
+document.addEventListener("keydown", event => { if (event.key === "Escape") setPanel(null); });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { endGrab(); hands.release(); state.pointers.clear(); state.pointerAction = null; state.pinchDistance = null; stopMotor(true); }
 });
