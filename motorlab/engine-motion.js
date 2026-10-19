@@ -12,22 +12,27 @@ export function createRunningClip(source) {
     const size = sourceTrack.getValueSize();
     const sample = sourceTrack.createInterpolant();
     const first = Array.from(sample.evaluate(RUN_START));
+    const last = Array.from(sample.evaluate(RUN_START + RUN_DURATION));
     const times = new Float32Array(samples + 1);
     const values = new Float32Array((samples + 1) * size);
     const rotation = sourceTrack.ValueTypeName === "quaternion";
     const q = new THREE.Quaternion();
-    const firstQuaternion = rotation ? new THREE.Quaternion().fromArray(first) : null;
+    const correction = rotation ? new THREE.Quaternion().fromArray(last).normalize().invert()
+      .multiply(new THREE.Quaternion().fromArray(first).normalize()) : null;
+    const drift = new THREE.Quaternion();
     for (let i = 0; i <= samples; i += 1) {
       const time = RUN_DURATION * i / samples;
       times[i] = time;
       const value = Array.from(sample.evaluate(RUN_START + time));
-      // The baked export has small phase drift; close the seam over the final
-      // 65 ms. Static cover tracks never enter the global explosion segment.
-      const blend = THREE.MathUtils.smoothstep(time, RUN_DURATION - 0.065, RUN_DURATION);
+      // Correct only the baked endpoint drift, spread over the whole cycle.
+      // Easing toward the first pose near the seam used to brake the crankshaft
+      // almost to a stop at every repeat. Interpolation supplies in-between frames.
+      const blend = i / samples;
       if (rotation) {
-        q.fromArray(value).normalize().slerp(firstQuaternion, blend).toArray(values, i * size);
+        drift.identity().slerp(correction, blend);
+        q.fromArray(value).normalize().multiply(drift).normalize().toArray(values, i * size);
       } else {
-        for (let k = 0; k < size; k += 1) values[i * size + k] = THREE.MathUtils.lerp(value[k], first[k], blend);
+        for (let k = 0; k < size; k += 1) values[i * size + k] = value[k] + (first[k] - last[k]) * blend;
       }
     }
     track.times = times;

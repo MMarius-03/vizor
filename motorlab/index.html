@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111719" />
   <meta name="description" content="MotorLab — un atelier V8 pentru mâinile tale. Prinde, explorează și pornește motorul prin gesturi." />
   <title>MotorLab · În mâinile tale</title>
-  <link rel="stylesheet" href="./motorlab.css?v=3" />
+  <link rel="stylesheet" href="./motorlab.css?v=4" />
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -28,19 +28,19 @@
     <div id="viewport"></div>
 
     <header class="masthead">
-      <a class="wordmark" href="../index.html" aria-label="MotorLab — înapoi la HoloLab"><span class="brand-mark" aria-hidden="true">///</span> MOTOR<span>LAB</span><small>V8 / 03</small></a>
+      <a class="wordmark" href="../index.html" aria-label="MotorLab — înapoi la HoloLab"><span class="brand-mark" aria-hidden="true">///</span> MOTOR<span>LAB</span><small>V8 / 04</small></a>
       <div class="header-actions">
         <span class="tracking-status" id="tracking-status" data-state="off"><i></i><span id="tracking-label">Atelier 3D</span></span>
         <button id="menu-toggle" class="icon-button" data-hand="Opțiuni" aria-label="Opțiuni atelier" aria-expanded="false" aria-controls="options-panel"><svg><use href="#i-menu"/></svg></button>
       </div>
     </header>
 
-    <div class="scene-caption" aria-hidden="true"><span>EXPLOREAZĂ CU MÂINILE</span></div>
+    <div class="scene-caption" aria-hidden="true"><span>EXPLOREAZĂ MOTORUL</span></div>
 
     <section id="options-panel" class="panel" aria-label="Opțiuni atelier" hidden>
       <div class="panel-title"><span>Atelier</span><button id="menu-close" class="icon-button" data-hand="Închide meniul" aria-label="Închide meniul"><svg><use href="#i-close"/></svg></button></div>
       <button id="camera-switch" class="panel-button" data-hand="Schimbă camera" disabled><svg><use href="#i-camera"/></svg><span>Schimbă camera</span><small id="camera-facing">Spate</small></button>
-      <button id="orbit-toggle" class="panel-button" data-hand="Mod rotire" aria-pressed="false"><svg><use href="#i-orbit"/></svg><span>Rotire cu o mână</span><small>pinch + mișcare</small></button>
+      <button id="interior-toggle" class="panel-button" data-hand="Interior / exterior" aria-label="Arată interiorul motorului" aria-pressed="true"><svg><use href="#i-layers"/></svg><span>Interior motor</span><small>Activ</small></button>
       <button id="fit-view" class="panel-button" data-hand="Încadrează motorul"><svg><use href="#i-fit"/></svg><span>Încadrează tot</span></button>
       <button id="assemble-all" class="panel-button" data-hand="Reasamblează motorul" disabled><svg><use href="#i-reset"/></svg><span>Reasamblează</span><small id="parts-count">0 piese scoase</small></button>
       <button id="help-toggle" class="panel-button" data-hand="Ghid de gesturi" aria-expanded="false"><svg><use href="#i-help"/></svg><span>Cum folosesc mâinile?</span></button>
@@ -49,8 +49,8 @@
     <section id="gesture-guide" class="guide panel" aria-label="Ghid de gesturi" hidden>
       <div class="panel-title"><span>Totul începe cu un pinch.</span><button id="help-close" class="icon-button" data-hand="Închide ghidul" aria-label="Închide ghidul"><svg><use href="#i-close"/></svg></button></div>
       <p>Ține telefonul sprijinit și mâinile în lumină. Deschide degetele înainte de prima prindere.</p>
-      <ol><li><b>Indică</b><span>Adu cursorul pe piesă. Conturul portocaliu confirmă ținta.</span></li><li><b>Prinde și mută</b><span>Unește arătătorul cu degetul mare. Deschide-le ca să lași piesa.</span></li><li><b>Rotește și apropie</b><span>Fă pinch cu ambele mâini. Mută-le împreună pentru rotire, depărtează-le pentru zoom.</span></li></ol>
-      <p class="guide-note">Și butoanele răspund la pinch. Accelerația se trage la fel ca o piesă. Touch rămâne disponibil.</p>
+      <ol><li><b>Prinde și mută</b><span>Cu camera spate, trage direct o piesă pe ecran și ridică degetul ca să o lași.</span></li><li><b>Rotește cu un deget</b><span>Apasă Rotire în bara de jos. Trage oriunde pe ecran: piesele sunt blocate. Apasă din nou pentru a reveni la piese.</span></li><li><b>Gesturi în cameră</b><span>Cu telefonul sprijinit și mâna în cadru: pinch pe piesă o mută, pinch pe fundal rotește. Cu două mâini poți roti și face zoom.</span></li></ol>
+      <p class="guide-note">Camera față rămâne disponibilă în meniu. Accelerația se trage ca o piesă. Interiorul poate fi schimbat tot de acolo.</p>
     </section>
 
     <div id="part-label" class="part-label" hidden></div>
@@ -62,18 +62,18 @@
 
     <div class="bottom-hud">
       <div id="selected-card" class="selected-card" hidden><div><span id="part-state">Pe banc</span><strong id="part-name"></strong></div><button id="mount-part" data-hand="Montează piesa" disabled>Montează <span aria-hidden="true">↙</span></button><button id="clear-selection" class="icon-button" data-hand="Închide piesa" aria-label="Închide detaliile piesei"><svg><use href="#i-close"/></svg></button></div>
-      <div class="hand-hint"><span id="gesture-status" role="status">Motorul e al tău. Începe cu mâinile.</span></div>
+      <div class="hand-hint"><span id="gesture-status" role="status">Trage o piesă sau apasă Rotire pentru a schimba vederea.</span></div>
       <div id="throttle-panel" class="throttle-panel" hidden><div><span>ACCELERAȚIE</span><strong><span id="rpm-value">0</span> <small>RPM</small></strong></div><input id="throttle" data-hand="Trage pentru turație" type="range" min="800" max="6500" step="100" value="800" aria-label="Turația motorului"/><small>Mișcare încetinită pentru explorare</small></div>
       <nav class="control-dock" aria-label="Controale principale">
-        <button id="camera-toggle" class="hand-button" data-hand="Control cu mâinile" aria-pressed="false"><svg><use href="#i-hand"/></svg><span>Activează mâinile</span></button>
+        <button id="camera-toggle" class="hand-button" data-hand="Pornește camera" aria-pressed="false"><svg><use href="#i-camera"/></svg><span>Pornește camera</span></button>
         <div class="dock-divider" aria-hidden="true"></div>
         <button id="engine-toggle" class="dock-button" data-hand="Pornește / oprește motorul" aria-label="Pornește motorul" aria-pressed="false" disabled><svg><use href="#i-power"/></svg><span id="engine-button-label">Pornește</span></button>
-        <button id="interior-toggle" class="dock-button" data-hand="Interior / exterior" aria-label="Arată interiorul motorului" aria-pressed="true"><svg><use href="#i-layers"/></svg><span>Interior</span></button>
+        <button id="orbit-toggle" class="dock-button" data-hand="Mod rotire" aria-label="Activează rotirea fără demontare" aria-pressed="false"><svg><use href="#i-orbit"/></svg><span>Rotire</span></button>
       </nav>
       <p class="touch-hint" id="instruction">Sau trage o piesă direct pe ecran.</p>
     </div>
     <div id="toast" class="toast" role="status" hidden></div>
   </main>
-  <script type="module" src="./motorlab.js?v=3"></script>
+  <script type="module" src="./motorlab.js?v=4"></script>
 </body>
 </html>

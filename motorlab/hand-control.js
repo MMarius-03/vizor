@@ -3,17 +3,19 @@ const freshHand = () => ({ point: null, wrist: null, seen: 0, pinching: false, a
 
 // Kept separate from the camera lifecycle so gesture transitions can be checked
 // with landmark sequences, without asking for a camera or rendering the engine.
-export function createGestureSession({ project, resolve, grab, move, release, navigate, feedback }) {
+export function createGestureSession({ project, resolve, grab, move, release, navigate, feedback, navigationLock = () => {} }) {
   let hands = [freshHand(), freshHand()];
   let action = null;
   let navigation = null;
-  let pendingGrab = null;
+  let twoHandLock = false;
   let blockedUntilOpen = false;
   let lastTick = 0;
 
   function reset() {
     if (action) release();
-    action = navigation = pendingGrab = null;
+    action = navigation = null;
+    twoHandLock = false;
+    navigationLock(false);
     blockedUntilOpen = false;
     hands = [freshHand(), freshHand()];
     resolve(null);
@@ -71,7 +73,7 @@ export function createGestureSession({ project, resolve, grab, move, release, na
     // Promote the remaining hand only after releasing the previous interaction.
     if (!assignments[0] && assignments[1] && now - hands[0].seen > 380) {
       if (action) release();
-      action = navigation = pendingGrab = null;
+      action = navigation = null;
       hands = [freshHand(), freshHand()];
       assignments[0] = assignments[1]; assignments[1] = null;
       resolve(null);
@@ -79,10 +81,25 @@ export function createGestureSession({ project, resolve, grab, move, release, na
     const edges = assignments.map((hand, i) => hand ? sample(hands[i], hand, now, dt) : null);
     const primary = hands[0], secondary = hands[1];
     const visible = hands.filter((hand) => hand.point && now - hand.seen < 380);
+    // Two hands reserve the scene for navigation, even before the second pinch.
+    // Hold that lock through brief tracking loss; returning to parts requires
+    // one remaining hand to be visibly open, never a timeout while still closed.
+    if (visible.length > 1 && !twoHandLock) {
+      twoHandLock = true;
+      if (action && action.kind !== "ui" && action.kind !== "range") { release(); action = null; }
+      primary.target = null;
+      resolve(null);
+      navigationLock(true);
+    } else if (twoHandLock && !assignments[1] && now - secondary.seen >= 380 && assignments[0]
+      && !primary.pinching && primary.openSince && now - primary.openSince >= 90) {
+      twoHandLock = false;
+      navigationLock(false);
+      primary.target = null;
+    }
     if (!assignments[0]) {
       if (now - primary.seen > 380) {
         if (action) release();
-        action = navigation = pendingGrab = null;
+        action = navigation = null;
         primary.armed = false; primary.target = null;
         resolve(null);
       }
@@ -95,7 +112,6 @@ export function createGestureSession({ project, resolve, grab, move, release, na
     }
     const both = assignments[1] && primary.armed && secondary.armed && primary.pinching && secondary.pinching;
     if (both && action?.kind !== "ui" && action?.kind !== "range") {
-      pendingGrab = null;
       const center = { x: (primary.point.x + secondary.point.x) / 2, y: (primary.point.y + secondary.point.y) / 2 };
       const span = Math.max(50, distance(primary.point, secondary.point));
       if (!navigation) {
@@ -117,9 +133,12 @@ export function createGestureSession({ project, resolve, grab, move, release, na
       release(); action = null;
       primary.target = null;
     }
-    if (!primary.pinching) pendingGrab = null;
     if (!primary.pinching && !action && primary.ratio > .55) {
-      const target = resolve(primary.point);
+      let target = resolve(primary.point);
+      if (twoHandLock && target?.kind !== "ui" && target?.kind !== "range") {
+        target = null;
+        resolve(null);
+      }
       if (target?.id !== primary.target?.id) primary.targetSince = now;
       primary.target = target;
       primary.targetAt = now;
@@ -129,32 +148,26 @@ export function createGestureSession({ project, resolve, grab, move, release, na
       // Keep only the immediately hovered target during finger closure. Never
       // fall back to a previously selected part elsewhere in the scene.
       const aimed = primary.target && now - primary.targetAt < 900 && now - primary.targetSince >= 90 && distance(primary.point, primary.targetPoint) < 65;
-      if (aimed) {
-        // Give the second hand a short chance to join navigation before a
-        // slightly earlier first pinch can pull a component out of the engine.
-        if (assignments[1] && primary.target.kind !== "ui" && primary.target.kind !== "range") pendingGrab = { target: primary.target, at: now + 180 };
-        else action = grab(primary.point.x, primary.point.y, primary.target) || null;
+      if (aimed && (!twoHandLock || primary.target.kind === "ui" || primary.target.kind === "range")) {
+        action = grab(primary.point.x, primary.point.y, primary.target) || null;
       }
-    }
-    if (pendingGrab && primary.pinching && now >= pendingGrab.at) {
-      action = grab(primary.point.x, primary.point.y, pendingGrab.target) || null;
-      pendingGrab = null;
     }
     if (action) move(primary.point.x, primary.point.y);
     const ready = primary.target && now - primary.targetSince >= 90 && now - primary.targetAt < 900;
-    feedback({ mode: action ? "holding" : !primary.armed || primary.pinching ? "open" : ready ? "ready" : "aim", hands: visible, now, target: primary.target, action });
+    feedback({ mode: action ? "holding" : twoHandLock && !ready ? "rotation-ready" : !primary.armed || primary.pinching ? "open" : ready ? "ready" : "aim", hands: visible, now, target: primary.target, action });
   }
   return { update, reset };
 }
 
-export function createHandControl({ video, stage, toggle, switchButton, facingLabel, cursor, secondCursor, status, trackingLabel, trackingStatus, toast, onHover, onGrab, onMove, onRelease, onNavigate }) {
+export function createHandControl({ video, stage, toggle, switchButton, facingLabel, cursor, secondCursor, status, trackingLabel, trackingStatus, toast, onHover, onGrab, onMove, onRelease, onNavigate, onNavigationLock }) {
   const state = { tracker: null, stream: null, facing: "environment", token: 0, busy: false, lastFrame: -1, lastDetection: 0, status: "", stalled: false };
   const session = createGestureSession({
-    project: screenPoint, resolve: onHover, grab: onGrab, move: onMove, release: onRelease, navigate: onNavigate,
+    project: screenPoint, resolve: onHover, grab: onGrab, move: onMove, release: onRelease, navigate: onNavigate, navigationLock: onNavigationLock,
     feedback: ({ mode, hands, now = performance.now(), target, action }) => {
-      const hints = { searching: "Arată mâna deschisă în cadru.", lost: "Mâna a ieșit din cadru. Piesa rămâne pe loc.", open: "Deschide degetele pentru o nouă prindere.", aim: "Indică o piesă sau un buton.", ready: "Unește degetele ca să prinzi.", holding: action?.kind === "ui" ? "Deschide degetele înainte de următoarea comandă." : action?.kind === "orbit" ? "Mișcă mâna pentru a roti motorul." : "Deschide degetele ca să lași.", navigate: "Mută ambele mâini · depărtează pentru zoom" };
+      const hints = { searching: "Arată mâna deschisă în cadru.", lost: "Mâna a ieșit din cadru. Piesa rămâne pe loc.", open: "Deschide degetele pentru o nouă prindere.", aim: "Indică o piesă sau fundalul pentru rotire.", ready: target?.kind === "orbit" ? "Fă pinch și mișcă mâna pentru rotire." : "Unește degetele ca să prinzi.", holding: action?.kind === "ui" ? "Deschide degetele înainte de următoarea comandă." : action?.kind === "orbit" ? "Rotire · piesele nu pot fi prinse acum." : "Deschide degetele ca să lași.", "rotation-ready": "Piesele sunt blocate. Fă pinch cu ambele mâini pentru rotire.", navigate: "Rotire / zoom · piesele sunt blocate" };
       if (state.stream) {
-        setStatus(hints[mode], hands.length ? "tracking" : "searching", hands.length > 1 ? "2 mâini" : hands.length ? "Mână detectată" : "Caut mâna");
+        const rearTouch = !hands.length && state.facing === "environment";
+        setStatus(rearTouch ? "Camera spate · atinge ecranul pentru control." : hints[mode], hands.length ? "tracking" : "searching", hands.length > 1 ? "2 mâini" : hands.length ? "Mână detectată" : rearTouch ? "Touch + cameră" : "Caut mâna");
       }
       [cursor, secondCursor].forEach((element, index) => {
         const hand = hands[index];
@@ -181,8 +194,9 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
     toggle.disabled = state.busy;
     switchButton.disabled = state.busy || !active;
     toggle.setAttribute("aria-pressed", String(active));
-    toggle.querySelector("span").textContent = state.busy ? "Pregătesc..." : active ? "Mâini active" : "Activează mâinile";
-    toggle.setAttribute("aria-label", active ? "Oprește camera și controlul cu mâinile" : "Activează camera și controlul cu mâinile");
+    toggle.querySelector("span").textContent = state.busy ? "Pregătesc..." : active ? "Camera activă" : "Pornește camera";
+    toggle.setAttribute("aria-label", active ? "Oprește camera" : "Pornește camera");
+    toggle.dataset.hand = active ? "Oprește camera" : "Pornește camera";
     stage.classList.toggle("has-camera", active);
     stage.dataset.facing = state.facing;
     facingLabel.textContent = state.facing === "user" ? "Față" : "Spate";
@@ -196,7 +210,12 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
     return { x: rect.left + x, y: rect.top + (rect.height - h) / 2 + point.y * h };
   }
   async function openStream(facing, exact, token) {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: exact ? { exact: facing } : { ideal: facing }, width: { ideal: 960 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } } });
+    const portraitPhone = matchMedia("(pointer: coarse)").matches && stage.clientHeight > stage.clientWidth;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
+      facingMode: exact ? { exact: facing } : { ideal: facing },
+      width: { ideal: portraitPhone ? 540 : 960 }, height: { ideal: portraitPhone ? 960 : 720 },
+      frameRate: { ideal: portraitPhone ? 24 : 30, max: 30 },
+    } });
     if (token !== state.token) { stream.getTracks().forEach(track => track.stop()); return null; }
     try {
       video.srcObject = stream;
@@ -228,7 +247,7 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
       if (token !== state.token) { tracker.close(); stream.getTracks().forEach(track => track.stop()); return; }
       state.stream = stream; state.tracker = tracker;
       session.reset();
-      toast("Indică piesa, unește degetele și mută. Și butoanele răspund la pinch.");
+      toast(state.facing === "environment" ? "Trage piesele cu degetul. Butonul Rotire blochează piesele când schimbi vederea." : "Pinch pe piesă: mută. Pinch pe fundal: rotește.");
     } catch (error) {
       stream?.getTracks().forEach(track => track.stop()); tracker?.close();
       if (token === state.token) {
@@ -246,7 +265,7 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
     session.reset();
     state.tracker?.close(); state.tracker = null; state.busy = false;
     refreshButtons();
-    setStatus("Motorul e al tău. Începe cu mâinile.", "off", "Atelier 3D");
+    setStatus("Trage o piesă sau apasă Rotire pentru a schimba vederea.", "off", "Atelier 3D");
   }
   async function switchCamera() {
     if (!state.stream || state.busy) return;

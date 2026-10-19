@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createRunningClip } from "./engine-motion.js?v=3";
-import { createHandControl } from "./hand-control.js?v=3";
-import { createSurfaceMaterial, createGhostMaterial } from "./engine-appearance.js?v=3";
+import { createRunningClip } from "./engine-motion.js?v=4";
+import { createHandControl } from "./hand-control.js?v=4";
+import { createSurfaceMaterial, createGhostMaterial } from "./engine-appearance.js?v=4";
 
 const $ = (selector) => document.querySelector(selector);
 const ui = {
@@ -24,7 +24,7 @@ const state = {
   selected: null, hovered: null, grab: null, pointerAction: null,
   pointers: new Map(), pinchDistance: null, tweens: new Map(),
   toastTimer: null, loading: false,
-  handAction: null, handTarget: null,
+  handAction: null, handTarget: null, handNavigationLock: false,
 };
 const scene = new THREE.Scene();
 // Detached parts render on a separate workbench layer. They stay visible when
@@ -43,6 +43,10 @@ renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Camera rotation does not change world-space shadows. Reuse them until a
+// component moves or changes visibility; animated engine frames still refresh.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 ui.viewport.append(renderer.domElement);
 
 const environmentRoom = new RoomEnvironment();
@@ -121,6 +125,7 @@ function stylePart(part) {
   part.mesh.material = ghost ? part.ghostMaterial : part.solidMaterial;
   part.solidMaterial.emissive.setHex(highlighted ? 0xb56e3c : 0x000000);
   part.solidMaterial.emissiveIntensity = highlighted ? .13 : 0;
+  if (part.mesh.castShadow !== !ghost) renderer.shadowMap.needsUpdate = true;
   part.mesh.castShadow = !ghost;
   part.mesh.renderOrder = ghost ? 0 : 1;
 }
@@ -200,7 +205,7 @@ function pick(x, y, radius = 0) {
 }
 
 function detach(part) {
-  if (part.detached) return;
+  if (part.detached || state.orbit || state.handNavigationLock) return;
   part.mesh.updateWorldMatrix(true, false);
   const exactWorldMatrix = part.mesh.matrixWorld.clone();
   // Keep the entire matrix: the GLB has negative and nonuniform parent scales.
@@ -210,10 +215,11 @@ function detach(part) {
   part.mesh.matrix.copy(exactWorldMatrix);
   part.mesh.matrixWorldNeedsUpdate = true;
   part.detached = true;
+  renderer.shadowMap.needsUpdate = true;
   stylePart(part);
 }
 function beginGrab(x, y, radius = 10, hand = false, aimed = null) {
-  if (state.grab || state.pointers.size > 1) return false;
+  if (state.orbit || state.handNavigationLock || state.grab || state.pointers.size > 1) return false;
   const hit = aimed || pick(x, y, radius);
   if (!hit || !state.ready || isGhost(hit.part) || state.tweens.has(hit.part.id)) return false;
   stopMotor(true);
@@ -234,6 +240,7 @@ function beginGrab(x, y, radius = 10, hand = false, aimed = null) {
   return true;
 }
 function moveGrab(x, y) {
+  if (state.orbit || state.handNavigationLock) { endGrab(); return; }
   const grab = state.grab;
   if (!grab) return;
   if (!grab.moved && Math.hypot(x - grab.x, y - grab.y) < (grab.hand ? 7 : 4)) return;
@@ -277,6 +284,7 @@ function finishMount(part) {
   part.mesh.matrix.copy(part.homeMatrix);
   part.mesh.matrixWorldNeedsUpdate = true;
   part.detached = false;
+  renderer.shadowMap.needsUpdate = true;
   stylePart(part);
 }
 function updateMounts(now) {
@@ -538,10 +546,12 @@ function resolveHandTarget(point) {
   }
   // Panels capture the hand, so pointing at their text cannot grab the engine.
   if (!ui.menu.hidden || !ui.guide.hidden) { hoverPart(null); return null; }
-  if (state.orbit) { hoverPart(null); return { id: "view-orbit", kind: "orbit", label: "Rotește motorul" }; }
+  if (state.handNavigationLock) { hoverPart(null); return null; }
+  if (state.orbit) { hoverPart(null); return { id: "view-orbit", kind: "orbit", label: "Rotire · piesele blocate" }; }
   const hit = pick(x, y, 22);
   hoverPart(hit?.part || null);
-  target = hit ? { ...hit, id: `part-${hit.part.id}`, kind: "part", label: hit.part.label } : null;
+  target = hit ? { ...hit, id: `part-${hit.part.id}`, kind: "part", label: hit.part.label }
+    : { id: "view-orbit", kind: "orbit", label: "Rotește motorul" };
   state.handTarget = target;
   return target;
 }
@@ -572,7 +582,8 @@ const hands = createHandControl({
       if (target.kind === "range") setHandRange(target.element, x);
       // Avoid resetting the gesture session from inside its own close transition.
       else queueMicrotask(() => target.element.click());
-    } else if (target.kind === "orbit") state.handAction = { kind: "orbit", x, y };
+    } else if (target.kind === "orbit" && !state.handNavigationLock) state.handAction = { kind: "orbit", x, y };
+    else if (target.kind !== "part") return null;
     else if (beginGrab(x, y, 0, true, target)) state.handAction = { kind: "part" };
     else return null;
     return state.handAction;
@@ -584,6 +595,10 @@ const hands = createHandControl({
     else if (state.grab?.hand) moveGrab(x, y);
   },
   onRelease: releaseHandAction,
+  onNavigationLock: (locked) => {
+    state.handNavigationLock = locked;
+    if (locked) { endGrab(); hoverPart(null); }
+  },
   onNavigate: (dx, dy, scale) => { releaseHandAction(); rotateView(dx * .8, dy * .8); zoomView(THREE.MathUtils.clamp(scale, .88, 1.12)); },
 });
 
@@ -611,6 +626,34 @@ function updateSelection() {
 }
 let previousWidth = 0;
 let handQuality = false;
+const quality = { frames: 0, elapsed: 0, changedAt: 0 };
+function updateRenderQuality(now, elapsed) {
+  const ceiling = Math.min(devicePixelRatio || 1, hands.active ? 1.5 : 1.75);
+  const current = renderer.getPixelRatio();
+  if (hands.active !== handQuality || current > ceiling) {
+    handQuality = hands.active;
+    if (current > ceiling) renderer.setPixelRatio(ceiling);
+    quality.frames = quality.elapsed = 0;
+    quality.changedAt = now;
+  }
+  if (!state.ready || !quality.changedAt || elapsed > 250) {
+    quality.frames = quality.elapsed = 0;
+    quality.changedAt = now;
+    return;
+  }
+  // Ignore loading/resize spikes, then adapt only once per observation window.
+  // Texture assets stay intact; only the render buffer scales on slower phones.
+  if (now - quality.changedAt < 2000 || elapsed <= 0) return;
+  quality.frames += 1;
+  quality.elapsed += elapsed;
+  if (quality.elapsed < 1000) return;
+  const average = quality.elapsed / quality.frames;
+  let next = current;
+  if (average > 20.5) next = Math.max(Math.min(1, ceiling), current - .15);
+  else if (average < 17.8 && now - quality.changedAt > 8000) next = Math.min(ceiling, current + .1);
+  if (Math.abs(next - current) > .01) { renderer.setPixelRatio(next); quality.changedAt = now; }
+  quality.frames = quality.elapsed = 0;
+}
 function resize() {
   const width = Math.max(1, ui.viewport.clientWidth), height = Math.max(1, ui.viewport.clientHeight);
   camera.aspect = width / height;
@@ -629,13 +672,10 @@ new ResizeObserver(resize).observe(ui.viewport);
 function frame(now) {
   requestAnimationFrame(frame);
   if (document.hidden) { state.lastFrame = now; return; }
-  const dt = Math.min(0.05, (now - (state.lastFrame || now)) / 1000);
+  const elapsed = now - (state.lastFrame || now);
+  const dt = Math.min(0.05, elapsed / 1000);
   state.lastFrame = now;
-  if (hands.active !== handQuality) {
-    handQuality = hands.active;
-    // Reserve some GPU budget for two-hand tracking on high-density phones.
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, handQuality ? 1.5 : 1.75));
-  }
+  updateRenderQuality(now, elapsed);
   if (state.ready) {
     const requested = state.running ? state.targetRpm : 0;
     state.rpm += (requested - state.rpm) * (1 - Math.exp(-dt * 5));
@@ -644,6 +684,7 @@ function frame(now) {
       // Slowed down for inspection, proportional to the throttle setting.
       state.motionTime = (state.motionTime + dt * state.rpm / 1600) % runningClip.duration;
       mixer.setTime(state.motionTime);
+      renderer.shadowMap.needsUpdate = true;
     }
     root.updateWorldMatrix(true, true);
     updateMounts(now);
@@ -666,16 +707,23 @@ ui.interior.addEventListener("click", () => {
   endGrab();
   state.interior = !state.interior;
   ui.interior.setAttribute("aria-pressed", String(state.interior));
+  ui.interior.querySelector("small").textContent = state.interior ? "Activ" : "Inactiv";
   hoverPart(null);
   parts.forEach(stylePart);
   fitView(true, true);
   refreshUi();
 });
 ui.orbit.addEventListener("click", () => {
+  hands.release();
   endGrab();
+  state.pointerAction = null;
   state.orbit = !state.orbit;
   ui.orbit.setAttribute("aria-pressed", String(state.orbit));
-  $("#instruction").textContent = state.orbit ? "Pinch + mișcare pentru rotire. Sau trage pe ecran." : "Sau trage o piesă direct pe ecran.";
+  ui.orbit.setAttribute("aria-label", state.orbit ? "Revino la piese" : "Activează rotirea fără demontare");
+  ui.orbit.dataset.hand = state.orbit ? "Revino la piese" : "Mod rotire";
+  ui.orbit.querySelector("span").textContent = state.orbit ? "Piese" : "Rotire";
+  $("#instruction").textContent = state.orbit ? "Rotire · piesele sunt blocate. Pinch sau trage pe ecran." : "Sau trage o piesă direct pe ecran.";
+  toast(state.orbit ? "Mod rotire: piesele sunt blocate. Apasă Piese ca să le poți muta." : "Mod piese: poți prinde și muta componentele.");
   hoverPart(null);
   setPanel(null);
 });
