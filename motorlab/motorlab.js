@@ -1,11 +1,15 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createRunningClip } from "./engine-motion.js?v=4";
-import { createHandControl } from "./hand-control.js?v=4";
-import { createSurfaceMaterial, createGhostMaterial } from "./engine-appearance.js?v=4";
+import { createRunningClip } from "./engine-motion.js?v=5";
+import { createHandControl } from "./hand-control.js?v=5";
+import { createSurfaceMaterial, createGhostMaterial } from "./engine-appearance.js?v=5";
 
 const $ = (selector) => document.querySelector(selector);
+const debugHud = $("#debug-hud");
+const debugEnabled = new URLSearchParams(location.search).has("debug");
+debugHud.hidden = !debugEnabled;
 const ui = {
   viewport: $("#viewport"), stage: $(".stage"), loading: $("#loading"),
   loadingDetail: $("#loading-detail"), error: $("#error-panel"),
@@ -22,7 +26,7 @@ const state = {
   ready: false, interior: true, orbit: false, running: false,
   rpm: 0, targetRpm: 800, motionTime: 0, lastFrame: 0, lastUi: 0,
   selected: null, hovered: null, grab: null, pointerAction: null,
-  pointers: new Map(), pinchDistance: null, tweens: new Map(),
+  pointers: new Map(), tweens: new Map(),
   toastTimer: null, loading: false,
   handAction: null, handTarget: null, handNavigationLock: false,
 };
@@ -48,6 +52,20 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
 ui.viewport.append(renderer.domElement);
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.target.copy(viewTarget);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = .12;
+orbitControls.rotateSpeed = .55;
+orbitControls.zoomSpeed = .8;
+orbitControls.enablePan = false;
+orbitControls.minDistance = 3.5;
+orbitControls.maxDistance = 45;
+orbitControls.minPolarAngle = .15;
+orbitControls.maxPolarAngle = Math.PI - .15;
+orbitControls.touches.ONE = THREE.TOUCH.ROTATE;
+orbitControls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+orbitControls.update();
 
 const environmentRoom = new RoomEnvironment();
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -78,7 +96,7 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const parts = [];
 const partForMesh = new Map();
-const selectionOutline = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf1b28a, depthTest: false, transparent: true, opacity: .7 }));
+const selectionOutline = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf3ce53, depthTest: false, transparent: true, opacity: .85 }));
 selectionOutline.matrixAutoUpdate = false;
 selectionOutline.renderOrder = 100;
 selectionOutline.visible = false;
@@ -123,7 +141,7 @@ function stylePart(part) {
   const ghost = isGhost(part);
   const highlighted = part === state.hovered || part === state.grab?.part;
   part.mesh.material = ghost ? part.ghostMaterial : part.solidMaterial;
-  part.solidMaterial.emissive.setHex(highlighted ? 0xb56e3c : 0x000000);
+  part.solidMaterial.emissive.setHex(highlighted ? 0x8f721a : 0x000000);
   part.solidMaterial.emissiveIntensity = highlighted ? .13 : 0;
   if (part.mesh.castShadow !== !ghost) renderer.shadowMap.needsUpdate = true;
   part.mesh.castShadow = !ghost;
@@ -309,15 +327,17 @@ function updateMounts(now) {
 
 function rotateView(dx, dy) {
   const orbit = new THREE.Spherical().setFromVector3(camera.position.clone().sub(viewTarget));
-  orbit.theta -= dx * 0.006;
-  orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.006, 0.15, Math.PI - 0.15);
+  orbit.theta -= dx * 0.004;
+  orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * 0.004, 0.15, Math.PI - 0.15);
   camera.position.copy(viewTarget).add(new THREE.Vector3().setFromSpherical(orbit));
   camera.lookAt(viewTarget);
+  orbitControls.update();
 }
 function zoomView(factor) {
   const offset = camera.position.clone().sub(viewTarget);
   offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, 2.5, 45));
   camera.position.copy(viewTarget).add(offset);
+  orbitControls.update();
 }
 function fitView(includeBench = false, preserveDirection = false) {
   if (!parts.length) return;
@@ -344,63 +364,61 @@ function fitView(includeBench = false, preserveDirection = false) {
         Math.abs(corner.dot(up)) / (tanV * (landscape ? .72 : desktop ? .57 : .8)) + corner.dot(direction));
     }
   }
-  camera.position.copy(viewTarget).addScaledVector(direction, Math.max(4, distance * 1.14));
+  const portraitPhone = ui.viewport.clientWidth <= 700 && !landscape;
+  camera.position.copy(viewTarget).addScaledVector(direction, Math.max(4, distance * (portraitPhone ? 1.25 : landscape ? 1.22 : 1.14)));
   camera.lookAt(viewTarget);
-}
-
-function pointerPairDistance() {
-  const pair = [...state.pointers.values()];
-  return pair.length < 2 ? null : Math.hypot(pair[0].x - pair[1].x, pair[0].y - pair[1].y);
+  orbitControls.target.copy(viewTarget);
+  orbitControls.update();
 }
 renderer.domElement.addEventListener("pointerdown", (event) => {
   if (!state.ready) return;
-  event.preventDefault();
-  hands.release();
-  renderer.domElement.setPointerCapture(event.pointerId);
+  hands.setTouchActive(true);
   state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (state.pointers.size > 1) {
     endGrab();
     state.pointerAction = null;
-    state.pinchDistance = pointerPairDistance();
+    // A second finger during a part drag cancels the drag. Start the next
+    // two-finger gesture on clear background so OrbitControls owns both touches.
+    if (!orbitControls.enabled) {
+      orbitControls.enabled = false;
+      ui.gestureStatus.textContent = "Piesa lăsată · ridică degetele pentru zoom.";
+    }
     return;
   }
   const grabbing = event.button === 0 && !state.orbit && beginGrab(event.clientX, event.clientY, event.pointerType === "touch" ? 13 : 3);
-  state.pointerAction = { id: event.pointerId, kind: grabbing ? "grab" : "orbit", x: event.clientX, y: event.clientY };
-});
+  orbitControls.enabled = !grabbing;
+  state.pointerAction = grabbing ? { id: event.pointerId, kind: "grab" } : null;
+  if (grabbing) {
+    event.preventDefault();
+    renderer.domElement.setPointerCapture(event.pointerId);
+    ui.gestureStatus.textContent = `Ții ${state.grab.part.label} · glisează și apoi ridică degetul.`;
+  } else if (state.orbit) ui.gestureStatus.textContent = "Rotire · piesele sunt blocate.";
+}, true);
 renderer.domElement.addEventListener("pointermove", (event) => {
   if (!state.pointers.has(event.pointerId)) {
     if (event.pointerType === "mouse" && !state.orbit && !state.grab) hoverPart(pick(event.clientX, event.clientY)?.part || null);
     return;
   }
-  event.preventDefault();
   state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  if (state.pointers.size > 1) {
-    const distance = pointerPairDistance();
-    if (state.pinchDistance > 0 && distance > 0) zoomView(state.pinchDistance / distance);
-    state.pinchDistance = distance;
-    return;
-  }
   const action = state.pointerAction;
   if (!action || action.id !== event.pointerId) return;
-  if (action.kind === "grab") moveGrab(event.clientX, event.clientY);
-  else rotateView(event.clientX - action.x, event.clientY - action.y);
-  action.x = event.clientX;
-  action.y = event.clientY;
+  event.preventDefault();
+  moveGrab(event.clientX, event.clientY);
 });
 function releasePointer(event) {
   state.pointers.delete(event.pointerId);
-  if (state.pointerAction?.id === event.pointerId) { endGrab(); state.pointerAction = null; }
-  if (!state.pointers.size) state.pinchDistance = null;
+  if (state.pointerAction?.id === event.pointerId) {
+    const moved = state.grab?.moved;
+    endGrab(); state.pointerAction = null;
+    ui.gestureStatus.textContent = moved ? "Piesa rămâne aici. Apasă Montează ca s-o pui la loc." : "Atinge și trage o piesă pentru a o scoate.";
+  }
+  if (!state.pointers.size) { orbitControls.enabled = true; hands.setTouchActive(false); }
 }
 renderer.domElement.addEventListener("pointerup", releasePointer);
 renderer.domElement.addEventListener("pointercancel", releasePointer);
 renderer.domElement.addEventListener("lostpointercapture", releasePointer);
 renderer.domElement.addEventListener("pointerleave", () => { if (!state.grab) hoverPart(null); });
 renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
-renderer.domElement.addEventListener("wheel", (event) => {
-  event.preventDefault();
-  if (!state.grab) zoomView(Math.exp(event.deltaY * 0.001));
-}, { passive: false });
 
 function disposeModel() {
   endGrab();
@@ -571,6 +589,7 @@ function releaseHandAction() {
 const hands = createHandControl({
   video: $("#camera-feed"), stage: ui.stage, toggle: $("#camera-toggle"),
   switchButton: $("#camera-switch"), facingLabel: $("#camera-facing"),
+  gestureToggle: $("#gesture-toggle"), fitButton: $("#camera-fit"), cameraDetails: $("#camera-details"),
   cursor: $("#hand-cursor"), secondCursor: $("#second-cursor"), status: ui.gestureStatus,
   trackingLabel: $("#tracking-label"), trackingStatus: $("#tracking-status"), toast,
   onHover: resolveHandTarget,
@@ -619,7 +638,7 @@ function updateSelection() {
   const width = ui.viewport.clientWidth, height = ui.viewport.clientHeight;
   const x = (center.x + 1) / 2 * width;
   const y = (1 - center.y) / 2 * height;
-  ui.label.hidden = hands.active || center.z < -1 || center.z > 1 || x < 0 || x > width || y < 0 || y > height;
+  ui.label.hidden = (hands.active && !state.pointers.size) || center.z < -1 || center.z > 1 || x < 0 || x > width || y < 0 || y > height;
   ui.label.textContent = part.label;
   ui.label.style.left = `${Math.max(8, Math.min(width - 150, x + 18))}px`;
   ui.label.style.top = `${Math.max(112, Math.min(height - 125, y - 24))}px`;
@@ -627,11 +646,12 @@ function updateSelection() {
 let previousWidth = 0;
 let handQuality = false;
 const quality = { frames: 0, elapsed: 0, changedAt: 0 };
+const debugSample = { frames: 0, elapsed: 0 };
 function updateRenderQuality(now, elapsed) {
-  const ceiling = Math.min(devicePixelRatio || 1, hands.active ? 1.5 : 1.75);
+  const ceiling = Math.min(devicePixelRatio || 1, hands.cameraActive ? 1.5 : 1.75);
   const current = renderer.getPixelRatio();
-  if (hands.active !== handQuality || current > ceiling) {
-    handQuality = hands.active;
+  if (hands.cameraActive !== handQuality || current > ceiling) {
+    handQuality = hands.cameraActive;
     if (current > ceiling) renderer.setPixelRatio(ceiling);
     quality.frames = quality.elapsed = 0;
     quality.changedAt = now;
@@ -657,6 +677,7 @@ function updateRenderQuality(now, elapsed) {
 function resize() {
   const width = Math.max(1, ui.viewport.clientWidth), height = Math.max(1, ui.viewport.clientHeight);
   camera.aspect = width / height;
+  orbitControls.rotateSpeed = height <= 540 && width > height ? .38 : .55;
   camera.clearViewOffset();
   // On a landscape phone, leave the right side for the hand-operated dock.
   if (height <= 540 && width > height) camera.setViewOffset(width, height, width * .22, 0, width, height);
@@ -675,6 +696,13 @@ function frame(now) {
   const elapsed = now - (state.lastFrame || now);
   const dt = Math.min(0.05, elapsed / 1000);
   state.lastFrame = now;
+  if (debugEnabled && elapsed > 0 && elapsed < 250) {
+    debugSample.frames += 1; debugSample.elapsed += elapsed;
+    if (debugSample.elapsed >= 1000) {
+      debugHud.textContent = `${Math.round(debugSample.frames * 1000 / debugSample.elapsed)} FPS · DPR ${renderer.getPixelRatio().toFixed(2)} · ${ui.viewport.clientWidth}×${ui.viewport.clientHeight}\n${hands.debug}\nmod ${state.orbit ? "rotire" : "piese"} · ${state.grab ? state.grab.part.label : "liber"}`;
+      debugSample.frames = debugSample.elapsed = 0;
+    }
+  }
   updateRenderQuality(now, elapsed);
   if (state.ready) {
     const requested = state.running ? state.targetRpm : 0;
@@ -688,6 +716,7 @@ function frame(now) {
     }
     root.updateWorldMatrix(true, true);
     updateMounts(now);
+    orbitControls.update();
     hands.update(now);
     updateSelection();
     if (now - state.lastUi > 100) {
@@ -723,6 +752,7 @@ ui.orbit.addEventListener("click", () => {
   ui.orbit.dataset.hand = state.orbit ? "Revino la piese" : "Mod rotire";
   ui.orbit.querySelector("span").textContent = state.orbit ? "Piese" : "Rotire";
   $("#instruction").textContent = state.orbit ? "Rotire · piesele sunt blocate. Pinch sau trage pe ecran." : "Sau trage o piesă direct pe ecran.";
+  ui.gestureStatus.textContent = state.orbit ? "Rotire activă · trage oriunde, piesele sunt blocate." : "Piese active · atinge și trage o componentă.";
   toast(state.orbit ? "Mod rotire: piesele sunt blocate. Apasă Piese ca să le poți muta." : "Mod piese: poți prinde și muta componentele.");
   hoverPart(null);
   setPanel(null);
@@ -749,7 +779,7 @@ $("#help-toggle").addEventListener("click", () => setPanel("guide"));
 $("#help-close").addEventListener("click", () => setPanel(null));
 document.addEventListener("keydown", event => { if (event.key === "Escape") setPanel(null); });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { endGrab(); hands.release(); state.pointers.clear(); state.pointerAction = null; state.pinchDistance = null; stopMotor(true); }
+  if (document.hidden) { endGrab(); hands.release(); state.pointers.clear(); state.pointerAction = null; orbitControls.enabled = true; hands.setTouchActive(false); stopMotor(true); }
 });
 resize();
 loadModel();

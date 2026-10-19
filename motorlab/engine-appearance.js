@@ -31,5 +31,5 @@ export function createSurfaceMaterial(source, kind, renderer) {
 }
 
 export function createGhostMaterial() {
-  return new THREE.MeshBasicMaterial({ color: 0x779596, transparent: true, opacity: .025, depthWrite: false, side: THREE.FrontSide });
+  return new THREE.MeshBasicMaterial({ color: 0x9b9e99, transparent: true, opacity: .025, depthWrite: false, side: THREE.FrontSide });
 }

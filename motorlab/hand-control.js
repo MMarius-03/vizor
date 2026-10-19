@@ -1,5 +1,5 @@
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const freshHand = () => ({ point: null, wrist: null, seen: 0, pinching: false, armed: false, openSince: 0, changeSince: 0, ratio: 1, target: null, targetSince: 0, targetAt: 0, targetPoint: null });
+const freshHand = () => ({ point: null, wrist: null, palm: null, openPalm: false, seen: 0, pinching: false, armed: false, openSince: 0, changeSince: 0, ratio: 1, target: null, targetSince: 0, targetAt: 0, targetPoint: null });
 
 // Kept separate from the camera lifecycle so gesture transitions can be checked
 // with landmark sequences, without asking for a camera or rendering the engine.
@@ -7,13 +7,14 @@ export function createGestureSession({ project, resolve, grab, move, release, na
   let hands = [freshHand(), freshHand()];
   let action = null;
   let navigation = null;
+  let openNav = null;
   let twoHandLock = false;
   let blockedUntilOpen = false;
   let lastTick = 0;
 
   function reset() {
     if (action) release();
-    action = navigation = null;
+    action = navigation = openNav = null;
     twoHandLock = false;
     navigationLock(false);
     blockedUntilOpen = false;
@@ -26,6 +27,9 @@ export function createGestureSession({ project, resolve, grab, move, release, na
     if (now - track.seen > 380) Object.assign(track, freshHand());
     const raw = project(landmarks[8]);
     track.wrist = project(landmarks[0]);
+    track.palm = project(landmarks[9]);
+    track.openPalm = [8, 12, 16, 20].every((tip, index) =>
+      distance(project(landmarks[tip]), track.wrist) > distance(project(landmarks[[6, 10, 14, 18][index]]), track.wrist) * 1.12);
     const palm = Math.max(16, distance(track.wrist, project(landmarks[9])));
     const ratio = distance(project(landmarks[4]), raw) / palm;
     track.ratio += (ratio - track.ratio) * .68;
@@ -73,7 +77,7 @@ export function createGestureSession({ project, resolve, grab, move, release, na
     // Promote the remaining hand only after releasing the previous interaction.
     if (!assignments[0] && assignments[1] && now - hands[0].seen > 380) {
       if (action) release();
-      action = navigation = null;
+      action = navigation = openNav = null;
       hands = [freshHand(), freshHand()];
       assignments[0] = assignments[1]; assignments[1] = null;
       resolve(null);
@@ -103,6 +107,7 @@ export function createGestureSession({ project, resolve, grab, move, release, na
         primary.armed = false; primary.target = null;
         resolve(null);
       }
+      openNav = null;
       feedback({ mode: visible.length ? "lost" : "searching", hands: visible, now });
       return;
     }
@@ -129,6 +134,17 @@ export function createGestureSession({ project, resolve, grab, move, release, na
       feedback({ mode: "open", hands: visible, now });
       return;
     }
+    // Open palm is navigation, pointing then pinching is manipulation. Keeping
+    // these poses distinct avoids accidentally extracting a part while orbiting.
+    if (primary.openPalm && !primary.pinching && !assignments[1] && !action) {
+      if (openNav && now - openNav.since >= 120) navigate(primary.palm.x - openNav.x, primary.palm.y - openNav.y, 1);
+      openNav = { x: primary.palm.x, y: primary.palm.y, since: openNav?.since || now };
+      primary.target = null;
+      resolve(null);
+      feedback({ mode: "palm", hands: visible, now });
+      return;
+    }
+    openNav = null;
     if (edges[0] === "open" && action) {
       release(); action = null;
       primary.target = null;
@@ -159,15 +175,15 @@ export function createGestureSession({ project, resolve, grab, move, release, na
   return { update, reset };
 }
 
-export function createHandControl({ video, stage, toggle, switchButton, facingLabel, cursor, secondCursor, status, trackingLabel, trackingStatus, toast, onHover, onGrab, onMove, onRelease, onNavigate, onNavigationLock }) {
-  const state = { tracker: null, stream: null, facing: "environment", token: 0, busy: false, lastFrame: -1, lastDetection: 0, status: "", stalled: false };
+export function createHandControl({ video, stage, toggle, switchButton, facingLabel, gestureToggle, fitButton, cameraDetails, cursor, secondCursor, status, trackingLabel, trackingStatus, toast, onHover, onGrab, onMove, onRelease, onNavigate, onNavigationLock }) {
+  const state = { tracker: null, stream: null, facing: "environment", cover: false, token: 0, trackingToken: 0, busy: false, trackingBusy: false, touchActive: false, lastFrame: -1, lastDetection: 0, status: "", stalled: false, debug: "camera oprită" };
   const session = createGestureSession({
     project: screenPoint, resolve: onHover, grab: onGrab, move: onMove, release: onRelease, navigate: onNavigate, navigationLock: onNavigationLock,
     feedback: ({ mode, hands, now = performance.now(), target, action }) => {
-      const hints = { searching: "Arată mâna deschisă în cadru.", lost: "Mâna a ieșit din cadru. Piesa rămâne pe loc.", open: "Deschide degetele pentru o nouă prindere.", aim: "Indică o piesă sau fundalul pentru rotire.", ready: target?.kind === "orbit" ? "Fă pinch și mișcă mâna pentru rotire." : "Unește degetele ca să prinzi.", holding: action?.kind === "ui" ? "Deschide degetele înainte de următoarea comandă." : action?.kind === "orbit" ? "Rotire · piesele nu pot fi prinse acum." : "Deschide degetele ca să lași.", "rotation-ready": "Piesele sunt blocate. Fă pinch cu ambele mâini pentru rotire.", navigate: "Rotire / zoom · piesele sunt blocate" };
-      if (state.stream) {
-        const rearTouch = !hands.length && state.facing === "environment";
-        setStatus(rearTouch ? "Camera spate · atinge ecranul pentru control." : hints[mode], hands.length ? "tracking" : "searching", hands.length > 1 ? "2 mâini" : hands.length ? "Mână detectată" : rearTouch ? "Touch + cameră" : "Caut mâna");
+      state.debug = state.touchActive ? "touch activ" : `mâini ${hands.length} · ${mode} · pinch ${hands[0]?.ratio.toFixed(2) || "—"} · ${target?.label || "fără țintă"}`;
+      const hints = { searching: "Arată mâna în cadru sau folosește ecranul.", lost: "Mâna a ieșit din cadru. Piesa rămâne pe loc.", open: "Arată o piesă cu arătătorul, apoi fă pinch.", aim: "Indică o piesă până apare conturul.", ready: target?.kind === "orbit" ? "Fă pinch pentru rotire sau deschide palma." : `Țintă: ${target?.label || "piesă"} · fă pinch pentru prindere.`, holding: action?.kind === "ui" ? "Deschide degetele înainte de următoarea comandă." : action?.kind === "orbit" ? "Rotești motorul · piesele rămân blocate." : "Piesă prinsă · deschide degetele ca s-o lași.", palm: "Palmă deschisă · rotești motorul, piesele sunt blocate.", "rotation-ready": "Două mâini · piesele sunt blocate.", navigate: "Două mâini · rotire / zoom, piesele blocate." };
+      if (state.stream && state.tracker && !state.touchActive) {
+        setStatus(hints[mode], hands.length ? "tracking" : "searching", hands.length > 1 ? "2 mâini" : hands.length ? "Mână detectată" : "Caut mâna");
       }
       [cursor, secondCursor].forEach((element, index) => {
         const hand = hands[index];
@@ -179,9 +195,10 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
         element.style.setProperty("--pinch", `${Math.max(0, Math.min(1, (.85 - hand.ratio) / .55)) * 360}deg`);
         element.classList.toggle("is-pinching", hand.pinching);
         element.classList.toggle("is-ready", mode === "ready" || mode === "holding" || mode === "navigate");
+        element.classList.toggle("is-navigating", mode === "palm" || mode === "navigate");
         element.classList.toggle("is-lost", now - hand.seen > 110);
       });
-      cursor.querySelector("span").textContent = mode === "ready" ? target?.label || "Prinde" : mode === "navigate" ? "Rotire / zoom" : "";
+      cursor.querySelector("span").textContent = mode === "ready" ? target?.label || "Prinde" : mode === "palm" ? "Rotire" : mode === "navigate" ? "Rotire / zoom" : "";
     },
   });
   function setStatus(message, kind, label) {
@@ -192,18 +209,32 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
   function refreshButtons() {
     const active = Boolean(state.stream);
     toggle.disabled = state.busy;
-    switchButton.disabled = state.busy || !active;
+    switchButton.disabled = state.busy || state.trackingBusy || !active;
+    gestureToggle.disabled = state.busy || state.trackingBusy || !active;
+    gestureToggle.setAttribute("aria-pressed", String(Boolean(state.tracker)));
+    gestureToggle.setAttribute("aria-label", state.tracker ? "Oprește gesturile în cameră" : "Activează gesturile în cameră");
+    gestureToggle.dataset.hand = state.tracker ? "Oprește gesturile în cameră" : "Activează gesturile în cameră";
+    gestureToggle.querySelector("small").textContent = state.trackingBusy ? "Pregătesc" : state.tracker ? "Active" : "Oprite";
+    fitButton.disabled = state.busy || !active;
+    fitButton.setAttribute("aria-pressed", String(state.cover));
+    fitButton.querySelector("small").textContent = state.cover ? "Umple ecranul" : "Cadru complet";
     toggle.setAttribute("aria-pressed", String(active));
     toggle.querySelector("span").textContent = state.busy ? "Pregătesc..." : active ? "Camera activă" : "Pornește camera";
     toggle.setAttribute("aria-label", active ? "Oprește camera" : "Pornește camera");
     toggle.dataset.hand = active ? "Oprește camera" : "Pornește camera";
     stage.classList.toggle("has-camera", active);
     stage.dataset.facing = state.facing;
+    stage.dataset.cameraFit = state.cover ? "cover" : "contain";
     facingLabel.textContent = state.facing === "user" ? "Față" : "Spate";
+    cameraDetails.hidden = !active;
+    if (active) {
+      const settings = state.stream.getVideoTracks()[0]?.getSettings?.() || {};
+      cameraDetails.textContent = `Flux: ${settings.width || video.videoWidth} × ${settings.height || video.videoHeight} · ${settings.frameRate || "?"} FPS · ${state.facing === "user" ? "față" : "spate"}`;
+    }
   }
   function screenPoint(point) {
     const rect = stage.getBoundingClientRect();
-    const scale = Math.max(rect.width / video.videoWidth, rect.height / video.videoHeight);
+    const scale = (state.cover ? Math.max : Math.min)(rect.width / video.videoWidth, rect.height / video.videoHeight);
     const w = video.videoWidth * scale, h = video.videoHeight * scale;
     let x = (rect.width - w) / 2 + point.x * w;
     if (state.facing === "user") x = rect.width - x;
@@ -237,19 +268,19 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
     if (state.busy || state.stream) return;
     const token = ++state.token;
     state.busy = true; refreshButtons();
-    setStatus("Pregătesc camera și gesturile...", "searching", "Pregătesc");
-    let stream, tracker;
+    setStatus("Pregătesc camera...", "searching", "Pregătesc");
+    let stream;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera necesită HTTPS sau localhost.");
       stream = await openStream(state.facing, false, token);
       if (!stream) return;
-      tracker = await makeTracker();
-      if (token !== state.token) { tracker.close(); stream.getTracks().forEach(track => track.stop()); return; }
-      state.stream = stream; state.tracker = tracker;
+      state.stream = stream;
       session.reset();
-      toast(state.facing === "environment" ? "Trage piesele cu degetul. Butonul Rotire blochează piesele când schimbi vederea." : "Pinch pe piesă: mută. Pinch pe fundal: rotește.");
+      state.debug = "camera + touch";
+      setStatus("Camera activă · controlează motorul prin touch.", "tracking", "Touch + cameră");
+      toast("Camera este activă. Gesturile cu mâna se pornesc separat din meniu.");
     } catch (error) {
-      stream?.getTracks().forEach(track => track.stop()); tracker?.close();
+      stream?.getTracks().forEach(track => track.stop());
       if (token === state.token) {
         video.srcObject = null;
         setStatus("Camera nu a pornit. Poți continua prin touch.", "off", "Touch activ");
@@ -257,18 +288,48 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
       }
     } finally { if (token === state.token) { state.busy = false; refreshButtons(); } }
   }
+  async function startTracking() {
+    if (!state.stream || state.busy || state.trackingBusy || state.tracker) return;
+    const token = ++state.trackingToken, cameraToken = state.token;
+    state.trackingBusy = true; refreshButtons();
+    setStatus("Pregătesc detectorul de mâini...", "searching", "Pregătesc gesturi");
+    let tracker;
+    try {
+      tracker = await makeTracker();
+      if (token !== state.trackingToken || cameraToken !== state.token || !state.stream) { tracker.close(); return; }
+      state.tracker = tracker;
+      state.lastFrame = -1;
+      session.reset();
+      toast("Arată piesa cu arătătorul, apoi fă pinch. Palma deschisă rotește.");
+    } catch (error) {
+      tracker?.close();
+      if (token === state.trackingToken) {
+        setStatus("Gesturile nu au pornit. Touch-ul rămâne disponibil.", "tracking", "Touch + cameră");
+        toast(error.message || "Nu am putut porni gesturile.");
+      }
+    } finally { if (token === state.trackingToken) { state.trackingBusy = false; refreshButtons(); } }
+  }
+  function stopTracking() {
+    state.trackingToken += 1;
+    state.tracker?.close(); state.tracker = null;
+    state.trackingBusy = false;
+    session.reset();
+    refreshButtons();
+    if (state.stream) setStatus("Camera activă · controlează motorul prin touch.", "tracking", "Touch + cameră");
+  }
   function stop() {
     state.token += 1;
+    stopTracking();
     state.stream?.getTracks().forEach(track => track.stop());
     video.srcObject?.getTracks().forEach(track => track.stop());
     video.srcObject = null; state.stream = null;
-    session.reset();
-    state.tracker?.close(); state.tracker = null; state.busy = false;
+    state.busy = false;
+    state.debug = "camera oprită";
     refreshButtons();
     setStatus("Trage o piesă sau apasă Rotire pentru a schimba vederea.", "off", "Atelier 3D");
   }
   async function switchCamera() {
-    if (!state.stream || state.busy) return;
+    if (!state.stream || state.busy || state.trackingBusy) return;
     const token = ++state.token, previous = state.facing;
     state.busy = true; session.reset(); refreshButtons();
     state.stream.getTracks().forEach(track => track.stop());
@@ -283,10 +344,15 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
         const stream = await openStream(previous, true, token);
         if (token === state.token) { state.stream = stream; toast("Camera cerută nu este disponibilă. Am revenit la cea precedentă."); }
       } catch { if (token === state.token) { stop(); toast("Camera nu a putut fi reluată. Poți continua prin touch."); } }
-    } finally { if (token === state.token) { state.busy = false; refreshButtons(); session.reset(); } }
+    } finally {
+      if (token === state.token) {
+        state.busy = false; refreshButtons(); session.reset();
+        if (state.stream && !state.tracker) setStatus("Camera activă · controlează motorul prin touch.", "tracking", "Touch + cameră");
+      }
+    }
   }
   function update(now) {
-    if (state.busy || !state.tracker) return;
+    if (state.busy || state.touchActive || !state.tracker) return;
     if (video.readyState < 2 || state.lastFrame === video.currentTime) {
       if (!state.stalled && now - state.lastDetection > 500) { session.reset(); state.stalled = true; }
       return;
@@ -295,10 +361,22 @@ export function createHandControl({ video, stage, toggle, switchButton, facingLa
     state.stalled = false;
     state.lastDetection = now; state.lastFrame = video.currentTime;
     try { session.update(state.tracker.detectForVideo(video, now).landmarks || [], now); }
-    catch { stop(); toast("Detecția mâinii s-a oprit. Poți continua prin touch."); }
+    catch { stopTracking(); toast("Detecția mâinii s-a oprit. Poți continua prin touch."); }
+  }
+  function setTouchActive(active) {
+    if (state.touchActive === active) return;
+    state.touchActive = active;
+    if (active) {
+      session.reset(); state.debug = "touch activ";
+      if (state.tracker) setStatus("Controlezi prin touch · gesturile sunt suspendate.", "tracking", "Touch activ");
+    }
+    else if (state.tracker) setStatus("Arată mâna în cadru sau folosește ecranul.", "searching", "Caut mâna");
+    else state.debug = state.stream ? "camera + touch" : "camera oprită";
   }
   toggle.addEventListener("click", () => state.stream ? stop() : start());
   switchButton.addEventListener("click", switchCamera);
+  gestureToggle.addEventListener("click", () => state.tracker ? stopTracking() : startTracking());
+  fitButton.addEventListener("click", () => { state.cover = !state.cover; refreshButtons(); });
   window.addEventListener("pagehide", stop);
-  return { update, stop, release: session.reset, get active() { return Boolean(state.stream); } };
+  return { update, stop, release: session.reset, setTouchActive, get active() { return Boolean(state.tracker); }, get cameraActive() { return Boolean(state.stream); }, get debug() { return state.debug; } };
 }
