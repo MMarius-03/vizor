@@ -7,17 +7,18 @@ document.body.dataset.mode = mode === 'phone' ? 'phone' : 'console';
 
 let state = initialState();
 let room = null;
-let stream = null;
+let syncTimer = null;
+let polling = false;
 let portal = null;
 let arStarted = false;
 let trackingGood = false;
 let preview = false;
 let audioContext = null;
-let lastFrame = performance.now();
+let arFailed = false;
+let messageUntil = 0;
 let holdFrame = 0;
 let holdStart = 0;
 let holdPointer = null;
-let frequencyTimer = 0;
 const canvas = $('ar-canvas');
 
 const phaseNames = { idle: 'NEINIȚIATĂ', armed: 'AȘTEAPTĂ PLASAREA', placed: 'RUPTURĂ ACTIVĂ', stable: 'STABILIZATĂ', sealed: 'ÎNCHISĂ' };
@@ -33,6 +34,7 @@ function setMessage(message, error = false) {
   if (mode === 'phone') {
     $('phone-message').textContent = message;
     $('phone-message').classList.toggle('error', error);
+    messageUntil = performance.now() + (error ? 3500 : 2200);
   } else $('console-message').textContent = message;
 }
 
@@ -65,7 +67,6 @@ function applyState(next) {
   if (next.revision > previous.revision && next.lastAction !== 'frequency') {
     if (next.lastAction.startsWith('node:')) tone(450 + Number(next.lastAction.at(-1)) * 90, 0.24);
     else if (next.lastAction === 'seal') tone(700, 0.6);
-    else if (next.lastAction === 'pulse') tone(130, 0.3, 'triangle');
   }
   if (mode === 'console') renderConsole(); else renderPhone();
   portal?.setState(state);
@@ -92,37 +93,41 @@ async function sendEvent(event) {
   }
 }
 
+async function pollRoom() {
+  if (!room || polling) return;
+  polling = true;
+  try {
+    const response = await fetch(`/api/room/${room}?role=${mode}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('offline');
+    const data = await response.json();
+    applyState(data.state);
+    if (mode === 'console') {
+      $('connection-led').textContent = data.presence.phone ? '● IPHONE CONECTAT' : '● AȘTEPTARE IPHONE';
+      $('connection-led').classList.toggle('online', data.presence.phone);
+    } else $('room-chip').textContent = room;
+  } catch {
+    if (mode === 'console') { $('connection-led').textContent = '● FĂRĂ CONEXIUNE'; $('connection-led').classList.remove('online'); }
+    else $('room-chip').textContent = 'OFFLINE';
+  } finally { polling = false; }
+}
+
 function subscribe(code) {
-  stream?.close();
-  stream = new EventSource(`/api/room/${code}/stream`);
-  stream.addEventListener('state', (event) => {
-    try { applyState(JSON.parse(event.data)); } catch { /* Ignore malformed state. */ }
-  });
-  stream.onerror = () => {
-    if (mode === 'console') $('connection-led').textContent = '● RECONECTARE';
-    else $('tracking-label').textContent = 'RECONECTARE...';
-  };
-  stream.onopen = () => {
-    if (mode === 'console') { $('connection-led').textContent = '● CAMERĂ ACTIVĂ'; $('connection-led').classList.add('online'); }
-    else $('room-chip').textContent = code;
-  };
+  room = code;
+  clearInterval(syncTimer);
+  pollRoom();
+  syncTimer = setInterval(pollRoom, 1000);
 }
 
 function renderConsole() {
   $('console-screen').dataset.phase = state.phase;
-  $('phase-readout').textContent = phaseNames[state.phase];
-  $('energy-readout').innerHTML = `${(state.frequency * 90).toFixed(2)} <span>kHz</span>`;
   $('frequency-value').textContent = `${Math.round(state.frequency * 100)}%`;
   if (document.activeElement !== $('frequency')) $('frequency').value = Math.round(state.frequency * 100);
   const count = state.nodes.filter(Boolean).length;
-  $('nodes-count').textContent = `${count} / 3`;
   $('stage-percent').textContent = `0${count} / 03 STABILIZATE`;
   $('stage-status').textContent = state.phase === 'idle' ? 'SISTEM ÎN STANDBY' : phaseNames[state.phase];
-  for (const [index, active] of state.nodes.entries()) document.querySelector(`.node-row[data-node="${index}"]`).classList.toggle('active', active);
   $('arm-button').disabled = !['idle', 'sealed'].includes(state.phase);
   $('arm-label').textContent = state.phase === 'sealed' ? 'DESCHIDE DIN NOU' : 'DESCHIDE RUPTURA';
   $('frequency').disabled = !['armed', 'placed', 'stable'].includes(state.phase);
-  $('pulse-button').disabled = !['armed', 'placed', 'stable'].includes(state.phase);
   $('reset-button').disabled = state.phase === 'idle';
   $('console-message').textContent = messages[state.phase];
 }
@@ -144,7 +149,10 @@ function renderPhone() {
     sealed: 'Experiment complet. Atinge ↻ pentru un nou început.',
   };
   $('interaction-tip').textContent = tips[state.phase];
-  $('phone-message').textContent = tips[state.phase];
+  if (performance.now() > messageUntil) {
+    $('phone-message').textContent = '';
+    $('phone-message').classList.remove('error');
+  }
 }
 
 async function initConsole() {
@@ -166,14 +174,9 @@ async function initConsole() {
     $('connection-led').textContent = '● DEMO LOCAL';
   }
   $('arm-button').addEventListener('click', () => { unlockAudio(); sendEvent({ type: 'arm' }); });
-  $('pulse-button').addEventListener('click', () => { unlockAudio(); sendEvent({ type: 'pulse' }); });
   $('reset-button').addEventListener('click', () => sendEvent({ type: 'reset' }));
-  $('frequency').addEventListener('input', (event) => {
-    const value = Number(event.target.value) / 100;
-    $('frequency-value').textContent = `${event.target.value}%`;
-    clearTimeout(frequencyTimer);
-    frequencyTimer = setTimeout(() => sendEvent({ type: 'frequency', value }), 95);
-  });
+  $('frequency').addEventListener('input', (event) => { $('frequency-value').textContent = `${event.target.value}%`; });
+  $('frequency').addEventListener('change', (event) => sendEvent({ type: 'frequency', value: Number(event.target.value) / 100 }));
   $('copy-link').addEventListener('click', async () => {
     const url = new URL(location.href);
     url.search = `?mode=phone&room=${room}`;
@@ -190,7 +193,7 @@ async function joinRoom() {
   const code = $('phone-room').value.trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
   if (code.length !== 5) { $('join-message').textContent = 'Introdu codul de 5 caractere de pe laptop.'; $('join-message').classList.add('error'); return; }
   try {
-    const response = await fetch(`/api/room/${code}`);
+    const response = await fetch(`/api/room/${code}?role=phone`);
     if (!response.ok && response.headers.get('content-type')?.includes('text/html')) throw new Error('Sincronizarea nu este disponibilă pe acest link. Poți porni experiența solo.');
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Codul nu este valid.');
@@ -208,6 +211,16 @@ function setTracking(good, label) {
   trackingGood = good;
   $('tracking-dot').classList.toggle('good', good);
   $('tracking-label').textContent = label;
+}
+
+function reportArFailure(message) {
+  if (arFailed) return;
+  arFailed = true;
+  trackingGood = false;
+  window.XR8?.stop?.();
+  $('phone-hud').hidden = true;
+  $('phone-error-message').textContent = message;
+  $('phone-error').hidden = false;
 }
 
 async function loadArEngine() {
@@ -232,9 +245,14 @@ async function startAR(THREE, createPortal) {
   setTracking(false, 'PORNIRE CAMERĂ...');
   const XR8 = await loadArEngine();
   if (!XR8?.Threejs || !XR8?.XrController) throw new Error('Motorul AR nu este disponibil pe acest dispozitiv.');
+  XR8.XrController.configure({ scale: 'absolute' });
   let last = performance.now();
   const sceneModule = {
     name: 'rift-scene',
+    onCameraStatusChange: ({ status }) => {
+      if (status === 'failed') reportArFailure('Camera nu a pornit. Verifică permisiunea în Safari și reîncarcă pagina.');
+    },
+    onException: () => reportArFailure('Motorul AR s-a oprit. Reîncarcă pagina și încearcă din nou.'),
     onStart: () => {
       const { scene, camera, renderer } = XR8.Threejs.xrScene();
       scene.add(new THREE.AmbientLight(0xc3eaff, 1.2));
@@ -263,7 +281,7 @@ async function startAR(THREE, createPortal) {
     XR8.XrController.pipelineModule(),
     sceneModule,
   ]);
-  XR8.run({ canvas });
+  XR8.run({ canvas, cameraConfig: { direction: XR8.XrConfig.camera().BACK } });
 }
 
 function startDemo(THREE, createPortal) {
@@ -283,7 +301,7 @@ function startDemo(THREE, createPortal) {
   floor.material.opacity = 0.24;
   scene.add(floor);
   const camera = new THREE.PerspectiveCamera(58, 1, 0.01, 100);
-  camera.position.set(0, 1.5, 3.2);
+  camera.position.set(0, 1.55, 4.2);
   camera.lookAt(0, 1.05, 0);
   portal = createPortal(scene, camera);
   portal.setState(state);
@@ -317,7 +335,7 @@ async function startExperience(demo) {
   try {
     const THREE = await import('three');
     window.THREE = THREE;
-    const { createPortal } = await import('./portal.js?v=1');
+    const { createPortal } = await import('./portal.js?v=2');
     if (demo) startDemo(THREE, createPortal);
     else await startAR(THREE, createPortal);
     canvas.addEventListener('pointerdown', onCanvasDown);
@@ -366,9 +384,10 @@ async function onCanvasDown(event) {
   canvas.setPointerCapture?.(event.pointerId);
   unlockAudio();
   if (!portal) return;
+  if (!preview && !trackingGood) { setMessage('Mișcă lent telefonul până când spațiul este identificat.', true); return; }
   if (!portal.placed && ['armed', 'placed', 'stable'].includes(state.phase)) {
     const point = preview ? new window.THREE.Vector3(0, 0, 0) : portal.groundPoint(event.clientX, event.clientY, canvas);
-    if (!point) { setMessage('Înclină camera spre podea și încearcă din nou.', true); return; }
+    if (!point) { setMessage('Atinge podeaua la 2–4 metri în fața ta.', true); return; }
     const result = state.phase === 'armed' ? await sendEvent({ type: 'place' }) : { accepted: true };
     if (result.accepted) { portal.place(point); portal.setState(state); tone(240, 0.35); }
     return;
@@ -391,15 +410,12 @@ function initPhone() {
   $('phone-room').addEventListener('keydown', (event) => { if (event.key === 'Enter') joinRoom(); });
   $('start-ar').addEventListener('click', () => startExperience(false));
   $('start-demo').addEventListener('click', () => startExperience(true));
-  $('phone-frequency').addEventListener('input', (event) => {
-    const value = Number(event.target.value) / 100;
-    $('phone-frequency-value').textContent = `${event.target.value}%`;
-    clearTimeout(frequencyTimer);
-    frequencyTimer = setTimeout(() => sendEvent({ type: 'frequency', value }), 95);
-  });
+  $('phone-frequency').addEventListener('input', (event) => { $('phone-frequency-value').textContent = `${event.target.value}%`; });
+  $('phone-frequency').addEventListener('change', (event) => sendEvent({ type: 'frequency', value: Number(event.target.value) / 100 }));
   $('phone-reset').addEventListener('click', async () => {
     cancelHold();
     await sendEvent({ type: 'reset' });
+    if (!preview) window.XR8?.XrController?.recenter?.();
     if (!room) await sendEvent({ type: 'arm' });
     if (preview && portal) {
       portal.place(new window.THREE.Vector3(0, 0, 0));

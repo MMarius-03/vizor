@@ -146,7 +146,7 @@ export function createPortal(scene, camera) {
   const pointer = new THREE.Vector2();
   let placed = false;
   let state = null;
-  let lastPulse = 0;
+  let lastNodes = 0;
   let pulseKick = 0;
   let time = 0;
 
@@ -159,9 +159,15 @@ export function createPortal(scene, camera) {
   }
 
   function setState(next) {
+    const previousPhase = state?.phase;
     state = next;
-    if (next.pulse !== lastPulse) { pulseKick = 1; lastPulse = next.pulse; }
-    if (next.phase === 'idle') { root.visible = false; placed = false; }
+    const count = next.nodes.filter(Boolean).length;
+    if (count > lastNodes) pulseKick = 1;
+    lastNodes = count;
+    if (next.phase === 'idle' || (next.phase === 'armed' && previousPhase === 'sealed')) {
+      root.visible = false;
+      placed = false;
+    }
     if (placed && next.phase !== 'idle') root.visible = true;
     nodes.forEach(({ jewel, glow }, i) => {
       const color = next.nodes[i] ? LIME : (Math.abs(next.frequency - [0.22, 0.52, 0.82][i]) < 0.085 ? CYAN : VIOLET);
@@ -177,7 +183,8 @@ export function createPortal(scene, camera) {
     time += dt;
     pulseKick = Math.max(0, pulseKick - dt * 1.45);
     const targetScale = state?.phase === 'sealed' ? 0.01 : 1;
-    root.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), Math.min(1, dt * (targetScale < 1 ? 2.3 : 5)));
+    const blend = Math.min(1, dt * (targetScale < 1 ? 2.3 : 5));
+    root.scale.setScalar(THREE.MathUtils.lerp(root.scale.x, targetScale, blend));
     halo.material.opacity = 0.13 + Math.sin(time * 2.7) * 0.05 + pulseKick * 0.33;
     halo.scale.x = 1 + pulseKick * 0.15;
     halo.scale.y = 1.35 + pulseKick * 0.17;
@@ -204,9 +211,21 @@ export function createPortal(scene, camera) {
   function pick(clientX, clientY, canvas) {
     if (!placed || !root.visible || root.scale.x < 0.25) return null;
     const rect = canvas.getBoundingClientRect();
+    root.updateWorldMatrix(true, true);
+    camera.updateMatrixWorld();
+    let nearest = null;
+    let nearestDistance = 44;
+    for (const node of nodes) {
+      if (state?.nodes[node.hit.userData.index]) continue;
+      const position = node.group.getWorldPosition(new THREE.Vector3()).project(camera);
+      if (position.z < -1 || position.z > 1) continue;
+      const distance = Math.hypot(clientX - (rect.left + (position.x + 1) * rect.width / 2), clientY - (rect.top + (1 - position.y) * rect.height / 2));
+      if (distance < nearestDistance) { nearestDistance = distance; nearest = node.hit.userData; }
+    }
+    if (nearest) return nearest;
     pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects([...nodes.map((node) => node.hit), coreHit], false);
+    const hits = raycaster.intersectObjects([coreHit], false);
     return hits[0]?.object.userData ?? null;
   }
 
@@ -216,7 +235,9 @@ export function createPortal(scene, camera) {
     raycaster.setFromCamera(pointer, camera);
     const point = new THREE.Vector3();
     const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    return raycaster.ray.intersectPlane(ground, point) ? point : null;
+    if (!raycaster.ray.intersectPlane(ground, point)) return null;
+    const distance = point.distanceTo(camera.position);
+    return distance >= 2 && distance <= 4.5 ? point : null;
   }
 
   return { place, setState, update, pick, groundPoint, get placed() { return placed; } };

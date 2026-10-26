@@ -40,9 +40,12 @@ async function bodyOf(request) {
   return JSON.parse(body || '{}');
 }
 
-function publish(room) {
-  const message = `event: state\ndata: ${JSON.stringify(room.state)}\n\n`;
-  for (const client of room.clients) client.write(message);
+function presence(room) {
+  const now = Date.now();
+  return {
+    console: now - room.peers.console < 5000,
+    phone: now - room.peers.phone < 5000,
+  };
 }
 
 const server = createServer(async (request, response) => {
@@ -52,30 +55,24 @@ const server = createServer(async (request, response) => {
   if (path === '/api/health') return json(response, 200, { ok: true });
 
   if (path === '/api/room' && request.method === 'POST') {
+    const now = Date.now();
+    for (const [id, room] of rooms) if (now - room.updated > 2 * 60 * 60 * 1000) rooms.delete(id);
+    if (rooms.size >= 128) return json(response, 429, { error: 'Prea multe sesiuni active. Încearcă mai târziu.' });
     const id = code();
-    const room = { state: initialState(), clients: new Set(), updated: Date.now() };
+    const room = { state: initialState(), peers: { console: Date.now(), phone: 0 }, updated: Date.now() };
     rooms.set(id, room);
-    return json(response, 201, { code: id, state: room.state });
+    return json(response, 201, { code: id, state: room.state, presence: presence(room) });
   }
 
-  const match = /^\/api\/room\/([A-Z2-9]{5})(?:\/(event|stream))?$/.exec(path);
+  const match = /^\/api\/room\/([A-Z2-9]{5})(?:\/(event))?$/.exec(path);
   if (match) {
     const room = rooms.get(match[1]);
     if (!room) return json(response, 404, { error: 'Camera nu mai există. Creează una nouă pe laptop.' });
     room.updated = Date.now();
-    if (!match[2] && request.method === 'GET') return json(response, 200, { code: match[1], state: room.state });
-    if (match[2] === 'stream' && request.method === 'GET') {
-      response.writeHead(200, {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no',
-      });
-      response.write(`event: state\ndata: ${JSON.stringify(room.state)}\n\n`);
-      room.clients.add(response);
-      const heartbeat = setInterval(() => response.write(': ping\n\n'), 20000);
-      request.on('close', () => { clearInterval(heartbeat); room.clients.delete(response); });
-      return;
+    if (!match[2] && request.method === 'GET') {
+      const role = url.searchParams.get('role');
+      if (role === 'console' || role === 'phone') room.peers[role] = Date.now();
+      return json(response, 200, { code: match[1], state: room.state, presence: presence(room) });
     }
     if (match[2] === 'event' && request.method === 'POST') {
       try {
@@ -83,7 +80,6 @@ const server = createServer(async (request, response) => {
         const result = applyEvent(room.state, event);
         if (!result.accepted) return json(response, 409, { error: result.reason, state: room.state });
         room.state = result.state;
-        publish(room);
         return json(response, 200, { state: room.state });
       } catch {
         return json(response, 400, { error: 'Cerere invalidă.' });
@@ -108,5 +104,5 @@ server.listen(port, '127.0.0.1', () => {
 
 setInterval(() => {
   const now = Date.now();
-  for (const [id, room] of rooms) if (!room.clients.size && now - room.updated > 4 * 60 * 60 * 1000) rooms.delete(id);
+  for (const [id, room] of rooms) if (now - room.updated > 2 * 60 * 60 * 1000) rooms.delete(id);
 }, 60 * 60 * 1000).unref();

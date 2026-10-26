@@ -6,7 +6,6 @@ export function initialState() {
     phase: 'idle',
     frequency: FREQUENCIES[0],
     nodes: [false, false, false],
-    pulse: 0,
     revision: 0,
     lastAction: 'init',
   };
@@ -25,7 +24,7 @@ export function applyEvent(current, event) {
   }
 
   if (type === 'frequency') {
-    const value = Number(event.value);
+    const value = event.value;
     if (!Number.isFinite(value) || value < 0 || value > 1) return fail('Frecvență invalidă.');
     if (current.phase === 'idle' || current.phase === 'sealed') return fail('Deschide mai întâi ruptura.');
     next.frequency = value;
@@ -33,7 +32,7 @@ export function applyEvent(current, event) {
     if (current.phase !== 'armed') return fail('Ruptura nu este pregătită pentru plasare.');
     next.phase = 'placed';
   } else if (type === 'node') {
-    const index = Number(event.index);
+    const index = event.index;
     if (current.phase !== 'placed') return fail('Plasează mai întâi portalul.');
     if (!Number.isInteger(index) || index < 0 || index >= FREQUENCIES.length) return fail('Nod invalid.');
     if (current.nodes[index]) return fail('Nodul este deja stabilizat.');
@@ -43,9 +42,6 @@ export function applyEvent(current, event) {
     next.nodes[index] = true;
     if (next.nodes.every(Boolean)) next.phase = 'stable';
     next.lastAction = `node:${index}`;
-  } else if (type === 'pulse') {
-    if (current.phase === 'idle' || current.phase === 'sealed') return fail('Ruptura este închisă.');
-    next.pulse = current.pulse + 1;
   } else if (type === 'seal') {
     if (current.phase !== 'stable') return fail('Stabilizează toate cele trei noduri.');
     next.phase = 'sealed';

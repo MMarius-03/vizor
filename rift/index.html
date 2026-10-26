@@ -2,14 +2,14 @@
 <html lang="ro">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#070a12">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090a09">
   <meta name="description" content="RIFT — un portal AR cooperativ între laptop și iPhone, fără carduri sau markere.">
   <title>RIFT / Spatial breach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="stylesheet" href="./styles.css?v=2">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -33,41 +33,23 @@
           <p id="room-help">Se creează o cameră temporară. Pe iPhone deschizi același link și introduci codul.</p>
         </div>
 
-        <div class="control-heading"><span>01 / CONTROALE</span><span>CONTROL ROOM</span></div>
         <button id="arm-button" class="primary-button" type="button" disabled><span id="arm-label">DESCHIDE RUPTURA</span><span>↗</span></button>
         <div class="frequency-control">
           <div class="frequency-label"><label for="frequency">FRECVENȚĂ PORTAL</label><output id="frequency-value">22%</output></div>
           <input id="frequency" type="range" min="0" max="100" value="22" disabled>
           <div class="frequency-scale"><span>0</span><span>22</span><span>52</span><span>82</span><span>100</span></div>
-          <p>Ajustează frecvența pentru nodul pe care îl atingi pe iPhone.</p>
         </div>
-        <div class="console-actions"><button id="pulse-button" type="button" disabled>TRIMITE IMPULS <span>↗</span></button><button id="reset-button" type="button" disabled>RESET</button></div>
+        <div class="console-actions"><button id="reset-button" type="button" disabled>RESET</button></div>
       </aside>
 
       <section class="console-stage" aria-label="Monitorul portalului">
-        <div class="stage-grid" aria-hidden="true"></div>
-        <div class="stage-corner top-left">CAM_01 // GATE VIEW</div>
-        <div class="stage-corner top-right"><span class="live-dot"></span> LIVE FEED</div>
+        <div class="stage-corner top-right"><span class="live-dot"></span> PORTAL STATUS</div>
         <div id="stage-portal" class="stage-portal" aria-hidden="true"><div class="stage-ring ring-a"></div><div class="stage-ring ring-b"></div><div class="stage-ring ring-c"></div><div class="stage-core"></div><div class="stage-cross">✳</div></div>
-        <div class="stage-coordinate">X 000.000&nbsp;&nbsp; Y 000.000&nbsp;&nbsp; Z 000.000<br>PORTAL CLASS / UNKNOWN</div>
         <div class="stage-bottom"><span id="stage-status">SISTEM ÎN STANDBY</span><span id="stage-percent">00 / 03 STABILIZATE</span></div>
       </section>
 
-      <aside class="console-right">
-        <div class="side-heading"><span>02 / TELEMETRIE</span><span>●</span></div>
-        <div class="readout"><small>STARE RUPTURĂ</small><strong id="phase-readout">NEINIȚIATĂ</strong></div>
-        <div class="readout"><small>ENERGIE REZONANTĂ</small><strong id="energy-readout">0.00 <span>kHz</span></strong></div>
-        <div class="nodes-heading">PUNCTE DE STABILIZARE <span id="nodes-count">0 / 3</span></div>
-        <div id="console-nodes" class="console-nodes">
-          <div class="node-row" data-node="0"><b>01</b><span>PRIMA ANCORĂ</span><small>22%</small><i></i></div>
-          <div class="node-row" data-node="1"><b>02</b><span>A DOUA ANCORĂ</span><small>52%</small><i></i></div>
-          <div class="node-row" data-node="2"><b>03</b><span>A TREIA ANCORĂ</span><small>82%</small><i></i></div>
-        </div>
-        <p class="side-note">Când toate trei sunt aprinse, pe iPhone ține apăsat pe nucleul portalului pentru a închide ruptura.</p>
-        <div id="console-message" class="console-message">Sistemul așteaptă sincronizarea.</div>
-      </aside>
+      <aside class="console-right"><div id="console-message" class="console-message">Sistemul așteaptă sincronizarea.</div></aside>
     </section>
-    <footer class="console-footer"><span>RIFT / O EXPERIENȚĂ FĂRĂ MARKERE</span><span>PROTOTIP INTERACTIV · iPHONE + LAPTOP</span><span>MOVE SLOWLY. LOOK CLOSER.</span></footer>
   </main>
 
   <main id="phone-screen" class="screen phone-screen">
@@ -77,7 +59,6 @@
     <header class="phone-topbar"><span class="phone-brand"><span>⌁</span> RIFT.</span><span id="phone-mode-tag" class="phone-mode-tag">LIVE AR</span><button id="phone-reset" type="button" aria-label="Resetează experiența">↻</button></header>
 
     <section id="phone-intro" class="phone-intro">
-      <div class="intro-art" aria-hidden="true"><div></div><div></div><div></div><span>✳</span></div>
       <div class="eyebrow"><i></i> FĂRĂ MARKERE</div>
       <h2>O LUME<br><em>DINCOLO.</em></h2>
       <p>Conectează iPhone-ul la consola de pe laptop sau explorează singur. Mișcă telefonul ușor și alege un loc liber pe podea.</p>
@@ -99,8 +80,11 @@
         <p id="phone-message" aria-live="polite">Atinge podeaua ca să plasezi portalul.</p>
       </div>
     </section>
+    <section id="phone-error" class="phone-error" hidden>
+      <div><span class="eyebrow">CAMERA AR</span><h2>NU A PORNIT.</h2><p id="phone-error-message"></p><a class="primary-button" href="">REÎNCARCĂ PAGINA <span>↗</span></a><p>Poți folosi și demo-ul 3D fără cameră.</p></div>
+    </section>
   </main>
 
-  <script type="module" src="./app.js?v=1"></script>
+  <script type="module" src="./app.js?v=2"></script>
 </body>
 </html>
