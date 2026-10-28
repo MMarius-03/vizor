@@ -1,5 +1,9 @@
 # HoloLab
 
+An interactive 3D web experiment controlled with hand gestures. Try the
+[live demo](https://mmarius-03.github.io/vizor/). The camera feed stays in the
+browser; the scene uses MediaPipe and Three.js.
+
 Experienta web 3D controlata prin gesturile mainilor. Camera frontala este
 procesata local cu MediaPipe Hand Landmarker, iar scena este randata cu
 Three.js. Aplicatia nu necesita marker, instalare sau backend.
