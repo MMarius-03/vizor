@@ -3,6 +3,7 @@ import { applyEvent, FREQUENCIES, initialState } from './protocol.js';
 const $ = (id) => document.getElementById(id);
 const query = new URLSearchParams(location.search);
 const mode = query.get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'console');
+const apiBase = location.hostname === 'mmarius-03.github.io' ? 'https://rift-sync-api.grassyyew19.chatgpt.site' : '';
 document.body.dataset.mode = mode === 'phone' ? 'phone' : 'console';
 
 let state = initialState();
@@ -80,7 +81,7 @@ async function sendEvent(event) {
     return result;
   }
   try {
-    const response = await fetch(`/api/room/${room}/event`, {
+    const response = await fetch(`${apiBase}/api/room/${room}/event`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(event),
     });
     const result = await response.json();
@@ -97,7 +98,7 @@ async function pollRoom() {
   if (!room || polling) return;
   polling = true;
   try {
-    const response = await fetch(`/api/room/${room}?role=${mode}`, { cache: 'no-store' });
+    const response = await fetch(`${apiBase}/api/room/${room}?role=${mode}`, { cache: 'no-store' });
     if (!response.ok) throw new Error('offline');
     const data = await response.json();
     applyState(data.state);
@@ -158,7 +159,7 @@ function renderPhone() {
 async function initConsole() {
   renderConsole();
   try {
-    const response = await fetch('/api/room', { method: 'POST' });
+    const response = await fetch(`${apiBase}/api/room`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     if (!response.ok) throw new Error('offline');
     const data = await response.json();
     room = data.code;
@@ -170,8 +171,8 @@ async function initConsole() {
     renderConsole();
   } catch {
     $('room-code').textContent = 'SOLO';
-    $('room-help').textContent = 'Demo fără sincronizare. Pentru două ecrane, pornește serverul local RIFT.';
-    $('connection-led').textContent = '● DEMO LOCAL';
+    $('room-help').textContent = 'Serviciul de sincronizare nu răspunde. Poți explora solo și încerca din nou mai târziu.';
+    $('connection-led').textContent = '● OFFLINE';
   }
   $('arm-button').addEventListener('click', () => { unlockAudio(); sendEvent({ type: 'arm' }); });
   $('reset-button').addEventListener('click', () => sendEvent({ type: 'reset' }));
@@ -190,10 +191,10 @@ async function initConsole() {
 }
 
 async function joinRoom() {
-  const code = $('phone-room').value.trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
-  if (code.length !== 5) { $('join-message').textContent = 'Introdu codul de 5 caractere de pe laptop.'; $('join-message').classList.add('error'); return; }
+  const code = $('phone-room').value.trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 6);
+  if (code.length !== 6) { $('join-message').textContent = 'Introdu codul de 6 caractere de pe laptop.'; $('join-message').classList.add('error'); return; }
   try {
-    const response = await fetch(`/api/room/${code}?role=phone`);
+    const response = await fetch(`${apiBase}/api/room/${code}?role=phone`);
     if (!response.ok && response.headers.get('content-type')?.includes('text/html')) throw new Error('Sincronizarea nu este disponibilă pe acest link. Poți porni experiența solo.');
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Codul nu este valid.');

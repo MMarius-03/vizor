@@ -26,7 +26,7 @@ function json(response, status, body) {
 function code() {
   let result;
   do {
-    result = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join('');
+    result = Array.from({ length: 6 }, () => alphabet[randomInt(alphabet.length)]).join('');
   } while (rooms.has(result));
   return result;
 }
@@ -64,7 +64,7 @@ const server = createServer(async (request, response) => {
     return json(response, 201, { code: id, state: room.state, presence: presence(room) });
   }
 
-  const match = /^\/api\/room\/([A-Z2-9]{5})(?:\/(event))?$/.exec(path);
+  const match = /^\/api\/room\/([A-Z2-9]{6})(?:\/(event))?$/.exec(path);
   if (match) {
     const room = rooms.get(match[1]);
     if (!room) return json(response, 404, { error: 'Camera nu mai există. Creează una nouă pe laptop.' });
