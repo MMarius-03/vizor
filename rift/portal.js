@@ -237,7 +237,7 @@ export function createPortal(scene, camera) {
     const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     if (!raycaster.ray.intersectPlane(ground, point)) return null;
     const distance = point.distanceTo(camera.position);
-    return distance >= 2 && distance <= 4.5 ? point : null;
+    return distance >= 1 && distance <= 5 ? point : null;
   }
 
   return { place, setState, update, pick, groundPoint, get placed() { return placed; } };

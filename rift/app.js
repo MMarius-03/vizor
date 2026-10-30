@@ -21,6 +21,8 @@ let holdFrame = 0;
 let holdStart = 0;
 let holdPointer = null;
 const canvas = $('ar-canvas');
+const viewportMeta = document.querySelector('meta[name="viewport"]');
+const standardViewport = viewportMeta.content;
 
 const phaseNames = { idle: 'NEINIȚIATĂ', armed: 'AȘTEAPTĂ PLASAREA', placed: 'RUPTURĂ ACTIVĂ', stable: 'STABILIZATĂ', sealed: 'ÎNCHISĂ' };
 const messages = {
@@ -144,7 +146,7 @@ function renderPhone() {
   $('solo-frequency').hidden = Boolean(room) || state.phase === 'idle' || state.phase === 'sealed';
   const tips = {
     idle: room ? 'Așteaptă activarea de pe laptop.' : 'Apasă pentru a deschide portalul.',
-    armed: 'Atinge podeaua pentru a plasa portalul.',
+    armed: 'Îndreaptă chenarul spre podea, apoi atinge ecranul.',
     placed: room ? 'Ajustează frecvența pe laptop, apoi atinge nodurile.' : 'Ajustează frecvența, apoi atinge nodurile.',
     stable: 'Ține apăsat pe nucleul portalului.',
     sealed: 'Experiment complet. Atinge ↻ pentru un nou început.',
@@ -241,11 +243,27 @@ async function loadArEngine() {
   });
 }
 
+async function loadArExtras() {
+  if (window.XRExtras) return window.XRExtras;
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js';
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  document.head.append(script);
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Modulul de afișare AR nu a răspuns.')), 20000);
+    const finish = () => { clearTimeout(timeout); resolve(window.XRExtras); };
+    window.addEventListener('xrextrasloaded', finish, { once: true });
+    script.onerror = () => { clearTimeout(timeout); reject(new Error('Nu se poate încărca afișarea AR.')); };
+    script.onload = () => { if (window.XRExtras) finish(); };
+  });
+}
+
 async function startAR(THREE, createPortal) {
   if (!window.isSecureContext) throw new Error('Camera AR are nevoie de HTTPS.');
   setTracking(false, 'PORNIRE CAMERĂ...');
-  const XR8 = await loadArEngine();
-  if (!XR8?.Threejs || !XR8?.XrController) throw new Error('Motorul AR nu este disponibil pe acest dispozitiv.');
+  const [XR8, XRExtras] = await Promise.all([loadArEngine(), loadArExtras()]);
+  if (!XR8?.Threejs || !XR8?.XrController || !XRExtras?.FullWindowCanvas) throw new Error('Motorul AR nu este disponibil pe acest dispozitiv.');
   XR8.XrController.configure({ scale: 'absolute' });
   let last = performance.now();
   const sceneModule = {
@@ -255,32 +273,32 @@ async function startAR(THREE, createPortal) {
     },
     onException: () => reportArFailure('Motorul AR s-a oprit. Reîncarcă pagina și încearcă din nou.'),
     onStart: () => {
-      const { scene, camera, renderer } = XR8.Threejs.xrScene();
+      const { scene, camera } = XR8.Threejs.xrScene();
       scene.add(new THREE.AmbientLight(0xc3eaff, 1.2));
       const fill = new THREE.DirectionalLight(0xa9dfff, 1.25);
       fill.position.set(2, 3, 2);
       scene.add(fill);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
       camera.position.set(0, 1.5, 2.5);
       XR8.XrController.updateCameraProjectionMatrix({ origin: camera.position, facing: camera.quaternion });
       portal = createPortal(scene, camera);
       portal.setState(state);
       setMessage('');
-      setTracking(false, 'MIȘCĂ UȘOR TELEFONUL');
+      setTracking(false, 'PRIVEȘTE PODEAUA');
     },
     onUpdate: ({ processCpuResult }) => {
       const now = performance.now();
       portal?.update((now - last) / 1000);
       last = now;
       const status = processCpuResult?.reality?.trackingStatus;
-      if (status === 'NORMAL' && !trackingGood) setTracking(true, 'SPAȚIU IDENTIFICAT');
-      else if (status === 'LIMITED' && trackingGood) setTracking(false, 'MIȘCĂ UȘOR TELEFONUL');
+      if (status === 'NORMAL' && !trackingGood) setTracking(true, 'TRACKING ACTIV');
+      else if (status === 'LIMITED' && trackingGood) setTracking(false, 'MIȘCĂ LENT SPRE PODEA');
     },
   };
   XR8.addCameraPipelineModules([
     XR8.GlTextureRenderer.pipelineModule(),
     XR8.Threejs.pipelineModule(),
     XR8.XrController.pipelineModule(),
+    XRExtras.FullWindowCanvas.pipelineModule(),
     sceneModule,
   ]);
   XR8.run({ canvas, cameraConfig: { direction: XR8.XrConfig.camera().BACK } });
@@ -331,7 +349,9 @@ async function startExperience(demo) {
   if (arStarted) return;
   arStarted = true;
   unlockAudio();
+  viewportMeta.content = `${standardViewport}, maximum-scale=1, user-scalable=no`;
   $('phone-screen').classList.add('started');
+  $('phone-screen').classList.toggle('ar-live', !demo);
   $('phone-intro').hidden = true;
   $('phone-hud').hidden = false;
   setTracking(false, 'SE ÎNCARCĂ SCENA...');
@@ -340,12 +360,14 @@ async function startExperience(demo) {
   try {
     const THREE = await import('three');
     window.THREE = THREE;
-    const { createPortal } = await import('./portal.js?v=2');
+    const { createPortal } = await import('./portal.js?v=3');
     if (demo) startDemo(THREE, createPortal);
     else await startAR(THREE, createPortal);
   } catch (error) {
     arStarted = false;
+    viewportMeta.content = standardViewport;
     $('phone-screen').classList.remove('started');
+    $('phone-screen').classList.remove('ar-live');
     $('phone-intro').hidden = false;
     $('phone-hud').hidden = true;
     $('join-message').textContent = `${error.message} Poți încerca demo-ul 3D.`;
@@ -383,10 +405,12 @@ async function onCanvasDown(event) {
   canvas.setPointerCapture?.(event.pointerId);
   unlockAudio();
   if (!portal) { setMessage('Scena se încarcă. Încearcă din nou într-o clipă.'); return; }
-  if (!preview && !trackingGood) { setMessage('Mișcă lent telefonul până când spațiul este identificat.', true); return; }
+  if (state.phase === 'idle') { setMessage('Pe laptop, apasă „Deschide ruptura”, apoi revino la cameră.'); return; }
+  if (!preview && !trackingGood) { setMessage('Îndreaptă camera spre podea și mișcă lent telefonul până pornește trackingul.', true); return; }
   if (!portal.placed && ['armed', 'placed', 'stable'].includes(state.phase)) {
-    const point = preview ? new window.THREE.Vector3(0, 0, 0) : portal.groundPoint(event.clientX, event.clientY, canvas);
-    if (!point) { setMessage('Atinge podeaua la 2–4 metri în fața ta.', true); return; }
+    const aim = $('aim').getBoundingClientRect();
+    const point = preview ? new window.THREE.Vector3(0, 0, 0) : portal.groundPoint(aim.left + aim.width / 2, aim.top + aim.height / 2, canvas);
+    if (!point) { setMessage('Îndreaptă chenarul în jos, spre o podea liberă, apoi atinge din nou.', true); return; }
     const result = state.phase === 'armed' ? await sendEvent({ type: 'place' }) : { accepted: true };
     if (result.accepted) { portal.place(point); portal.setState(state); tone(240, 0.35); }
     return;

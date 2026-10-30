@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -61,7 +61,7 @@
     <section id="phone-intro" class="phone-intro">
       <div class="eyebrow"><i></i> FĂRĂ MARKERE</div>
       <h2>O LUME<br><em>DINCOLO.</em></h2>
-      <p>Conectează iPhone-ul la consola de pe laptop sau explorează singur. Mișcă telefonul ușor și alege un loc liber pe podea.</p>
+      <p>Camera nu scanează laptopul. Îndreapt-o spre podea, mișcă telefonul lent, aliniază chenarul cu un loc liber și atinge ecranul.</p>
       <label class="room-input-label" for="phone-room">CODUL DE PE LAPTOP <span>OPȚIONAL</span></label>
       <div class="join-row"><input id="phone-room" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="COD DE 6 CARACTERE"><button id="join-button" type="button">INTRĂ</button></div>
       <div id="join-message" class="join-message" aria-live="polite">Fără cod: frecvența se controlează direct de pe telefon.</div>
@@ -71,7 +71,7 @@
 
     <section id="phone-hud" class="phone-hud" hidden>
       <div class="tracking-row"><span id="tracking-dot" class="tracking-dot"></span><span id="tracking-label">PREGĂTIRE TRACKING</span><span id="room-chip">SOLO</span></div>
-      <div class="phone-center"><div id="aim" class="aim" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div id="interaction-tip" class="interaction-tip">Mișcă ușor telefonul spre podea.</div></div>
+      <div class="phone-center"><div id="aim" class="aim" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div id="interaction-tip" class="interaction-tip">Îndreaptă camera spre podea.</div></div>
       <div class="phone-bottom">
         <div class="phone-progress"><span id="phone-phase">PREGĂTIRE</span><strong id="phone-count">0 / 3</strong></div>
         <div id="phone-node-list" class="phone-node-list"><span data-node="0">01 <b>22%</b></span><span data-node="1">02 <b>52%</b></span><span data-node="2">03 <b>82%</b></span></div>
@@ -85,6 +85,6 @@
     </section>
   </main>
 
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=7"></script>
 </body>
 </html>

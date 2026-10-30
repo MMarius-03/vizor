@@ -25,7 +25,7 @@ Deschide URL-ul `https://...trycloudflare.com` afișat de tunel **pe laptop**, a
 ## Interacțiune
 
 1. Pe laptop apasă „Deschide ruptura”.
-2. Pe iPhone permite camera din spate, mișcă-l lent până apare „Spațiu identificat”, apoi atinge podeaua la aproximativ 2–4 metri. Folosește o suprafață cu detalii vizuale și lumină bună.
+2. Pe iPhone permite camera din spate și îndreapt-o spre podea, nu spre ecranul laptopului. Mișcă telefonul lent până apare „Tracking activ”, aliniază chenarul cu o zonă liberă a podelei la aproximativ 1–5 metri și atinge oriunde în zona camerei. Folosește o suprafață cu detalii vizuale și lumină bună.
 3. Reglează frecvența la 22%, 52%, apoi 82% pe laptop (sau pe telefon în modul solo) și atinge pe rând cele trei ancore luminoase de pe marginea portalului.
 4. Când cele trei ancore sunt aprinse, ține apăsat circa 1,5 secunde pe centrul portalului.
 5. Butonul rotund din dreapta sus resetează experiența. După închidere, „Deschide din nou” de pe laptop permite plasarea portalului într-un loc nou.
