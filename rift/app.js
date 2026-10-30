@@ -265,6 +265,7 @@ async function startAR(THREE, createPortal) {
       XR8.XrController.updateCameraProjectionMatrix({ origin: camera.position, facing: camera.quaternion });
       portal = createPortal(scene, camera);
       portal.setState(state);
+      setMessage('');
       setTracking(false, 'MIȘCĂ UȘOR TELEFONUL');
     },
     onUpdate: ({ processCpuResult }) => {
@@ -306,6 +307,7 @@ function startDemo(THREE, createPortal) {
   camera.lookAt(0, 1.05, 0);
   portal = createPortal(scene, camera);
   portal.setState(state);
+  setMessage('');
   const resize = () => {
     const width = canvas.clientWidth, height = canvas.clientHeight;
     renderer.setSize(width, height, false);
