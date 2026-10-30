@@ -89,7 +89,7 @@ async function sendEvent(event) {
     if (!response.ok) setMessage(result.error || 'Acțiunea nu a fost acceptată.', true);
     return { accepted: response.ok, reason: result.error };
   } catch {
-    setMessage('Conexiunea s-a pierdut. Verifică serverul de pe laptop.', true);
+    setMessage('Conexiunea s-a pierdut. Verifică rețeaua și încearcă din nou.', true);
     return { accepted: false };
   }
 }
