@@ -332,6 +332,8 @@ async function startExperience(demo) {
   $('phone-screen').classList.add('started');
   $('phone-intro').hidden = true;
   $('phone-hud').hidden = false;
+  setTracking(false, 'SE ÎNCARCĂ SCENA...');
+  setMessage('Se pregătește scena. Așteaptă o clipă.');
   if (!room && state.phase === 'idle') await sendEvent({ type: 'arm' });
   try {
     const THREE = await import('three');
@@ -339,12 +341,6 @@ async function startExperience(demo) {
     const { createPortal } = await import('./portal.js?v=2');
     if (demo) startDemo(THREE, createPortal);
     else await startAR(THREE, createPortal);
-    canvas.addEventListener('pointerdown', onCanvasDown);
-    canvas.addEventListener('pointerup', cancelHold);
-    canvas.addEventListener('pointercancel', cancelHold);
-    canvas.addEventListener('pointermove', (event) => {
-      if (holdPointer && Math.hypot(event.clientX - holdPointer.x, event.clientY - holdPointer.y) > 35) cancelHold();
-    });
   } catch (error) {
     arStarted = false;
     $('phone-screen').classList.remove('started');
@@ -384,7 +380,7 @@ async function onCanvasDown(event) {
   event.preventDefault();
   canvas.setPointerCapture?.(event.pointerId);
   unlockAudio();
-  if (!portal) return;
+  if (!portal) { setMessage('Scena se încarcă. Încearcă din nou într-o clipă.'); return; }
   if (!preview && !trackingGood) { setMessage('Mișcă lent telefonul până când spațiul este identificat.', true); return; }
   if (!portal.placed && ['armed', 'placed', 'stable'].includes(state.phase)) {
     const point = preview ? new window.THREE.Vector3(0, 0, 0) : portal.groundPoint(event.clientX, event.clientY, canvas);
@@ -405,6 +401,12 @@ async function onCanvasDown(event) {
 
 function initPhone() {
   renderPhone();
+  canvas.addEventListener('pointerdown', onCanvasDown);
+  canvas.addEventListener('pointerup', cancelHold);
+  canvas.addEventListener('pointercancel', cancelHold);
+  canvas.addEventListener('pointermove', (event) => {
+    if (holdPointer && Math.hypot(event.clientX - holdPointer.x, event.clientY - holdPointer.y) > 35) cancelHold();
+  });
   $('phone-room').value = (query.get('room') || '').toUpperCase();
   if (query.get('room')) joinRoom();
   $('join-button').addEventListener('click', joinRoom);
