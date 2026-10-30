@@ -16,6 +16,7 @@ let foundCount = 0;
 let updates = 0;
 let lastEvent = '—';
 let lastFrame = 0;
+let lastDebug = 0;
 let fps = 0;
 let starting = false;
 
@@ -54,10 +55,20 @@ function loadScript(src, globalName, eventName) {
     script.src = src;
     script.async = true;
     script.crossOrigin = 'anonymous';
+    if (globalName === 'XR8') script.dataset.preloadChunks = 'slam';
     script.onerror = () => done(new Error(`Nu am putut încărca ${globalName}. Verifică conexiunea.`));
     script.onload = () => { if (window[globalName]) done(); };
     document.head.append(script);
   });
+}
+
+async function waitForARModules(engine, extras) {
+  const until = performance.now() + 10000;
+  while (performance.now() < until) {
+    if (engine?.Threejs && engine?.XrController && extras?.FullWindowCanvas) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
 }
 
 function makeProbe(scene) {
@@ -137,6 +148,7 @@ async function startAR() {
     const target = await response.json();
     target.imagePath = new URL(target.imagePath, location.href).href;
     targetName = target.name;
+    setStatus('ȚINTĂ PREGĂTITĂ', 'loading', 'Se încarcă motorul AR.');
     three = await import('three');
     window.THREE = three;
 
@@ -144,9 +156,10 @@ async function startAR() {
       loadScript('https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js', 'XR8', 'xrloaded'),
       loadScript('https://cdn.jsdelivr.net/npm/@8thwall/xrextras@1/dist/xrextras.js', 'XRExtras', 'xrextrasloaded'),
     ]);
-    if (!engine?.Threejs || !engine?.XrController || !extras?.FullWindowCanvas) {
+    if (!await waitForARModules(engine, extras)) {
       throw new Error('Motorul AR nu este disponibil pe acest dispozitiv.');
     }
+    setStatus('MOTOR PREGĂTIT', 'loading', 'Se pornește camera din spate.');
     xr = engine;
     xr.XrController.configure({ disableWorldTracking: true, imageTargetData: [target] });
 
@@ -154,6 +167,8 @@ async function startAR() {
       name: 'rift-next-probe',
       onCameraStatusChange: ({ status }) => {
         if (status === 'failed') showError('Camera nu a pornit. Verifică permisiunea în Safari și reîncarcă pagina.');
+        else if (status === 'requesting') setStatus('PERMITE CAMERA', 'loading', 'Acceptă accesul la camera din spate.');
+        else if (status === 'hasStream' || status === 'hasVideo') setStatus('CAMERA PORNEȘTE', 'loading', 'Îndreaptă telefonul spre imaginea de pe laptop.');
       },
       onException: () => showError('Motorul AR s-a oprit. Reîncarcă pagina și încearcă din nou.'),
       onStart: () => {
@@ -166,7 +181,7 @@ async function startAR() {
         const now = performance.now();
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
-        if (debug && Math.floor(now / 500) !== Math.floor((now - 16) / 500)) updateDebug();
+        if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
       },
       listeners: [
         { event: 'reality.imageloading', process: () => {
@@ -197,7 +212,9 @@ async function startAR() {
       sceneModule,
     ]);
     viewport.content = `${normalViewport}, maximum-scale=1, user-scalable=no`;
+    setStatus('PORNIRE CAMERĂ', 'loading', 'Îndreaptă telefonul spre imaginea de pe laptop.');
     xr.run({ canvas, cameraConfig: { direction: xr.XrConfig.camera().BACK } });
+    updateDebug();
   } catch (error) {
     showError(error?.message || 'Camera AR nu a pornit.');
   }
