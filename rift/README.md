@@ -38,6 +38,6 @@ Deschide URL-ul `https://...trycloudflare.com` afișat de tunel **pe laptop**, a
 
 ## Fișiere
 
-`index.html`, `styles.css`, `app.js` și `portal.js` sunt experiența web. `protocol.js` definește starea și regulile interacțiunilor, iar `server.mjs` oferă sesiuni locale pentru dezvoltare. Backendul online este un proiect Sites separat, în folderul local `rift-backend-site/`, cu stocare D1. Nu există dependențe npm instalate în `rift/`.
+`index.html`, `styles.css`, `app.js` și `portal.js` sunt experiența web. `protocol.js` definește starea și regulile interacțiunilor, iar `server.mjs` oferă sesiuni locale pentru dezvoltare. Sursa backendului online este pe [ramura `rift-backend`](https://github.com/MMarius-03/vizor/tree/rift-backend), ca proiect Sites separat, cu stocare D1. Nu există dependențe npm instalate în `rift/`.
 
 Motorul 8th Wall este distribuit separat sub licența furnizorului; vezi [NOTICE.md](./NOTICE.md).
