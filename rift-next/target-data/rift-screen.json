@@ -1,0 +1,23 @@
+{
+  "imagePath": "./target-data/rift-screen_luminance.png",
+  "metadata": null,
+  "name": "rift-screen",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 0,
+    "width": 960,
+    "height": 1280,
+    "isRotated": false,
+    "originalWidth": 960,
+    "originalHeight": 1280
+  },
+  "resources": {
+    "originalImage": "rift-screen_original.png",
+    "croppedImage": "rift-screen_cropped.png",
+    "thumbnailImage": "rift-screen_thumbnail.png",
+    "luminanceImage": "rift-screen_luminance.png"
+  },
+  "created": 1793385066563,
+  "updated": 1793385066563
+}

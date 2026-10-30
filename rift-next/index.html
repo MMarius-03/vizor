@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- This product includes the XR Engine software developed by Niantic Spatial, Inc.
+     Copyright © 2026 Niantic Spatial, Inc. All rights reserved.
+     License: https://github.com/8thwall/engine/blob/main/LICENSE -->
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d0b">
+  <meta name="description" content="RIFT NEXT — probă de realitate augmentată ancorată de imaginea laptopului.">
+  <title>RIFT NEXT / Tracking test</title>
+  <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
+  <link rel="stylesheet" href="./styles.css?v=1">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
+</head>
+<body>
+  <canvas id="ar-canvas" aria-label="Camera și obiectul AR"></canvas>
+
+  <main id="laptop" class="laptop">
+    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / NEXT</span></a><span class="header-tag">01 — TRACKING TEST</span></header>
+    <div class="laptop-layout">
+      <section class="laptop-copy">
+        <span class="eyebrow"><span class="led"></span> PROBĂ AR PE IPHONE</span>
+        <h1>Ecranul devine<br><em>un reper.</em></h1>
+        <p>Ține această imagine vizibilă pe laptop. Camera iPhone o va recunoaște și va lega de ea un cub 3D.</p>
+        <ol class="steps">
+          <li><b>01</b><span>Deschide linkul pe iPhone în Safari.</span></li>
+          <li><b>02</b><span>Permite camera din spate și încadrează <strong>imaginea întreagă</strong>.</span></li>
+          <li><b>03</b><span>Mișcă telefonul lateral. Cubul trebuie să rămână prins de laptop.</span></li>
+        </ol>
+        <div class="laptop-actions"><button id="copy-link" type="button">COPIAZĂ LINKUL DE IPHONE <span>↗</span></button><a href="?mode=phone">Vezi pagina de iPhone</a></div>
+        <p id="copy-status" class="copy-status" aria-live="polite">Trimite linkul copiat pe telefon. Nu trebuie cod sau server local.</p>
+        <a class="credit" href="./NOTICE.md">Tehnologie și credite ↗</a>
+      </section>
+
+      <section class="target-stage" aria-label="Imaginea care trebuie scanată">
+        <div class="target-top"><span>RIFT / IMAGE TARGET</span><span>NU ACOPERI IMAGINEA</span></div>
+        <img id="target-image" src="./target-source.png" width="960" height="1280" alt="Imagine RIFT cu forme negre asimetrice, destinată urmăririi AR">
+        <div class="target-bottom"><span>ȚINTĂ STATICĂ / 960 × 1280</span><span>SCAN 01</span></div>
+      </section>
+    </div>
+  </main>
+
+  <main id="phone" class="phone">
+    <section id="intro" class="intro">
+      <div class="phone-brand">RIFT<span> / NEXT</span></div>
+      <div class="intro-copy"><span class="eyebrow"><span class="led"></span> TEST DE TRACKING REAL</span><h1>Privește<br><em>laptopul.</em></h1><p>Pornește camera, încadrează toată imaginea RIFT de pe laptop și mișcă lent telefonul. Cubul ar trebui să rămână în același loc fizic.</p></div>
+      <div class="intro-action"><button id="start-ar" type="button">PORNEȘTE CAMERA <span>↗</span></button><span>Safari · camera din spate · lumină bună</span></div>
+    </section>
+
+    <section id="live" class="live" hidden>
+      <div class="live-top"><span class="phone-brand">RIFT<span> / NEXT</span></span><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span></div>
+      <div id="scan-guide" class="scan-guide"><span></span><span></span><span></span><span></span></div>
+      <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div class="live-actions"><span id="target-count">ȚINTĂ NEDETECTATĂ</span><button id="restart" type="button">REPORNEȘTE</button></div></div>
+      <pre id="debug-panel" class="debug-panel" hidden></pre>
+    </section>
+
+    <section id="error" class="error" hidden><span class="phone-brand">RIFT / NEXT</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
+  </main>
+
+  <script type="module" src="./app.js?v=1"></script>
+</body>
+</html>
