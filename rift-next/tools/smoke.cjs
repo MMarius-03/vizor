@@ -55,6 +55,19 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
+    await page.evaluate(() => window.__fakeAR.tick());
+    await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -.65 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1.3,
+      scaledWidth: .975, scaledHeight: 1.3,
+    }));
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).poseZ, -1);
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).poseScale, 1);
+    await page.waitForTimeout(80);
+    await page.evaluate(() => window.__fakeAR.tick());
+    const smoothed = await page.evaluate(() => window.__RIFT_NEXT__.getState());
+    assert.ok(smoothed.poseZ > -1 && smoothed.poseZ < -.65);
+    assert.ok(smoothed.poseScale > 1 && smoothed.poseScale < 1.3);
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
     assert.equal(await page.locator('#tracking-state').textContent(), 'RECONECTARE');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true);

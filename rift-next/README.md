@@ -13,7 +13,7 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 
 ## Tracking și limite
 
-Modul implicit combină recunoașterea imaginii cu world tracking. Când recunoașterea se întrerupe scurt, obiectul rămâne la ultima ancoră și se estompează; după o pierdere mai lungă, se ascunde până când imaginea revine. `&tracking=image` păstrează modul de comparație doar cu recunoașterea imaginii. `&debug=1` afișează evenimentele, pierderile, recuperările și FPS.
+Modul implicit combină recunoașterea imaginii cu world tracking. Adâncimea și scara sunt netezite între cadre, iar dimensiunea locală a modelului rămâne fixă după prima recunoaștere. Când recunoașterea se întrerupe scurt, obiectul rămâne la ultima ancoră și se estompează; după o pierdere mai lungă, se ascunde până când imaginea revine. `&tracking=image` păstrează modul de comparație doar cu recunoașterea imaginii. `&debug=1` afișează evenimentele, pierderile, recuperările și FPS.
 
 Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualizarea de desktop și testul cu cameră simulată nu măsoară stabilitatea sau dimensiunea percepută în Safari. Scena nu detectează mâna în imaginea camerei și nu ocluzionează obiecte reale.
 

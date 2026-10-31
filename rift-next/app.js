@@ -28,6 +28,10 @@ let lossStartedAt = 0;
 let lastSeenAt = 0;
 let lostCount = 0;
 let recoveredCount = 0;
+let desiredPosition = null;
+let desiredRotation = null;
+let desiredScale = 1;
+let anchorSized = false;
 
 function setStatus(label, state, instruction) {
   $('tracking-state').textContent = label;
@@ -84,6 +88,8 @@ function makeProbe(scene) {
   targetRoot = new three.Group();
   targetRoot.visible = false;
   scene.add(targetRoot);
+  desiredPosition = new three.Vector3();
+  desiredRotation = new three.Quaternion();
 
   artifact = createRiftCore(three);
   targetRoot.add(artifact.root);
@@ -103,22 +109,27 @@ function applyTarget(detail) {
   if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
   const nextPosition = new three.Vector3(detail.position.x, detail.position.y, detail.position.z);
   const nextRotation = new three.Quaternion(detail.rotation.x, detail.rotation.y, detail.rotation.z, detail.rotation.w);
-  if (hasPose && recovering && now - lossStartedAt < lossGraceMs) {
-    targetRoot.position.lerp(nextPosition, 0.65);
-    targetRoot.quaternion.slerp(nextRotation, 0.65);
-  } else {
+  const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : 1;
+  desiredPosition.copy(nextPosition);
+  desiredRotation.copy(nextRotation);
+  desiredScale = scale;
+  // First detection and reacquisition after a long loss need an exact pose.
+  // Subsequent measurements are blended in the render loop.
+  if (!hasPose || !targetRoot.visible) {
     targetRoot.position.copy(nextPosition);
     targetRoot.quaternion.copy(nextRotation);
+    targetRoot.scale.setScalar(scale);
   }
-  const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : 1;
-  targetRoot.scale.setScalar(scale);
 
-  // Event dimensions are in scene units after applying the target's scale.
-  const width = detail.scaledWidth && detail.scaledWidth > 0 ? detail.scaledWidth / scale : 1;
-  const height = detail.scaledHeight && detail.scaledHeight > 0 ? detail.scaledHeight / scale : width * 4 / 3;
-  const size = Math.min(1.5, Math.max(0.06, width * 0.38));
-  artifact.root.scale.setScalar(size);
-  artifact.root.position.y = -height * .075;
+  // The printed target has fixed dimensions. Lock its local size once so
+  // detector width noise cannot resize the artifact on every image update.
+  if (!anchorSized) {
+    const width = detail.scaledWidth && detail.scaledWidth > 0 ? detail.scaledWidth / scale : 1;
+    const height = detail.scaledHeight && detail.scaledHeight > 0 ? detail.scaledHeight / scale : width * 4 / 3;
+    artifact.root.scale.setScalar(Math.min(1.5, Math.max(0.06, width * 0.38)));
+    artifact.root.position.y = -height * .075;
+    anchorSized = true;
+  }
   targetRoot.visible = true;
   artifact.setOpacity(1);
   hasPose = true;
@@ -131,6 +142,16 @@ function applyTarget(detail) {
       ? 'Mișcă telefonul lateral ca să vezi interiorul. Atinge nucleul ca să îl închizi.'
       : 'Mișcă telefonul lateral ca să vezi adâncimea. Atinge nucleul ca să îl deschizi.');
   $('target-count').textContent = artifact.isOpen ? 'CARCASĂ DESCHISĂ' : 'CARCASĂ ÎNCHISĂ';
+}
+
+function updateTargetPose(dt) {
+  if (!found || !desiredPosition || !dt) return;
+  // Fast lateral response, softer depth/scale response for hand-held zoom.
+  targetRoot.position.x = three.MathUtils.damp(targetRoot.position.x, desiredPosition.x, 14, dt);
+  targetRoot.position.y = three.MathUtils.damp(targetRoot.position.y, desiredPosition.y, 14, dt);
+  targetRoot.position.z = three.MathUtils.damp(targetRoot.position.z, desiredPosition.z, 8, dt);
+  targetRoot.quaternion.slerp(desiredRotation, 1 - Math.exp(-12 * dt));
+  targetRoot.scale.setScalar(three.MathUtils.damp(targetRoot.scale.x, desiredScale, 7, dt));
 }
 
 function markLost() {
@@ -165,6 +186,7 @@ function updateDebug() {
     `core: ${artifact?.isOpen ? 'open' : 'closed'}`,
     `last pose: ${lastSeenAt ? ((performance.now() - lastSeenAt) / 1000).toFixed(1) + 's' : '—'}`,
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
+    `depth: ${pose?.z.toFixed(2) ?? '—'} → ${desiredPosition?.z.toFixed(2) ?? '—'} | scale: ${targetRoot?.scale.x.toFixed(2) ?? '—'} → ${desiredScale.toFixed(2)}`,
     `canvas: ${canvas.width} × ${canvas.height} | fps: ${fps.toFixed(0)}`,
     `viewport: ${innerWidth} × ${innerHeight}`,
   ].join('\n');
@@ -216,8 +238,10 @@ async function startAR() {
       },
       onUpdate: () => {
         const now = performance.now();
+        const dt = lastFrame ? Math.min((now - lastFrame) / 1000, .05) : 0;
         updateTrackingHold(now);
-        artifact?.update(lastFrame ? (now - lastFrame) / 1000 : 0);
+        updateTargetPose(dt);
+        artifact?.update(dt);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
         if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
@@ -304,4 +328,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
