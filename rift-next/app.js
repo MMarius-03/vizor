@@ -4,6 +4,8 @@ const canvas = $('ar-canvas');
 const viewport = document.querySelector('meta[name="viewport"]');
 const normalViewport = viewport.content;
 const debug = new URLSearchParams(location.search).has('debug');
+const trackingMode = new URLSearchParams(location.search).get('tracking') === 'image' ? 'image' : 'hybrid';
+const lossGraceMs = trackingMode === 'hybrid' ? 1100 : 350;
 
 let xr = null;
 let targetRoot = null;
@@ -19,12 +21,17 @@ let lastFrame = 0;
 let lastDebug = 0;
 let fps = 0;
 let starting = false;
+let hasPose = false;
+let lossStartedAt = 0;
+let lastSeenAt = 0;
+let lostCount = 0;
+let recoveredCount = 0;
 
 function setStatus(label, state, instruction) {
   $('tracking-state').textContent = label;
   $('tracking-state').dataset.state = state;
   if (instruction) $('instruction').textContent = instruction;
-  $('live').dataset.found = String(state === 'found');
+  $('live').dataset.found = String(state === 'found' || state === 'grace');
 }
 
 function showError(message) {
@@ -79,6 +86,7 @@ function makeProbe(scene) {
   const material = new three.MeshStandardMaterial({
     color: 0xd5ef44, metalness: 0.17, roughness: 0.36,
     emissive: 0x526600, emissiveIntensity: 0.22,
+    transparent: true,
   });
   cube = new three.Mesh(new three.BoxGeometry(1, 1, 1), material);
   cube.position.z = 0.5;
@@ -86,7 +94,7 @@ function makeProbe(scene) {
 
   const edges = new three.LineSegments(
     new three.EdgesGeometry(cube.geometry),
-    new three.LineBasicMaterial({ color: 0x0a1007 }),
+    new three.LineBasicMaterial({ color: 0x0a1007, transparent: true }),
   );
   cube.add(edges);
   scene.add(new three.AmbientLight(0xffffff, 1.8));
@@ -97,8 +105,18 @@ function makeProbe(scene) {
 
 function applyTarget(detail) {
   if (!targetRoot || detail?.name !== targetName || !detail.position || !detail.rotation) return;
-  targetRoot.position.set(detail.position.x, detail.position.y, detail.position.z);
-  targetRoot.quaternion.set(detail.rotation.x, detail.rotation.y, detail.rotation.z, detail.rotation.w);
+  const now = performance.now();
+  const recovering = lossStartedAt > 0;
+  if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
+  const nextPosition = new three.Vector3(detail.position.x, detail.position.y, detail.position.z);
+  const nextRotation = new three.Quaternion(detail.rotation.x, detail.rotation.y, detail.rotation.z, detail.rotation.w);
+  if (hasPose && recovering && now - lossStartedAt < lossGraceMs) {
+    targetRoot.position.lerp(nextPosition, 0.65);
+    targetRoot.quaternion.slerp(nextRotation, 0.65);
+  } else {
+    targetRoot.position.copy(nextPosition);
+    targetRoot.quaternion.copy(nextRotation);
+  }
   const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : 1;
   targetRoot.scale.setScalar(scale);
 
@@ -108,6 +126,11 @@ function applyTarget(detail) {
   cube.scale.setScalar(size);
   cube.position.z = size * 0.55;
   targetRoot.visible = true;
+  cube.material.opacity = 1;
+  cube.children[0].material.opacity = 1;
+  hasPose = true;
+  lossStartedAt = 0;
+  lastSeenAt = now;
   found = true;
   updates += 1;
   setStatus('IMAGINE GĂSITĂ', 'found', 'Mișcă-te lateral. Cubul trebuie să rămână prins de imagine. Atinge cubul pentru a-i schimba culoarea.');
@@ -115,10 +138,26 @@ function applyTarget(detail) {
 }
 
 function markLost() {
-  if (targetRoot) targetRoot.visible = false;
+  if (!found) return;
   found = false;
+  lossStartedAt = performance.now();
+  lostCount += 1;
   lastEvent = 'imagine pierdută';
-  setStatus('IMAGINE PIERDUTĂ', 'lost', 'Încadrează din nou toată imaginea de pe laptop.');
+  setStatus('RECONECTARE', 'grace', 'Ține imaginea în cadru. Refixăm obiectul.');
+}
+
+function updateTrackingHold(now) {
+  if (!lossStartedAt || !targetRoot) return;
+  const elapsed = now - lossStartedAt;
+  if (elapsed >= lossGraceMs) {
+    targetRoot.visible = false;
+    lossStartedAt = 0;
+    setStatus('IMAGINE PIERDUTĂ', 'lost', 'Încadrează din nou imaginea întreagă de pe laptop.');
+    return;
+  }
+  const opacity = Math.max(0.25, 1 - (elapsed / lossGraceMs) * 0.65);
+  cube.material.opacity = opacity;
+  cube.children[0].material.opacity = opacity;
 }
 
 function updateDebug() {
@@ -127,6 +166,8 @@ function updateDebug() {
   $('debug-panel').textContent = [
     `event: ${lastEvent}`,
     `target: ${targetName || '—'} | found: ${found} | updates: ${updates}`,
+    `tracking: ${trackingMode} | losses: ${lostCount} | recovered: ${recoveredCount}`,
+    `last pose: ${lastSeenAt ? ((performance.now() - lastSeenAt) / 1000).toFixed(1) + 's' : '—'}`,
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
     `canvas: ${canvas.width} × ${canvas.height} | fps: ${fps.toFixed(0)}`,
     `viewport: ${innerWidth} × ${innerHeight}`,
@@ -161,7 +202,7 @@ async function startAR() {
     }
     setStatus('MOTOR PREGĂTIT', 'loading', 'Se pornește camera din spate.');
     xr = engine;
-    xr.XrController.configure({ disableWorldTracking: true, imageTargetData: [target] });
+    xr.XrController.configure({ disableWorldTracking: trackingMode === 'image', imageTargetData: [target] });
 
     const sceneModule = {
       name: 'rift-next-probe',
@@ -179,6 +220,7 @@ async function startAR() {
       },
       onUpdate: () => {
         const now = performance.now();
+        updateTrackingHold(now);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
         if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
@@ -246,6 +288,11 @@ if (phoneMode) {
   $('retry').addEventListener('click', () => location.reload());
   canvas.addEventListener('pointerdown', onCanvasTap);
 } else {
+  $('focus-target').addEventListener('click', () => document.body.classList.add('target-focus'));
+  $('exit-focus').addEventListener('click', () => document.body.classList.remove('target-focus'));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') document.body.classList.remove('target-focus');
+  });
   $('copy-link').addEventListener('click', async () => {
     const url = new URL(location.href);
     url.search = '?mode=phone';
@@ -258,4 +305,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible }) };

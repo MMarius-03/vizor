@@ -14,6 +14,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
         emit(name, detail) {
           for (const listener of events[name] || []) listener({ name, detail });
         },
+        tick() { sceneModule?.onUpdate(); },
         get configuration() { return this._configuration; },
       };
       window.XR8 = {
@@ -40,7 +41,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.getByRole('button', { name: /PORNEȘTE CAMERA/ }).click();
     await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
     const configuration = await page.evaluate(() => window.__fakeAR.configuration);
-    assert.equal(configuration.disableWorldTracking, true);
+    assert.equal(configuration.disableWorldTracking, false);
     assert.equal(configuration.imageTargetData[0].name, 'rift-screen');
     assert.match(configuration.imageTargetData[0].imagePath, /rift-next\/target-data\/rift-screen_luminance\.png$/);
 
@@ -52,8 +53,19 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#tracking-state').textContent(), 'IMAGINE GĂSITĂ');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).found, true);
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'RECONECTARE');
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
+      name: 'rift-screen', position: { x: .1, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1, scaledWidth: .75,
+    }));
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).recoveredCount, 1);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
+    await page.waitForTimeout(1150);
+    await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.locator('#tracking-state').textContent(), 'IMAGINE PIERDUTĂ');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).found, false);
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, false);
     assert.deepEqual(errors, []);
     console.log('RIFT NEXT mock camera flow: OK');
   } finally {

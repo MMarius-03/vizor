@@ -10,7 +10,7 @@
   <meta name="description" content="RIFT NEXT — probă de realitate augmentată ancorată de imaginea laptopului.">
   <title>RIFT NEXT / Tracking test</title>
   <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="stylesheet" href="./styles.css?v=2">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -28,13 +28,13 @@
           <li><b>02</b><span>Permite camera din spate și încadrează <strong>imaginea întreagă</strong>.</span></li>
           <li><b>03</b><span>Mișcă telefonul lateral. Cubul trebuie să rămână prins de laptop.</span></li>
         </ol>
-        <div class="laptop-actions"><button id="copy-link" type="button">COPIAZĂ LINKUL DE IPHONE <span>↗</span></button><a href="?mode=phone">Vezi pagina de iPhone</a></div>
+        <div class="laptop-actions"><button id="copy-link" type="button">COPIAZĂ LINKUL DE IPHONE <span>↗</span></button><button id="focus-target" class="focus-button" type="button">MĂREȘTE ȚINTA <span>⤢</span></button></div>
         <p id="copy-status" class="copy-status" aria-live="polite">Trimite linkul copiat pe telefon. Nu trebuie cod sau server local.</p>
         <a class="credit" href="./NOTICE.md">Tehnologie și credite ↗</a>
       </section>
 
       <section class="target-stage" aria-label="Imaginea care trebuie scanată">
-        <div class="target-top"><span>RIFT / IMAGE TARGET</span><span>NU ACOPERI IMAGINEA</span></div>
+        <div class="target-top"><span>RIFT / IMAGE TARGET</span><button id="exit-focus" type="button">ÎNAPOI ×</button></div>
         <img id="target-image" src="./target-source.png" width="960" height="1280" alt="Imagine RIFT cu forme negre asimetrice, destinată urmăririi AR">
         <div class="target-bottom"><span>ȚINTĂ STATICĂ / 960 × 1280</span><span>SCAN 01</span></div>
       </section>
@@ -58,6 +58,6 @@
     <section id="error" class="error" hidden><span class="phone-brand">RIFT / NEXT</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=1"></script>
+  <script type="module" src="./app.js?v=2"></script>
 </body>
 </html>
