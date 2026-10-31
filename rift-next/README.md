@@ -2,6 +2,8 @@
 
 Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Folderul este separat de versiunea [`../rift/`](../rift/).
 
+[Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
+
 ## Încearcă experiența
 
 1. Deschide [pagina de laptop](https://mmarius-03.github.io/vizor/rift-next/). Așteaptă codul sesiunii, copiază linkul generat pentru iPhone și apasă **Mărește ținta**. Ține imaginea întreagă pe ecran, cu luminozitate suficientă și fără reflexii puternice.
