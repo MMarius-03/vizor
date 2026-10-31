@@ -1,22 +1,25 @@
-# RIFT NEXT — image tracking proof
+# RIFT Core — etapa 1
 
-This folder is a separate WebAR experiment. The current experience remains in [`../rift/`](../rift/).
+Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Folderul este separat de versiunea [`../rift/`](../rift/).
 
-## Try it
+## Încearcă experiența
 
-1. Open `https://mmarius-03.github.io/vizor/rift-next/` on the laptop. Use **Mărește ținta** after copying the phone link. Keep the complete static target image visible and raise the laptop brightness enough to avoid a dim or reflective image.
-2. Use **Copiază linkul de iPhone** and open that link in Safari on the iPhone.
-3. Allow the rear camera, frame the complete target, then move slowly sideways. The cube should stay attached to the same place on the laptop image. Tap the cube to change its color.
-4. Briefly cover the target, then uncover it. A short tracking interruption should fade the cube and reconnect it. A longer loss should hide it until the target is recognized again.
+1. Deschide [pagina de laptop](https://mmarius-03.github.io/vizor/rift-next/), copiază linkul de iPhone și apasă **Mărește ținta**. Ține imaginea întreagă pe ecran, cu luminozitate suficientă și fără reflexii puternice.
+2. Deschide [pagina de iPhone](https://mmarius-03.github.io/vizor/rift-next/?mode=phone) în Safari și permite camera din spate.
+3. Încadrează imaginea RIFT. Mișcă telefonul lateral ca să vezi adâncimea artefactului.
+4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă. Atinge din nou pentru a o închide.
 
-The default mode combines image tracking with world tracking to keep the last known anchor during short detection gaps. Add `&tracking=image` to compare the original image-only tracking, and `&debug=1` to see detection events, losses, recoveries, canvas size and frame rate. Camera access requires HTTPS on the phone. These modes need a physical iPhone comparison; the mock browser test cannot measure actual tracking quality.
+[Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.
 
-This is a **tracking test**, not the final RIFT scene. It uses an image displayed on the laptop as a visual marker. The image target events come from 8th Wall; the cube is placed only after `reality.imagefound`/`reality.imageupdated`. During a brief loss, the hybrid mode holds the last anchor while world tracking updates the camera. There is no placement on a real table, hand tracking or real-world occlusion yet. The comparison mode disables world tracking.
+## Tracking și limite
 
-## Files and sources
+Modul implicit combină recunoașterea imaginii cu world tracking. Când recunoașterea se întrerupe scurt, obiectul rămâne la ultima ancoră și se estompează; după o pierdere mai lungă, se ascunde până când imaginea revine. `&tracking=image` păstrează modul de comparație doar cu recunoașterea imaginii. `&debug=1` afișează evenimentele, pierderile, recuperările și FPS.
 
-- `target-source.png` is the exact image displayed on the laptop. `tools/make-target.py` regenerates it with Pillow.
-- `target-data/rift-screen.json` and the derived images were produced with `npx @8thwall/image-target-cli@latest`. Its `imagePath` was changed to a page-relative URL for GitHub Pages.
-- `app.js` uses the same Three.js and [8th Wall Engine Binary](https://8thwall.org/docs/open-source) family as the existing RIFT page. See the [image target configuration](https://8thwall.org/docs/api/engine/xrcontroller/configure) and [event documentation](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule).
+Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualizarea de desktop și testul cu cameră simulată nu măsoară stabilitatea sau dimensiunea percepută în Safari. Scena nu detectează mâna în imaginea camerei și nu ocluzionează obiecte reale.
 
-The camera tracking must be validated on a physical iPhone. Desktop viewport emulation cannot establish whether the laptop image tracks steadily in Safari.
+## Implementare
+
+- `target-source.png` este imaginea statică afișată pe laptop; `tools/make-target.py` o regenerează cu Pillow.
+- `target-data/rift-screen.json` și imaginile derivate au fost generate cu [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
+- `artifact.js` construiește obiectul din geometrii Three.js, îl animă numai la atingere și oferă o suprafață generoasă pentru tap.
+- `app.js` folosește [8th Wall Engine Binary](https://8thwall.org/docs/open-source), [configurarea țintelor](https://8thwall.org/docs/api/engine/xrcontroller/configure) și [evenimentele de tracking](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule). Vezi [NOTICE.md](./NOTICE.md) pentru credite.

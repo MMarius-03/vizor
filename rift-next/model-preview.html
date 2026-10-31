@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RIFT Core / Model Preview</title>
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d0b}canvas{display:block;width:100%;height:100%}#note{position:fixed;left:18px;bottom:16px;color:#d5ef44;font:12px monospace;pointer-events:none}</style>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
+</head>
+<body>
+  <div id="note">RIFT CORE / clic: deschide · trage: rotește perspectiva</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { createRiftCore } from './artifact.js';
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0d0b);
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.body.prepend(renderer.domElement);
+    const camera = new THREE.PerspectiveCamera(45, 1, .01, 20);
+    const posterTexture = new THREE.TextureLoader().load('./target-source.png');
+    posterTexture.colorSpace = THREE.SRGBColorSpace;
+    const poster = new THREE.Mesh(
+      new THREE.PlaneGeometry(.75, 1),
+      new THREE.MeshBasicMaterial({map:posterTexture}),
+    );
+    scene.add(poster);
+    const artifact = createRiftCore(THREE);
+    artifact.root.scale.setScalar(.75 * .38);
+    artifact.root.position.y = -.075;
+    scene.add(artifact.root);
+    scene.add(new THREE.HemisphereLight(0xe5efd4, 0x161d18, 2.2));
+    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    key.position.set(1,2,3);scene.add(key);
+    const rim = new THREE.DirectionalLight(0xd5ef44, 1.1);
+    rim.position.set(-2,-1,1);scene.add(rim);
+    let angle = 0;
+    let dragStart = null;
+    const setView = () => {
+      camera.position.set(Math.sin(angle)*1.4, .22, Math.cos(angle)*1.4);
+      camera.lookAt(0,0,0);
+    };
+    setView();
+    renderer.domElement.addEventListener('pointerdown', (event) => {dragStart={x:event.clientX, angle};});
+    renderer.domElement.addEventListener('pointermove', (event) => {
+      if (!dragStart) return;
+      angle=dragStart.angle+(event.clientX-dragStart.x)*.006;
+      setView();
+    });
+    renderer.domElement.addEventListener('pointerup', (event) => {
+      if (dragStart && Math.abs(event.clientX-dragStart.x)<5) artifact.toggle();
+      dragStart=null;
+    });
+    const resize = () => {
+      renderer.setSize(innerWidth,innerHeight);
+      camera.aspect=innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+    };
+    addEventListener('resize', resize);
+    resize();
+    const draw = (now) => {
+      artifact.update((now-(draw.last||now))/1000);
+      draw.last=now;
+      renderer.render(scene,camera);
+      requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+    window.__PREVIEW__ = { artifact, setAngle(value){angle=value;setView();} };
+  </script>
+</body>
+</html>

@@ -50,8 +50,11 @@ const { chromium } = require(process.argv[2] || 'playwright');
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
       scaledWidth: 0.75, scaledHeight: 1,
     }));
-    assert.equal(await page.locator('#tracking-state').textContent(), 'IMAGINE GĂSITĂ');
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CORE ANCORAT');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).found, true);
+    await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
     assert.equal(await page.locator('#tracking-state').textContent(), 'RECONECTARE');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true);
@@ -60,6 +63,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1, scaledWidth: .75,
     }));
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).recoveredCount, 1);
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
     await page.waitForTimeout(1150);
     await page.evaluate(() => window.__fakeAR.tick());

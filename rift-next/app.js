@@ -1,3 +1,5 @@
+import { createRiftCore } from './artifact.js';
+
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
 const canvas = $('ar-canvas');
@@ -9,7 +11,7 @@ const lossGraceMs = trackingMode === 'hybrid' ? 1100 : 350;
 
 let xr = null;
 let targetRoot = null;
-let cube = null;
+let artifact = null;
 let camera = null;
 let three = null;
 let targetName = '';
@@ -83,24 +85,15 @@ function makeProbe(scene) {
   targetRoot.visible = false;
   scene.add(targetRoot);
 
-  const material = new three.MeshStandardMaterial({
-    color: 0xd5ef44, metalness: 0.17, roughness: 0.36,
-    emissive: 0x526600, emissiveIntensity: 0.22,
-    transparent: true,
-  });
-  cube = new three.Mesh(new three.BoxGeometry(1, 1, 1), material);
-  cube.position.z = 0.5;
-  targetRoot.add(cube);
-
-  const edges = new three.LineSegments(
-    new three.EdgesGeometry(cube.geometry),
-    new three.LineBasicMaterial({ color: 0x0a1007, transparent: true }),
-  );
-  cube.add(edges);
-  scene.add(new three.AmbientLight(0xffffff, 1.8));
-  const key = new three.DirectionalLight(0xffffff, 2);
+  artifact = createRiftCore(three);
+  targetRoot.add(artifact.root);
+  scene.add(new three.HemisphereLight(0xe5efd4, 0x161d18, 2.2));
+  const key = new three.DirectionalLight(0xffffff, 2.4);
   key.position.set(1, 2, 3);
   scene.add(key);
+  const rim = new three.DirectionalLight(0xd5ef44, 1.1);
+  rim.position.set(-2, -1, 1);
+  scene.add(rim);
 }
 
 function applyTarget(detail) {
@@ -122,19 +115,22 @@ function applyTarget(detail) {
 
   // Event dimensions are in scene units after applying the target's scale.
   const width = detail.scaledWidth && detail.scaledWidth > 0 ? detail.scaledWidth / scale : 1;
-  const size = Math.min(1.5, Math.max(0.06, width * 0.28));
-  cube.scale.setScalar(size);
-  cube.position.z = size * 0.55;
+  const height = detail.scaledHeight && detail.scaledHeight > 0 ? detail.scaledHeight / scale : width * 4 / 3;
+  const size = Math.min(1.5, Math.max(0.06, width * 0.38));
+  artifact.root.scale.setScalar(size);
+  artifact.root.position.y = -height * .075;
   targetRoot.visible = true;
-  cube.material.opacity = 1;
-  cube.children[0].material.opacity = 1;
+  artifact.setOpacity(1);
   hasPose = true;
   lossStartedAt = 0;
   lastSeenAt = now;
   found = true;
   updates += 1;
-  setStatus('IMAGINE GĂSITĂ', 'found', 'Mișcă-te lateral. Cubul trebuie să rămână prins de imagine. Atinge cubul pentru a-i schimba culoarea.');
-  $('target-count').textContent = `RECUNOAȘTERI ${String(foundCount).padStart(2, '0')}`;
+  setStatus(artifact.isOpen ? 'CORE DESCHIS' : 'CORE ANCORAT', 'found',
+    artifact.isOpen
+      ? 'Mișcă telefonul lateral ca să vezi interiorul. Atinge nucleul ca să îl închizi.'
+      : 'Mișcă telefonul lateral ca să vezi adâncimea. Atinge nucleul ca să îl deschizi.');
+  $('target-count').textContent = artifact.isOpen ? 'CARCASĂ DESCHISĂ' : 'CARCASĂ ÎNCHISĂ';
 }
 
 function markLost() {
@@ -156,8 +152,7 @@ function updateTrackingHold(now) {
     return;
   }
   const opacity = Math.max(0.25, 1 - (elapsed / lossGraceMs) * 0.65);
-  cube.material.opacity = opacity;
-  cube.children[0].material.opacity = opacity;
+  artifact.setOpacity(opacity);
 }
 
 function updateDebug() {
@@ -167,6 +162,7 @@ function updateDebug() {
     `event: ${lastEvent}`,
     `target: ${targetName || '—'} | found: ${found} | updates: ${updates}`,
     `tracking: ${trackingMode} | losses: ${lostCount} | recovered: ${recoveredCount}`,
+    `core: ${artifact?.isOpen ? 'open' : 'closed'}`,
     `last pose: ${lastSeenAt ? ((performance.now() - lastSeenAt) / 1000).toFixed(1) + 's' : '—'}`,
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
     `canvas: ${canvas.width} × ${canvas.height} | fps: ${fps.toFixed(0)}`,
@@ -221,6 +217,7 @@ async function startAR() {
       onUpdate: () => {
         const now = performance.now();
         updateTrackingHold(now);
+        artifact?.update(lastFrame ? (now - lastFrame) / 1000 : 0);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
         if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
@@ -263,7 +260,7 @@ async function startAR() {
 }
 
 function onCanvasTap(event) {
-  if (!found || !cube || !camera) return;
+  if (!found || !artifact || !camera) return;
   const rect = canvas.getBoundingClientRect();
   const pointer = new three.Vector2(
     ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -273,12 +270,14 @@ function onCanvasTap(event) {
   camera.updateMatrixWorld();
   const ray = new three.Raycaster();
   ray.setFromCamera(pointer, camera);
-  if (!ray.intersectObject(cube, false).length) return;
-  const alternate = cube.material.color.getHex() === 0xd5ef44;
-  cube.material.color.setHex(alternate ? 0xffffff : 0xd5ef44);
-  cube.material.emissive.setHex(alternate ? 0x44554a : 0x526600);
-  lastEvent = 'cub atins';
-  $('instruction').textContent = 'Atingerea a funcționat. Acum mișcă telefonul în jurul laptopului.';
+  if (!ray.intersectObject(artifact.hitTarget, false).length) return;
+  const open = artifact.toggle();
+  lastEvent = open ? 'core deschis' : 'core închis';
+  setStatus(open ? 'CORE DESCHIS' : 'CORE ANCORAT', 'found',
+    open
+      ? 'Mișcă telefonul lateral ca să vezi interiorul. Atinge nucleul ca să îl închizi.'
+      : 'Atinge nucleul ca să îl deschizi din nou.');
+  $('target-count').textContent = open ? 'CARCASĂ DESCHISĂ' : 'CARCASĂ ÎNCHISĂ';
   updateDebug();
 }
 
@@ -305,4 +304,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen }) };
