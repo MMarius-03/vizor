@@ -7,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b0d0b">
-  <meta name="description" content="RIFT Core — un artefact 3D ancorat de imaginea laptopului.">
+  <meta name="description" content="RIFT Core — un artefact AR ancorat de laptop, controlat prin atingere și glisare.">
   <title>RIFT Core / AR</title>
   <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
   <link rel="stylesheet" href="./styles.css?v=3">
@@ -17,16 +17,16 @@
   <canvas id="ar-canvas" aria-label="Camera și obiectul AR"></canvas>
 
   <main id="laptop" class="laptop">
-    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / CORE</span></a><span class="header-tag">02 — AR OBJECT</span></header>
+    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / CORE</span></a><span class="header-tag">03 — INTERACTION</span></header>
     <div class="laptop-layout">
       <section class="laptop-copy">
-        <span class="eyebrow"><span class="led"></span> RIFT CORE / ETAPA 01</span>
+        <span class="eyebrow"><span class="led"></span> RIFT CORE / ETAPA 02</span>
         <h1>Ce se ascunde<br><em>în ecran.</em></h1>
-        <p>Imaginea de pe laptop ancorează un artefact 3D. Privește-l din unghiuri diferite, apoi atinge nucleul pe iPhone.</p>
+        <p>Imaginea de pe laptop ancorează un artefact 3D. Deschide carcasa, rotește mecanismul și activează cele trei puncte pe iPhone.</p>
         <ol class="steps">
           <li><b>01</b><span>Deschide linkul pe iPhone în Safari.</span></li>
           <li><b>02</b><span>Permite camera din spate și încadrează <strong>imaginea întreagă</strong>.</span></li>
-          <li><b>03</b><span>Mișcă telefonul lateral și atinge nucleul pentru a deschide carcasa.</span></li>
+          <li><b>03</b><span>Atinge nucleul, glisează peste el și aprinde cele trei puncte.</span></li>
         </ol>
         <div class="laptop-actions"><button id="copy-link" type="button">COPIAZĂ LINKUL DE IPHONE <span>↗</span></button><button id="focus-target" class="focus-button" type="button">MĂREȘTE ȚINTA <span>⤢</span></button></div>
         <p id="copy-status" class="copy-status" aria-live="polite">Trimite linkul copiat pe telefon. Nu trebuie cod sau server local.</p>
@@ -44,7 +44,7 @@
   <main id="phone" class="phone">
     <section id="intro" class="intro">
       <div class="phone-brand">RIFT<span> / CORE</span></div>
-      <div class="intro-copy"><span class="eyebrow"><span class="led"></span> AR ANCORAT DE ECRAN</span><h1>Privește<br><em>laptopul.</em></h1><p>Încadrează imaginea RIFT întreagă. Mișcă telefonul lateral ca să vezi volumul, apoi atinge nucleul ca să îl deschizi.</p></div>
+      <div class="intro-copy"><span class="eyebrow"><span class="led"></span> AR ANCORAT DE ECRAN</span><h1>Privește<br><em>laptopul.</em></h1><p>Încadrează imaginea RIFT. Atinge nucleul, glisează peste el pentru a roti mecanismul, apoi activează cele trei puncte.</p></div>
       <div class="intro-action"><button id="start-ar" type="button">PORNEȘTE CAMERA <span>↗</span></button><span>Safari · camera din spate · lumină bună</span></div>
     </section>
 
@@ -58,6 +58,6 @@
     <section id="error" class="error" hidden><span class="phone-brand">RIFT / CORE</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./app.js?v=5"></script>
 </body>
 </html>

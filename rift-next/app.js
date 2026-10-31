@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js';
+import { createRiftCore } from './artifact.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -32,12 +32,30 @@ let desiredPosition = null;
 let desiredRotation = null;
 let desiredScale = 1;
 let anchorSized = false;
+let activePointer = null;
 
 function setStatus(label, state, instruction) {
-  $('tracking-state').textContent = label;
-  $('tracking-state').dataset.state = state;
-  if (instruction) $('instruction').textContent = instruction;
+  if ($('tracking-state').textContent !== label) $('tracking-state').textContent = label;
+  if ($('tracking-state').dataset.state !== state) $('tracking-state').dataset.state = state;
+  if (instruction && $('instruction').textContent !== instruction) $('instruction').textContent = instruction;
   $('live').dataset.found = String(state === 'found' || state === 'grace');
+}
+
+function renderCoreState() {
+  if (!artifact) return;
+  if (artifact.isComplete) {
+    setStatus('CORE STABIL', 'found', 'Toate cele trei puncte sunt active. Mișcă telefonul lateral ca să explorezi obiectul.');
+    $('target-count').textContent = 'NODURI 3 / 3';
+  } else if (!artifact.isOpen) {
+    setStatus('CORE ANCORAT', 'found', 'Atinge nucleul ca să deschizi carcasa.');
+    $('target-count').textContent = 'CARCASĂ ÎNCHISĂ';
+  } else if (!artifact.isArmed) {
+    setStatus('CORE DESCHIS', 'found', 'Glisează orizontal peste nucleu ca să rotești mecanismul.');
+    $('target-count').textContent = 'ROTEȘTE NUCLEUL';
+  } else {
+    setStatus('MECANISM ARMAT', 'found', 'Atinge cele trei puncte luminoase din jurul nucleului.');
+    $('target-count').textContent = `NODURI ${artifact.progress} / 3`;
+  }
 }
 
 function showError(message) {
@@ -137,11 +155,7 @@ function applyTarget(detail) {
   lastSeenAt = now;
   found = true;
   updates += 1;
-  setStatus(artifact.isOpen ? 'CORE DESCHIS' : 'CORE ANCORAT', 'found',
-    artifact.isOpen
-      ? 'Mișcă telefonul lateral ca să vezi interiorul. Atinge nucleul ca să îl închizi.'
-      : 'Mișcă telefonul lateral ca să vezi adâncimea. Atinge nucleul ca să îl deschizi.');
-  $('target-count').textContent = artifact.isOpen ? 'CARCASĂ DESCHISĂ' : 'CARCASĂ ÎNCHISĂ';
+  renderCoreState();
 }
 
 function updateTargetPose(dt) {
@@ -157,6 +171,7 @@ function updateTargetPose(dt) {
 function markLost() {
   if (!found) return;
   found = false;
+  activePointer = null;
   lossStartedAt = performance.now();
   lostCount += 1;
   lastEvent = 'imagine pierdută';
@@ -183,7 +198,7 @@ function updateDebug() {
     `event: ${lastEvent}`,
     `target: ${targetName || '—'} | found: ${found} | updates: ${updates}`,
     `tracking: ${trackingMode} | losses: ${lostCount} | recovered: ${recoveredCount}`,
-    `core: ${artifact?.isOpen ? 'open' : 'closed'}`,
+    `core: ${artifact?.isOpen ? 'open' : 'closed'} | armed: ${artifact?.isArmed} | nodes: ${artifact?.progress ?? 0}/3`,
     `last pose: ${lastSeenAt ? ((performance.now() - lastSeenAt) / 1000).toFixed(1) + 's' : '—'}`,
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
     `depth: ${pose?.z.toFixed(2) ?? '—'} → ${desiredPosition?.z.toFixed(2) ?? '—'} | scale: ${targetRoot?.scale.x.toFixed(2) ?? '—'} → ${desiredScale.toFixed(2)}`,
@@ -283,25 +298,91 @@ async function startAR() {
   }
 }
 
-function onCanvasTap(event) {
-  if (!found || !artifact || !camera) return;
-  const rect = canvas.getBoundingClientRect();
-  const pointer = new three.Vector2(
-    ((event.clientX - rect.left) / rect.width) * 2 - 1,
-    -((event.clientY - rect.top) / rect.height) * 2 + 1,
-  );
+function preparePicking() {
   targetRoot.updateWorldMatrix(true, true);
   camera.updateMatrixWorld();
+}
+
+function coreHit(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new three.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  preparePicking();
   const ray = new three.Raycaster();
   ray.setFromCamera(pointer, camera);
-  if (!ray.intersectObject(artifact.hitTarget, false).length) return;
-  const open = artifact.toggle();
-  lastEvent = open ? 'core deschis' : 'core închis';
-  setStatus(open ? 'CORE DESCHIS' : 'CORE ANCORAT', 'found',
-    open
-      ? 'Mișcă telefonul lateral ca să vezi interiorul. Atinge nucleul ca să îl închizi.'
-      : 'Atinge nucleul ca să îl deschizi din nou.');
-  $('target-count').textContent = open ? 'CARCASĂ DESCHISĂ' : 'CARCASĂ ÎNCHISĂ';
+  return ray.intersectObject(artifact.hitTarget, false).length > 0;
+}
+
+function pickNode(clientX, clientY) {
+  if (!artifact?.isOpen) return -1;
+  preparePicking();
+  const rect = canvas.getBoundingClientRect();
+  const center = artifact.root.getWorldPosition(new three.Vector3()).project(camera);
+  const centerX = rect.left + (center.x + 1) * rect.width / 2;
+  const centerY = rect.top + (1 - center.y) * rect.height / 2;
+  const centerDistance = Math.hypot(clientX - centerX, clientY - centerY);
+  let selected = -1;
+  let nearest = 52;
+  const nodeStates = artifact.nodeStates;
+  for (let i = 0; i < 3; i += 1) {
+    if (nodeStates[i]) continue;
+    const point = artifact.getNodeWorldPosition(i, new three.Vector3()).project(camera);
+    if (point.z < -1 || point.z > 1) continue;
+    const x = rect.left + (point.x + 1) * rect.width / 2;
+    const y = rect.top + (1 - point.y) * rect.height / 2;
+    const distance = Math.hypot(clientX - x, clientY - y);
+    if (distance < nearest) { nearest = distance; selected = i; }
+  }
+  return nearest + 8 < centerDistance ? selected : -1;
+}
+
+function onCanvasPointerDown(event) {
+  if (!found || !artifact || !camera || activePointer) return;
+  const node = pickNode(event.clientX, event.clientY);
+  const onCore = coreHit(event.clientX, event.clientY);
+  if (node < 0 && !onCore) return;
+  activePointer = {
+    id: event.pointerId, startX: event.clientX, startY: event.clientY,
+    lastX: event.clientX, onCore, node, dragging: false,
+  };
+  canvas.setPointerCapture(event.pointerId);
+}
+
+function onCanvasPointerMove(event) {
+  if (!activePointer || event.pointerId !== activePointer.id) return;
+  if (!found) { activePointer = null; return; }
+  const distance = Math.hypot(event.clientX - activePointer.startX, event.clientY - activePointer.startY);
+  if (activePointer.onCore && artifact.isOpen && distance > 10) {
+    activePointer.dragging = true;
+    const result = artifact.dragRotor(event.clientX - activePointer.lastX);
+    if (result.justArmed) {
+      lastEvent = 'mecanism armat';
+      renderCoreState();
+      updateDebug();
+    }
+  }
+  activePointer.lastX = event.clientX;
+}
+
+function onCanvasPointerUp(event) {
+  if (!activePointer || event.pointerId !== activePointer.id) return;
+  const gesture = activePointer;
+  activePointer = null;
+  if (!found || gesture.dragging || Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 14) return;
+  if (gesture.node >= 0) {
+    if (artifact.activateNode(gesture.node)) {
+      lastEvent = `nod ${gesture.node + 1} activat`;
+      renderCoreState();
+    } else if (!artifact.isArmed) {
+      $('instruction').textContent = 'Glisează întâi orizontal peste nucleu ca să armezi mecanismul.';
+    }
+  } else if (gesture.onCore) {
+    const open = artifact.toggle();
+    lastEvent = open ? 'core deschis' : 'core închis';
+    renderCoreState();
+  }
   updateDebug();
 }
 
@@ -309,7 +390,10 @@ if (phoneMode) {
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => location.reload());
   $('retry').addEventListener('click', () => location.reload());
-  canvas.addEventListener('pointerdown', onCanvasTap);
+  canvas.addEventListener('pointerdown', onCanvasPointerDown);
+  canvas.addEventListener('pointermove', onCanvasPointerMove);
+  canvas.addEventListener('pointerup', onCanvasPointerUp);
+  canvas.addEventListener('pointercancel', () => { activePointer = null; });
 } else {
   $('focus-target').addEventListener('click', () => document.body.classList.add('target-focus'));
   $('exit-focus').addEventListener('click', () => document.body.classList.remove('target-focus'));
@@ -318,7 +402,7 @@ if (phoneMode) {
   });
   $('copy-link').addEventListener('click', async () => {
     const url = new URL(location.href);
-    url.search = '?mode=phone';
+    url.search = '?mode=phone&v=5';
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -328,4 +412,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };

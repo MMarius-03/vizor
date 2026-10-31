@@ -21,7 +21,11 @@ const { chromium } = require(process.argv[2] || 'playwright');
         GlTextureRenderer: { pipelineModule: () => ({ name: 'camera' }) },
         Threejs: {
           pipelineModule: () => ({ name: 'three' }),
-          xrScene: () => ({ scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100) }),
+          xrScene: () => {
+            const result = { scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100) };
+            window.__fakeAR.scene = result;
+            return result;
+          },
         },
         XrController: {
           configure: (options) => { window.__fakeAR._configuration = options; },
@@ -55,6 +59,33 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
+    await page.evaluate(() => window.__fakeAR.tick());
+    await page.waitForTimeout(80);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-node-1').visible), true);
+    const nodePoints = await page.evaluate(() => {
+      const { scene, camera } = window.__fakeAR.scene;
+      scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
+      const rect = document.getElementById('ar-canvas').getBoundingClientRect();
+      return [1, 2, 3].map((index) => {
+        const position = scene.getObjectByName(`rift-node-${index}`).getWorldPosition(new window.THREE.Vector3()).project(camera);
+        return { x: rect.left + (position.x + 1) * rect.width / 2, y: rect.top + (1 - position.y) * rect.height / 2 };
+      });
+    });
+    await page.mouse.click(nodePoints[0].x, nodePoints[0].y);
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 0);
+    await page.mouse.move(215, 466);
+    await page.mouse.down();
+    await page.mouse.move(310, 466, { steps: 6 });
+    await page.mouse.up();
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).armed, true);
+    await page.evaluate(() => window.__fakeAR.tick());
+    for (let i = 0; i < 3; i += 1) {
+      await page.mouse.click(nodePoints[i].x, nodePoints[i].y);
+      assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, i + 1);
+    }
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CORE STABIL');
     await page.evaluate(() => window.__fakeAR.tick());
     await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
       name: 'rift-screen', position: { x: 0, y: 0, z: -.65 },

@@ -39,10 +39,10 @@ export function createRiftCore(THREE) {
     parent.add(mesh);
     return mesh;
   };
-  const ring = (outer, inner, depth, surface, z, offset = Math.PI / 6) => {
+  const ring = (outer, inner, depth, surface, z, offset = Math.PI / 6, parent = root) => {
     const shape = new THREE.Shape(polygon(outer, 6, offset));
     shape.holes.push(new THREE.Path(polygon(inner, 6, offset).reverse()));
-    return plate(shape, depth, 0, surface, z);
+    return plate(shape, depth, 0, surface, z, parent);
   };
 
   // The mounting plate and raised bridge give the core a readable side profile.
@@ -61,14 +61,32 @@ export function createRiftCore(THREE) {
     root.add(brace);
   }
 
-  // Three restrained light marks establish orientation without a busy glow.
-  const markerGeometry = new THREE.BoxGeometry(.115, .021, .016);
+  // Three physical terminals become the large one-thumb interaction targets.
+  const nodes = [];
+  const pathGeometry = new THREE.BoxGeometry(.48, .022, .016);
   for (let i = 0; i < 3; i += 1) {
-    const angle = -Math.PI / 2 + i * Math.PI * 2 / 3;
-    const marker = new THREE.Mesh(markerGeometry, acid);
-    marker.position.set(Math.cos(angle) * .62, Math.sin(angle) * .62, .075);
-    marker.rotation.z = angle + Math.PI / 2;
-    root.add(marker);
+    const angle = Math.PI / 2 + i * Math.PI * 2 / 3;
+    const holder = new THREE.Group();
+    holder.name = `rift-node-${i + 1}`;
+    holder.visible = false;
+    holder.position.set(Math.cos(angle) * .77, Math.sin(angle) * .77, .56);
+    root.add(holder);
+    const housing = new THREE.Mesh(new THREE.CylinderGeometry(.13, .13, .052, 6), ceramic);
+    housing.rotation.x = Math.PI / 2;
+    holder.add(housing);
+    const faceMaterial = material(0x657064, {
+      metalness: .22, roughness: .38, emissive: 0x53631f, emissiveIntensity: .12,
+    });
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .058, 6), faceMaterial);
+    face.rotation.x = Math.PI / 2;
+    face.position.z = .028;
+    holder.add(face);
+    const path = new THREE.Mesh(pathGeometry, acid);
+    path.position.set(Math.cos(angle) * .43, Math.sin(angle) * .43, .52);
+    path.rotation.z = angle;
+    path.visible = false;
+    root.add(path);
+    nodes.push({ holder, faceMaterial, path, active: false, flash: 0 });
   }
 
   const nucleus = new THREE.Group();
@@ -84,6 +102,17 @@ export function createRiftCore(THREE) {
   const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(.12, 0), recess);
   crown.position.set(.015, -.012, .205);
   nucleus.add(crown);
+  const rotor = new THREE.Group();
+  nucleus.add(rotor);
+  ring(.3, .255, .025, metal, .145, Math.PI / 6, rotor);
+  const toothGeometry = new THREE.BoxGeometry(.11, .025, .02);
+  for (let i = 0; i < 3; i += 1) {
+    const angle = Math.PI / 2 + i * Math.PI * 2 / 3;
+    const tooth = new THREE.Mesh(toothGeometry, acid);
+    tooth.position.set(Math.cos(angle) * .28, Math.sin(angle) * .28, .18);
+    tooth.rotation.z = angle + Math.PI / 2;
+    rotor.add(tooth);
+  }
   root.add(nucleus);
 
   const blades = [];
@@ -121,6 +150,8 @@ export function createRiftCore(THREE) {
 
   let openness = 0;
   let desiredOpen = 0;
+  let rotorAngle = 0;
+  let armed = false;
   function update(dt) {
     const blend = 1 - Math.exp(-Math.min(dt, .08) * 7);
     openness += (desiredOpen - openness) * blend;
@@ -134,13 +165,46 @@ export function createRiftCore(THREE) {
     }
     nucleus.position.z = .275 + .11 * eased;
     nucleus.rotation.z = .14 * eased;
-    nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased;
+    nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased + (nodes.every((node) => node.active) ? .7 : 0);
+    rotor.rotation.z = rotorAngle;
+    for (const node of nodes) {
+      node.flash = Math.max(0, node.flash - dt * 2.5);
+      node.holder.visible = eased > .15;
+      node.path.visible = node.active && eased > .15;
+      node.holder.scale.setScalar(.55 + .45 * eased + node.flash * .22);
+      node.faceMaterial.color.setHex(node.active ? 0xf3ffd4 : armed ? 0xcde940 : 0x657064);
+      node.faceMaterial.emissiveIntensity = node.active ? 1.4 + node.flash : armed ? .7 : .12;
+    }
   }
 
   return {
     root, hitTarget, update,
-    toggle() { desiredOpen = desiredOpen ? 0 : 1; return !!desiredOpen; },
+    toggle() {
+      if (nodes.every((node) => node.active)) return true;
+      desiredOpen = desiredOpen ? 0 : 1;
+      return !!desiredOpen;
+    },
+    dragRotor(deltaX) {
+      if (!desiredOpen || nodes.every((node) => node.active)) return { accepted: false, armed };
+      rotorAngle += deltaX * .014;
+      const justArmed = !armed && Math.abs(rotorAngle) >= .75;
+      if (justArmed) armed = true;
+      return { accepted: true, armed, justArmed };
+    },
+    activateNode(index) {
+      const node = nodes[index];
+      if (!desiredOpen || !armed || !node || node.active) return false;
+      node.active = true;
+      node.flash = 1;
+      node.path.visible = true;
+      return true;
+    },
+    getNodeWorldPosition(index, out) { return nodes[index]?.holder.getWorldPosition(out); },
     get isOpen() { return !!desiredOpen; },
+    get isArmed() { return armed; },
+    get progress() { return nodes.filter((node) => node.active).length; },
+    get isComplete() { return nodes.every((node) => node.active); },
+    get nodeStates() { return nodes.map((node) => node.active); },
     setOpacity(alpha) {
       for (const surface of fadeMaterials) {
         surface.opacity = alpha;
