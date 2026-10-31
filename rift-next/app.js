@@ -1,5 +1,5 @@
-import { createRiftCore } from './artifact.js?v=3';
-import { createCoreSession } from './sync.js?v=2';
+import { createRiftCore } from './artifact.js?v=4';
+import { createCoreSession } from './sync.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -37,6 +37,8 @@ let desiredScale = 1;
 let anchorSized = false;
 let activePointer = null;
 let restoredCoreState = null;
+let lastLaptopPulseCount = null;
+let laptopPulseTimer = 0;
 
 const session = createCoreSession({
   role: phoneMode ? 'phone' : 'console',
@@ -55,6 +57,16 @@ const session = createCoreSession({
       $('phone-sync-live').dataset.online = label.dataset.online;
       if (error && debug) label.title = error;
     } else {
+      const nextPulseCount = state?.pulseCount ?? 0;
+      if (lastLaptopPulseCount !== null && nextPulseCount > lastLaptopPulseCount) {
+        const stage = $('sync-stage');
+        stage.classList.remove('sync-pulse');
+        void stage.offsetWidth;
+        stage.classList.add('sync-pulse');
+        clearTimeout(laptopPulseTimer);
+        laptopPulseTimer = setTimeout(() => stage.classList.remove('sync-pulse'), 1100);
+      }
+      lastLaptopPulseCount = nextPulseCount;
       try { if (code) sessionStorage.setItem('rift-core-room', code); else sessionStorage.removeItem('rift-core-room'); } catch {}
       $('room-code').textContent = code || '······';
       $('sync-status').textContent = !code ? (error || 'Se pregătește conexiunea…') : !online ? 'Reconectare la server…' : presence.phone ? 'iPhone conectat · gesturile apar aici' : 'Așteptăm iPhone-ul · trimite linkul';
@@ -81,19 +93,27 @@ function setStatus(label, state, instruction) {
 
 function renderCoreState() {
   if (!artifact) return;
+  let status;
+  let instruction;
   if (artifact.isComplete) {
-    setStatus('CORE STABIL', 'found', 'Toate cele trei puncte sunt active. Mișcă telefonul lateral ca să explorezi obiectul.');
+    status = 'CORE STABIL';
+    instruction = 'Atinge nucleul pentru un impuls, glisează ca să-l rotești sau reia ciclul.';
     $('target-count').textContent = 'NODURI 3 / 3';
   } else if (!artifact.isOpen) {
-    setStatus('CORE ANCORAT', 'found', 'Atinge nucleul ca să deschizi carcasa.');
+    status = 'CORE ANCORAT';
+    instruction = 'Atinge nucleul ca să deschizi carcasa.';
     $('target-count').textContent = 'CARCASĂ ÎNCHISĂ';
   } else if (!artifact.isArmed) {
-    setStatus('CORE DESCHIS', 'found', 'Glisează orizontal peste nucleu ca să rotești mecanismul.');
+    status = 'CORE DESCHIS';
+    instruction = 'Glisează orizontal peste nucleu ca să rotești mecanismul.';
     $('target-count').textContent = 'ROTEȘTE NUCLEUL';
   } else {
-    setStatus('MECANISM ARMAT', 'found', 'Atinge cele trei puncte luminoase din jurul nucleului.');
+    status = 'MECANISM ARMAT';
+    instruction = 'Atinge cele trei puncte luminoase din jurul nucleului.';
     $('target-count').textContent = `NODURI ${artifact.progress} / 3`;
   }
+  if (found) setStatus(status, 'found', instruction);
+  $('restart').textContent = artifact.isComplete ? 'REIA CICLUL' : 'REPORNEȘTE CAMERA';
   $('node-controls').hidden = !artifact.isOpen || !artifact.isArmed || artifact.isComplete;
   for (const button of $('node-controls').querySelectorAll('button')) {
     const active = artifact.nodeStates[Number(button.dataset.node)];
@@ -434,10 +454,16 @@ function onCanvasPointerUp(event) {
   if (gesture.node >= 0) {
     activateNode(gesture.node);
   } else if (gesture.onCore) {
-    const open = artifact.toggle();
-    lastEvent = open ? 'core deschis' : 'core închis';
-    publishCore(open ? 'open' : 'close');
-    renderCoreState();
+    if (artifact.isComplete) {
+      artifact.pulse();
+      lastEvent = 'impuls core';
+      publishCore('pulse');
+    } else {
+      const open = artifact.toggle();
+      lastEvent = open ? 'core deschis' : 'core închis';
+      publishCore(open ? 'open' : 'close');
+      renderCoreState();
+    }
   }
   updateDebug();
 }
@@ -445,7 +471,14 @@ function onCanvasPointerUp(event) {
 if (phoneMode) {
   session.start();
   $('start-ar').addEventListener('click', startAR);
-  $('restart').addEventListener('click', () => location.reload());
+  $('restart').addEventListener('click', () => {
+    if (!artifact?.isComplete) return location.reload();
+    artifact.reset();
+    lastEvent = 'ciclu reluat';
+    publishCore('reset');
+    renderCoreState();
+    updateDebug();
+  });
   $('retry').addEventListener('click', () => location.reload());
   canvas.addEventListener('pointerdown', onCanvasPointerDown);
   canvas.addEventListener('pointermove', onCanvasPointerMove);
@@ -468,7 +501,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=7`;
+    url.search = `?mode=phone&room=${session.code}&v=8`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -478,4 +511,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };

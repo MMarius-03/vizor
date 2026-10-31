@@ -21,7 +21,7 @@ async function request(path, options = {}) {
 export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
   let code = /^[A-HJ-NP-Z2-9]{6}$/.test(initialCode || '') ? initialCode : '';
   let state = null;
-  let pending = null;
+  let pending = [];
   let sending = false;
   let polling = false;
   let online = false;
@@ -32,21 +32,21 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
   const notify = (error = '', errorStatus = 0) => onUpdate({ code, state, presence, online, error, errorStatus });
 
   async function flush() {
-    if (!code || !pending || sending) return;
+    if (!code || !pending.length || sending) return;
     sending = true;
-    while (pending && code) {
-      const next = pending;
-      pending = null;
+    while (pending.length && code) {
+      const next = pending[0];
       try {
         const result = await request(`/api/room/${code}/event`, {
           method: 'POST', body: JSON.stringify({ type: 'core/sync', ...next }),
         });
         state = result.state;
+        pending.shift();
         online = true;
         notify();
       } catch (error) {
         if (error.status === 409 && error.responseState?.experience === 'core') {
-          pending = null;
+          pending = [];
           state = error.responseState;
           localChanges = false;
           online = true;
@@ -54,7 +54,6 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
           notify('Starea a fost actualizată pe alt dispozitiv.');
           break;
         }
-        pending = pending || next;
         online = false;
         notify(error.message, error.status);
         break;
@@ -84,7 +83,7 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
       presence = room.presence;
       online = true;
       notify();
-      if (pending) void flush();
+      if (pending.length) void flush();
     } catch (error) {
       online = false;
       if (role === 'console' && (error.status === 404 || error.status === 400)) {
@@ -110,7 +109,7 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
     publish(snapshot, action) {
       if (role !== 'phone') return;
       localChanges = true;
-      pending = { ...snapshot, action };
+      pending.push({ ...snapshot, action });
       void flush();
     },
     get code() { return code; },

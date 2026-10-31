@@ -95,6 +95,33 @@ const { chromium } = require(process.argv[2] || 'playwright');
       assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, i + 1);
     }
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE STABIL');
+    assert.equal(await page.locator('#restart').textContent(), 'REIA CICLUL');
+    await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
+    await page.evaluate(() => window.__fakeAR.tick());
+    const pulseState = await page.evaluate(() => ({
+      state: window.__RIFT_NEXT__.getState(),
+      scale: window.__fakeAR.scene.scene.getObjectByName('rift-nucleus').scale.x,
+    }));
+    assert.equal(pulseState.state.lastEvent, 'impuls core');
+    assert.equal(pulseState.state.complete, true);
+    assert.ok(pulseState.scale > 1);
+    const rotorBefore = await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-rotor').rotation.z);
+    await page.mouse.move(215, 466);
+    await page.mouse.down();
+    await page.mouse.move(310, 466, { steps: 6 });
+    await page.mouse.up();
+    await page.evaluate(() => window.__fakeAR.tick());
+    const rotorAfter = await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-rotor').rotation.z);
+    assert.notEqual(rotorAfter, rotorBefore);
+    await page.locator('#restart').click();
+    const resetState = await page.evaluate(() => window.__RIFT_NEXT__.getState());
+    assert.equal(resetState.progress, 0);
+    assert.equal(resetState.armed, false);
+    assert.equal(resetState.coreOpen, false);
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CORE ANCORAT');
+    assert.equal(await page.locator('#restart').textContent(), 'REPORNEȘTE CAMERA');
+    await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     await page.evaluate(() => window.__fakeAR.tick());
     await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
       name: 'rift-screen', position: { x: 0, y: 0, z: -.65 },

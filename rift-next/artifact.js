@@ -90,6 +90,7 @@ export function createRiftCore(THREE) {
   }
 
   const nucleus = new THREE.Group();
+  nucleus.name = 'rift-nucleus';
   nucleus.position.z = .275;
   const collar = new THREE.Mesh(
     new THREE.CylinderGeometry(.245, .275, .15, 6), ceramic,
@@ -103,6 +104,7 @@ export function createRiftCore(THREE) {
   crown.position.set(.015, -.012, .205);
   nucleus.add(crown);
   const rotor = new THREE.Group();
+  rotor.name = 'rift-rotor';
   nucleus.add(rotor);
   ring(.3, .255, .025, metal, .145, Math.PI / 6, rotor);
   const toothGeometry = new THREE.BoxGeometry(.11, .025, .02);
@@ -152,7 +154,10 @@ export function createRiftCore(THREE) {
   let desiredOpen = 0;
   let rotorAngle = 0;
   let armed = false;
+  let pulseFlash = 0;
+  let pulseCount = 0;
   function update(dt) {
+    pulseFlash = Math.max(0, pulseFlash - dt * 1.4);
     const blend = 1 - Math.exp(-Math.min(dt, .08) * 7);
     openness += (desiredOpen - openness) * blend;
     if (Math.abs(desiredOpen - openness) < .001) openness = desiredOpen;
@@ -165,7 +170,9 @@ export function createRiftCore(THREE) {
     }
     nucleus.position.z = .275 + .11 * eased;
     nucleus.rotation.z = .14 * eased;
-    nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased + (nodes.every((node) => node.active) ? .7 : 0);
+    nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased + (nodes.every((node) => node.active) ? .7 : 0) + pulseFlash * 2.4;
+    nucleus.scale.setScalar(1 + pulseFlash * .16);
+    acid.emissiveIntensity = .65 + pulseFlash * 1.5;
     rotor.rotation.z = rotorAngle;
     for (const node of nodes) {
       node.flash = Math.max(0, node.flash - dt * 2.5);
@@ -185,7 +192,7 @@ export function createRiftCore(THREE) {
       return !!desiredOpen;
     },
     dragRotor(deltaX) {
-      if (!desiredOpen || nodes.every((node) => node.active)) return { accepted: false, armed };
+      if (!desiredOpen) return { accepted: false, armed };
       rotorAngle += deltaX * .014;
       const justArmed = !armed && Math.abs(rotorAngle) >= .75;
       if (justArmed) armed = true;
@@ -199,6 +206,20 @@ export function createRiftCore(THREE) {
       node.path.visible = true;
       return true;
     },
+    pulse() {
+      if (!desiredOpen || !nodes.every((node) => node.active)) return false;
+      pulseFlash = 1;
+      pulseCount += 1;
+      return true;
+    },
+    reset() {
+      desiredOpen = 0;
+      armed = false;
+      rotorAngle = 0;
+      pulseFlash = 0;
+      nodes.forEach((node) => { node.active = false; node.flash = 0; });
+      return true;
+    },
     getNodeWorldPosition(index, out) { return nodes[index]?.holder.getWorldPosition(out); },
     get isOpen() { return !!desiredOpen; },
     get isArmed() { return armed; },
@@ -206,7 +227,7 @@ export function createRiftCore(THREE) {
     get isComplete() { return nodes.every((node) => node.active); },
     get nodeStates() { return nodes.map((node) => node.active); },
     getSyncState() {
-      return { open: !!desiredOpen, armed, nodes: nodes.map((node) => node.active) };
+      return { open: !!desiredOpen, armed, nodes: nodes.map((node) => node.active), pulseCount };
     },
     restoreState(state) {
       if (state?.experience !== 'core' || !Array.isArray(state.nodes) || state.nodes.length !== 3) return;
@@ -214,6 +235,8 @@ export function createRiftCore(THREE) {
       openness = desiredOpen;
       armed = !!state.armed;
       rotorAngle = armed ? .85 : 0;
+      pulseFlash = 0;
+      pulseCount = Number.isSafeInteger(state.pulseCount) && state.pulseCount >= 0 ? state.pulseCount : 0;
       nodes.forEach((node, index) => { node.active = !!state.nodes[index]; node.flash = 0; });
       update(0);
     },

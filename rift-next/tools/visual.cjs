@@ -12,11 +12,11 @@ fs.mkdirSync(output, { recursive: true });
   try {
     const laptop = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
     let creates = 0;
+    let laptopState = { experience: 'core', open: false, armed: false, nodes: [false, false, false], pulseCount: 0, revision: 0, lastAction: 'init' };
     await laptop.route('https://rift-sync-api.grassyyew19.chatgpt.site/**', async (route) => {
       if (route.request().url().endsWith('/api/room')) creates += 1;
       if (route.request().method() === 'GET') assert.equal(route.request().headers()['content-type'], undefined);
-      const state = { experience: 'core', open: false, armed: false, nodes: [false, false, false], revision: 0, lastAction: 'init' };
-      await route.fulfill({ status: route.request().url().endsWith('/api/room') ? 201 : 200, contentType: 'application/json', body: JSON.stringify({ code: 'ABCDEF', state, presence: { console: true, phone: false } }) });
+      await route.fulfill({ status: route.request().url().endsWith('/api/room') ? 201 : 200, contentType: 'application/json', body: JSON.stringify({ code: 'ABCDEF', state: laptopState, presence: { console: true, phone: true } }) });
     });
     await laptop.goto('http://127.0.0.1:4173/rift-next/?mode=laptop');
     await laptop.getByText('ABCDEF').waitFor();
@@ -26,12 +26,18 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(creates, 1, 'reloading the laptop must reuse its room');
     await laptop.getByRole('button', { name: /MĂREȘTE ȚINTA/ }).click();
     await laptop.screenshot({ path: path.join(output, 'laptop-focus.png') });
+    laptopState = { experience: 'core', open: true, armed: true, nodes: [true, true, true], pulseCount: 0, revision: 5, lastAction: 'node:2' };
+    await laptop.getByText('CORE STABIL', { exact: true }).waitFor();
+    await laptop.screenshot({ path: path.join(output, 'laptop-complete.png') });
+    laptopState = { ...laptopState, pulseCount: 1, revision: 6, lastAction: 'pulse' };
+    await laptop.locator('#sync-stage.sync-pulse').waitFor();
+    await laptop.screenshot({ path: path.join(output, 'laptop-pulse.png') });
 
     const phone = await browser.newPage({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 1 });
+    let phoneState = { experience: 'core', open: true, armed: true, nodes: [true, false, false], pulseCount: 0, revision: 3, lastAction: 'node:0' };
     await phone.route('https://rift-sync-api.grassyyew19.chatgpt.site/**', async (route) => {
       if (route.request().method() === 'GET') assert.equal(route.request().headers()['content-type'], undefined);
-      const state = { experience: 'core', open: true, armed: true, nodes: [true, false, false], revision: 3, lastAction: 'node:0' };
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 'ABCDEF', state, presence: { console: true, phone: true } }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 'ABCDEF', state: phoneState, presence: { console: true, phone: true } }) });
     });
     await phone.addInitScript(() => {
       let sceneModule;
@@ -65,6 +71,16 @@ fs.mkdirSync(output, { recursive: true });
     await phone.screenshot({ path: path.join(output, 'phone-live-small.png') });
     await phone.setViewportSize({ width: 932, height: 430 });
     await phone.screenshot({ path: path.join(output, 'phone-live-landscape.png') });
+    phoneState = { experience: 'core', open: true, armed: true, nodes: [true, true, true], pulseCount: 1, revision: 6, lastAction: 'pulse' };
+    await phone.setViewportSize({ width: 430, height: 932 });
+    await phone.reload();
+    await phone.getByRole('button', { name: /PORNEȘTE CAMERA/ }).click();
+    await phone.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
+    await phone.evaluate(() => window.__sceneModule.listeners.find((entry) => entry.event === 'reality.imagefound').process({ detail: {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -1 }, rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1, scaledWidth: .75, scaledHeight: 1,
+    } }));
+    await phone.getByRole('button', { name: 'REIA CICLUL' }).waitFor();
+    await phone.screenshot({ path: path.join(output, 'phone-complete.png') });
     const model = await browser.newPage({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 1 });
     await model.goto('http://127.0.0.1:4173/rift-next/model-preview.html');
     await model.locator('canvas').waitFor();
