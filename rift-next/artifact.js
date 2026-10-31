@@ -205,6 +205,18 @@ export function createRiftCore(THREE) {
     get progress() { return nodes.filter((node) => node.active).length; },
     get isComplete() { return nodes.every((node) => node.active); },
     get nodeStates() { return nodes.map((node) => node.active); },
+    getSyncState() {
+      return { open: !!desiredOpen, armed, nodes: nodes.map((node) => node.active) };
+    },
+    restoreState(state) {
+      if (state?.experience !== 'core' || !Array.isArray(state.nodes) || state.nodes.length !== 3) return;
+      desiredOpen = state.open ? 1 : 0;
+      openness = desiredOpen;
+      armed = !!state.armed;
+      rotorAngle = armed ? .85 : 0;
+      nodes.forEach((node, index) => { node.active = !!state.nodes[index]; node.flash = 0; });
+      update(0);
+    },
     setOpacity(alpha) {
       for (const surface of fadeMaterials) {
         surface.opacity = alpha;

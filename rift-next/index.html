@@ -10,17 +10,17 @@
   <meta name="description" content="RIFT Core — un artefact AR ancorat de laptop, controlat prin atingere și glisare.">
   <title>RIFT Core / AR</title>
   <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
   <canvas id="ar-canvas" aria-label="Camera și obiectul AR"></canvas>
 
   <main id="laptop" class="laptop">
-    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / CORE</span></a><span class="header-tag">03 — INTERACTION</span></header>
+    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / CORE</span></a><span class="header-tag">03 — LIVE SYNC</span></header>
     <div class="laptop-layout">
       <section class="laptop-copy">
-        <span class="eyebrow"><span class="led"></span> RIFT CORE / ETAPA 02</span>
+        <span class="eyebrow"><span class="led"></span> RIFT CORE / ETAPA 03</span>
         <h1>Ce se ascunde<br><em>în ecran.</em></h1>
         <p>Imaginea de pe laptop ancorează un artefact 3D. Deschide carcasa, rotește mecanismul și activează cele trei puncte pe iPhone.</p>
         <ol class="steps">
@@ -29,14 +29,16 @@
           <li><b>03</b><span>Atinge nucleul, glisează peste el și aprinde cele trei puncte.</span></li>
         </ol>
         <div class="laptop-actions"><button id="copy-link" type="button">COPIAZĂ LINKUL DE IPHONE <span>↗</span></button><button id="focus-target" class="focus-button" type="button">MĂREȘTE ȚINTA <span>⤢</span></button></div>
-        <p id="copy-status" class="copy-status" aria-live="polite">Trimite linkul copiat pe telefon. Nu trebuie cod sau server local.</p>
+        <div class="room-line" aria-live="polite"><span>SESIUNE <b id="room-code">······</b></span><span id="sync-status">Se pregătește conexiunea…</span></div>
+        <p id="copy-status" class="copy-status" aria-live="polite">Trimite linkul pe iPhone. Conexiunea funcționează și fără server local.</p>
         <a class="credit" href="./NOTICE.md">Tehnologie și credite ↗</a>
       </section>
 
-      <section class="target-stage" aria-label="Imaginea care trebuie scanată">
+      <section id="sync-stage" class="target-stage" aria-label="Imaginea care trebuie scanată">
         <div class="target-top"><span>RIFT / IMAGE TARGET</span><button id="exit-focus" type="button">ÎNAPOI ×</button></div>
         <img id="target-image" src="./target-source.png" width="960" height="1280" alt="Imagine RIFT cu forme negre asimetrice, destinată urmăririi AR">
         <div class="target-bottom"><span>ȚINTĂ STATICĂ / 960 × 1280</span><span>SCAN 01</span></div>
+        <div class="sync-visual" aria-live="polite"><span id="sync-action">AȘTEPTARE</span><div class="sync-nodes"><i id="sync-node-0"></i><i id="sync-node-1"></i><i id="sync-node-2"></i></div><strong id="sync-progress">0 / 3</strong></div>
       </section>
     </div>
   </main>
@@ -45,11 +47,11 @@
     <section id="intro" class="intro">
       <div class="phone-brand">RIFT<span> / CORE</span></div>
       <div class="intro-copy"><span class="eyebrow"><span class="led"></span> AR ANCORAT DE ECRAN</span><h1>Privește<br><em>laptopul.</em></h1><p>Încadrează imaginea RIFT. Atinge nucleul, glisează peste el pentru a roti mecanismul, apoi activează cele trei puncte.</p></div>
-      <div class="intro-action"><button id="start-ar" type="button">PORNEȘTE CAMERA <span>↗</span></button><span>Safari · camera din spate · lumină bună</span></div>
+      <div class="intro-action"><button id="start-ar" type="button">PORNEȘTE CAMERA <span>↗</span></button><span id="phone-sync">SE CONECTEAZĂ…</span><span>Safari · camera din spate · lumină bună</span></div>
     </section>
 
     <section id="live" class="live" hidden>
-      <div class="live-top"><span class="phone-brand">RIFT<span> / CORE</span></span><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span></div>
+      <div class="live-top"><span class="phone-brand">RIFT<span> / CORE</span></span><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span><span id="phone-sync-live" class="phone-sync-live">SE CONECTEAZĂ…</span></div>
       <div id="scan-guide" class="scan-guide"><span></span><span></span><span></span><span></span></div>
       <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div class="live-actions"><span id="target-count">RIFT CORE / ÎN AȘTEPTARE</span><button id="restart" type="button">REPORNEȘTE</button></div></div>
       <pre id="debug-panel" class="debug-panel" hidden></pre>
@@ -58,6 +60,6 @@
     <section id="error" class="error" hidden><span class="phone-brand">RIFT / CORE</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=5"></script>
+  <script type="module" src="./app.js?v=6"></script>
 </body>
 </html>
