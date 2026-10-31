@@ -8,10 +8,10 @@ async function request(path, options = {}) {
       ...options,
       signal: controller.signal,
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status });
+    if (!response.ok) throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, responseState: data.state });
     return data;
   } finally {
     clearTimeout(timeout);
@@ -29,7 +29,7 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
   let started = false;
   let localChanges = false;
 
-  const notify = (error = '') => onUpdate({ code, state, presence, online, error });
+  const notify = (error = '', errorStatus = 0) => onUpdate({ code, state, presence, online, error, errorStatus });
 
   async function flush() {
     if (!code || !pending || sending) return;
@@ -45,9 +45,18 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
         online = true;
         notify();
       } catch (error) {
+        if (error.status === 409 && error.responseState?.experience === 'core') {
+          pending = null;
+          state = error.responseState;
+          localChanges = false;
+          online = true;
+          onRestore(state);
+          notify('Starea a fost actualizată pe alt dispozitiv.');
+          break;
+        }
         pending = pending || next;
         online = false;
-        notify(error.message);
+        notify(error.message, error.status);
         break;
       }
     }
@@ -78,7 +87,12 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
       if (pending) void flush();
     } catch (error) {
       online = false;
-      notify(error.message);
+      if (role === 'console' && (error.status === 404 || error.status === 400)) {
+        code = '';
+        state = null;
+        presence = { console: false, phone: false };
+      }
+      notify(error.message, error.status);
     } finally {
       polling = false;
     }

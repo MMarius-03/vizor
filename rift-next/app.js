@@ -1,9 +1,10 @@
 import { createRiftCore } from './artifact.js?v=3';
-import { createCoreSession } from './sync.js';
+import { createCoreSession } from './sync.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
 const roomParam = new URLSearchParams(location.search).get('room');
+const savedRoom = (() => { try { return sessionStorage.getItem('rift-core-room'); } catch { return ''; } })();
 const canvas = $('ar-canvas');
 const viewport = document.querySelector('meta[name="viewport"]');
 const normalViewport = viewport.content;
@@ -39,21 +40,22 @@ let restoredCoreState = null;
 
 const session = createCoreSession({
   role: phoneMode ? 'phone' : 'console',
-  initialCode: phoneMode ? roomParam : '',
+  initialCode: phoneMode ? roomParam : savedRoom,
   onRestore(state) {
     restoredCoreState = state;
     artifact?.restoreState(state);
     if (artifact && found) renderCoreState();
   },
-  onUpdate({ code, state, presence, online, error }) {
+  onUpdate({ code, state, presence, online, error, errorStatus }) {
     if (phoneMode) {
       const label = $('phone-sync');
-      label.textContent = !code ? 'SOLO · FĂRĂ LAPTOP' : !online ? `RECONECTARE · ${code}` : presence.console ? `SINCRONIZAT · ${code}` : `LAPTOP ÎN AȘTEPTARE · ${code}`;
+      label.textContent = !code ? 'SOLO · FĂRĂ LAPTOP' : errorStatus === 404 ? 'SESIUNE EXPIRATĂ · CERE UN LINK NOU' : !online ? `RECONECTARE · ${code}` : presence.console ? `SINCRONIZAT · ${code}` : `LAPTOP ÎN AȘTEPTARE · ${code}`;
       label.dataset.online = String(online && presence.console);
       $('phone-sync-live').textContent = label.textContent;
       $('phone-sync-live').dataset.online = label.dataset.online;
       if (error && debug) label.title = error;
     } else {
+      try { if (code) sessionStorage.setItem('rift-core-room', code); else sessionStorage.removeItem('rift-core-room'); } catch {}
       $('room-code').textContent = code || '······';
       $('sync-status').textContent = !code ? (error || 'Se pregătește conexiunea…') : !online ? 'Reconectare la server…' : presence.phone ? 'iPhone conectat · gesturile apar aici' : 'Așteptăm iPhone-ul · trimite linkul';
       $('sync-stage').dataset.online = String(online && presence.phone);
@@ -61,7 +63,7 @@ const session = createCoreSession({
       $('sync-stage').dataset.armed = String(!!state?.armed);
       $('sync-progress').textContent = `${state?.nodes?.filter(Boolean).length || 0} / 3`;
       for (let i = 0; i < 3; i += 1) $('sync-node-' + i).dataset.active = String(!!state?.nodes?.[i]);
-      $('sync-action').textContent = !presence.phone ? 'AȘTEPTARE' : !state?.open ? 'CORE ÎNCHIS' : !state?.armed ? 'CORE DESCHIS' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
+      $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
     }
   },
 });
@@ -91,6 +93,12 @@ function renderCoreState() {
   } else {
     setStatus('MECANISM ARMAT', 'found', 'Atinge cele trei puncte luminoase din jurul nucleului.');
     $('target-count').textContent = `NODURI ${artifact.progress} / 3`;
+  }
+  $('node-controls').hidden = !artifact.isOpen || !artifact.isArmed || artifact.isComplete;
+  for (const button of $('node-controls').querySelectorAll('button')) {
+    const active = artifact.nodeStates[Number(button.dataset.node)];
+    button.disabled = active;
+    button.dataset.active = String(active);
   }
 }
 
@@ -209,6 +217,7 @@ function markLost() {
   if (!found) return;
   found = false;
   activePointer = null;
+  $('node-controls').hidden = true;
   lossStartedAt = performance.now();
   lostCount += 1;
   lastEvent = 'imagine pierdută';
@@ -278,8 +287,8 @@ async function startAR() {
       name: 'rift-next-probe',
       onCameraStatusChange: ({ status }) => {
         if (status === 'failed') showError('Camera nu a pornit. Verifică permisiunea în Safari și reîncarcă pagina.');
-        else if (status === 'requesting') setStatus('PERMITE CAMERA', 'loading', 'Acceptă accesul la camera din spate.');
-        else if (status === 'hasStream' || status === 'hasVideo') setStatus('CAMERA PORNEȘTE', 'loading', 'Îndreaptă telefonul spre imaginea de pe laptop.');
+        else if (!found && status === 'requesting') setStatus('PERMITE CAMERA', 'loading', 'Acceptă accesul la camera din spate.');
+        else if (!found && (status === 'hasStream' || status === 'hasVideo')) setStatus('CAMERA PORNEȘTE', 'loading', 'Îndreaptă telefonul spre imaginea de pe laptop.');
       },
       onException: () => showError('Motorul AR s-a oprit. Reîncarcă pagina și încearcă din nou.'),
       onStart: () => {
@@ -301,11 +310,11 @@ async function startAR() {
       listeners: [
         { event: 'reality.imageloading', process: () => {
           lastEvent = 'încărcare țintă';
-          setStatus('SE ÎNCARCĂ', 'loading', 'Se pregătește recunoașterea imaginii.');
+          if (!found && !lossStartedAt) setStatus('SE ÎNCARCĂ', 'loading', 'Se pregătește recunoașterea imaginii.');
         } },
         { event: 'reality.imagescanning', process: () => {
           lastEvent = 'scanare';
-          setStatus('CAUTĂ IMAGINEA', 'searching', 'Încadrează imaginea RIFT întreagă de pe laptop.');
+          if (!found && !lossStartedAt) setStatus('CAUTĂ IMAGINEA', 'searching', 'Încadrează imaginea RIFT întreagă de pe laptop.');
         } },
         { event: 'reality.imagefound', process: ({ detail }) => {
           if (detail?.name !== targetName) return;
@@ -361,7 +370,7 @@ function pickNode(clientX, clientY) {
   const centerY = rect.top + (1 - center.y) * rect.height / 2;
   const centerDistance = Math.hypot(clientX - centerX, clientY - centerY);
   let selected = -1;
-  let nearest = 52;
+  let nearest = 58;
   const nodeStates = artifact.nodeStates;
   for (let i = 0; i < 3; i += 1) {
     if (nodeStates[i]) continue;
@@ -372,7 +381,19 @@ function pickNode(clientX, clientY) {
     const distance = Math.hypot(clientX - x, clientY - y);
     if (distance < nearest) { nearest = distance; selected = i; }
   }
-  return nearest + 8 < centerDistance ? selected : -1;
+  return nearest + 4 < centerDistance ? selected : -1;
+}
+
+function activateNode(index) {
+  if (!found || !artifact) return;
+  if (!artifact.activateNode(index)) {
+    if (!artifact.isArmed) $('instruction').textContent = 'Glisează întâi orizontal peste nucleu ca să armezi mecanismul.';
+    return;
+  }
+  lastEvent = `nod ${index + 1} activat`;
+  publishCore(`node:${index}`);
+  renderCoreState();
+  updateDebug();
 }
 
 function onCanvasPointerDown(event) {
@@ -384,14 +405,15 @@ function onCanvasPointerDown(event) {
     id: event.pointerId, startX: event.clientX, startY: event.clientY,
     lastX: event.clientX, onCore, node, dragging: false,
   };
-  canvas.setPointerCapture(event.pointerId);
+  try { canvas.setPointerCapture(event.pointerId); } catch {}
 }
 
 function onCanvasPointerMove(event) {
   if (!activePointer || event.pointerId !== activePointer.id) return;
   if (!found) { activePointer = null; return; }
-  const distance = Math.hypot(event.clientX - activePointer.startX, event.clientY - activePointer.startY);
-  if (activePointer.onCore && artifact.isOpen && distance > 10) {
+  const dx = event.clientX - activePointer.startX;
+  const dy = event.clientY - activePointer.startY;
+  if (activePointer.onCore && artifact.isOpen && (activePointer.dragging || (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
     activePointer.dragging = true;
     const result = artifact.dragRotor(event.clientX - activePointer.lastX);
     if (result.justArmed) {
@@ -410,13 +432,7 @@ function onCanvasPointerUp(event) {
   activePointer = null;
   if (!found || gesture.dragging || Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 14) return;
   if (gesture.node >= 0) {
-    if (artifact.activateNode(gesture.node)) {
-      lastEvent = `nod ${gesture.node + 1} activat`;
-      publishCore(`node:${gesture.node}`);
-      renderCoreState();
-    } else if (!artifact.isArmed) {
-      $('instruction').textContent = 'Glisează întâi orizontal peste nucleu ca să armezi mecanismul.';
-    }
+    activateNode(gesture.node);
   } else if (gesture.onCore) {
     const open = artifact.toggle();
     lastEvent = open ? 'core deschis' : 'core închis';
@@ -435,6 +451,10 @@ if (phoneMode) {
   canvas.addEventListener('pointermove', onCanvasPointerMove);
   canvas.addEventListener('pointerup', onCanvasPointerUp);
   canvas.addEventListener('pointercancel', () => { activePointer = null; });
+  $('node-controls').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-node]');
+    if (button) activateNode(Number(button.dataset.node));
+  });
 } else {
   session.start();
   $('focus-target').addEventListener('click', () => document.body.classList.add('target-focus'));
@@ -448,7 +468,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=6`;
+    url.search = `?mode=phone&room=${session.code}&v=7`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

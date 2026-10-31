@@ -59,6 +59,8 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagescanning', {}));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
     await page.evaluate(() => window.__fakeAR.tick());
     await page.waitForTimeout(80);
     await page.evaluate(() => window.__fakeAR.tick());
@@ -77,11 +79,18 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 0);
     await page.mouse.move(215, 466);
     await page.mouse.down();
+    await page.mouse.move(215, 566, { steps: 6 });
+    await page.mouse.up();
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).armed, false);
+    await page.mouse.move(215, 466);
+    await page.mouse.down();
     await page.mouse.move(310, 466, { steps: 6 });
     await page.mouse.up();
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).armed, true);
     await page.evaluate(() => window.__fakeAR.tick());
-    for (let i = 0; i < 3; i += 1) {
+    await page.locator('#node-controls button[data-node="0"]').click();
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 1);
+    for (let i = 1; i < 3; i += 1) {
       await page.mouse.click(nodePoints[i].x, nodePoints[i].y);
       assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, i + 1);
     }

@@ -10,7 +10,7 @@
   <meta name="description" content="RIFT Core — un artefact AR ancorat de laptop, controlat prin atingere și glisare.">
   <title>RIFT Core / AR</title>
   <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
-  <link rel="stylesheet" href="./styles.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -53,13 +53,13 @@
     <section id="live" class="live" hidden>
       <div class="live-top"><span class="phone-brand">RIFT<span> / CORE</span></span><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span><span id="phone-sync-live" class="phone-sync-live">SE CONECTEAZĂ…</span></div>
       <div id="scan-guide" class="scan-guide"><span></span><span></span><span></span><span></span></div>
-      <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div class="live-actions"><span id="target-count">RIFT CORE / ÎN AȘTEPTARE</span><button id="restart" type="button">REPORNEȘTE</button></div></div>
+      <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div id="node-controls" class="node-controls" aria-label="Punctele nucleului" hidden><button type="button" data-node="0" aria-label="Activează punctul 1">01</button><button type="button" data-node="1" aria-label="Activează punctul 2">02</button><button type="button" data-node="2" aria-label="Activează punctul 3">03</button></div><div class="live-actions"><span id="target-count">RIFT CORE / ÎN AȘTEPTARE</span><button id="restart" type="button">REPORNEȘTE</button></div></div>
       <pre id="debug-panel" class="debug-panel" hidden></pre>
     </section>
 
     <section id="error" class="error" hidden><span class="phone-brand">RIFT / CORE</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=7"></script>
 </body>
 </html>
