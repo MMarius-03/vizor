@@ -127,6 +127,19 @@ fs.mkdirSync(output, { recursive: true });
     await model.screenshot({ path: path.join(output, 'model-section.png') });
     await model.evaluate(() => window.__PREVIEW__.setAngle(0));
     await model.screenshot({ path: path.join(output, 'model-section-front.png') });
+    const ringAngles = await model.evaluate(() => {
+      const { root } = window.__PREVIEW__.artifact;
+      return [root.getObjectByName('rift-crown').rotation.z,
+        root.getObjectByName('rift-inner-orbit-2').rotation.z];
+    });
+    await model.waitForTimeout(700);
+    const movedAngles = await model.evaluate(() => {
+      const { root } = window.__PREVIEW__.artifact;
+      return [root.getObjectByName('rift-crown').rotation.z,
+        root.getObjectByName('rift-inner-orbit-2').rotation.z];
+    });
+    assert.ok(Math.abs(movedAngles[0] - ringAngles[0]) > .3, 'crown marker must visibly move');
+    assert.ok(Math.abs(movedAngles[1] - ringAngles[1]) > .4, 'inner orbit marker must visibly move');
     console.log(output);
   } finally {
     await browser.close();

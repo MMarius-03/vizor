@@ -12,7 +12,7 @@
   <div id="controls"><button data-action="open">DESCHIDE</button><button data-action="arm">ARMEAZĂ</button><button data-action="nodes">3 NODURI</button><button data-action="section">SECȚIUNE</button><button data-action="reset">REIA</button></div>
   <script type="module">
     import * as THREE from 'three';
-    import { createRiftCore } from './artifact.js?v=8';
+    import { createRiftCore } from './artifact.js?v=9';
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0d0b);
     const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -31,10 +31,10 @@
     artifact.root.scale.setScalar(.75 * .38);
     artifact.root.position.y = -.075;
     scene.add(artifact.root);
-    scene.add(new THREE.HemisphereLight(0xe5efd4, 0x161d18, 2.2));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    scene.add(new THREE.HemisphereLight(0xeaf3ee, 0x101b1a, 2.05));
+    const key = new THREE.DirectionalLight(0xf8fff8, 2.3);
     key.position.set(1,2,3);scene.add(key);
-    const rim = new THREE.DirectionalLight(0xd5ef44, 1.1);
+    const rim = new THREE.DirectionalLight(0x81d8d3, 1.25);
     rim.position.set(-2,-1,1);scene.add(rim);
     let angle = 0;
     let dragStart = null;

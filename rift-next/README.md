@@ -33,7 +33,7 @@ Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualiza
 
 - `target-source.png` este imaginea statică afișată pe laptop; `tools/make-target.py` o regenerează cu Pillow.
 - `target-data/rift-screen.json` și imaginile derivate au fost generate cu [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
-- `artifact.js` construiește obiectul din geometrii Three.js, inclusiv suprafețe cu granulație procedurală, un vas tăiat cu clipping și un mecanism intern. Zonele tactile au identificatori de piesă și sunt mai largi decât detaliile vizibile. Traseele de lumină apar doar la activarea nodurilor.
+- `artifact.js` construiește obiectul din geometrii Three.js: carbon procedural pe carcasa antracit, metal periat pe inele, fațete cyan cu un centru luminos, un vas tăiat cu clipping și un mecanism intern. Marcajele asimetrice fac rotația inelelor vizibilă. Zonele tactile au identificatori de piesă și sunt mai largi decât detaliile vizibile. Traseele de lumină apar doar la activarea nodurilor.
 - `app.js` folosește [8th Wall Engine Binary](https://8thwall.org/docs/open-source), [configurarea țintelor](https://8thwall.org/docs/api/engine/xrcontroller/configure) și [evenimentele de tracking](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule). `sync.js` transmite starea prin backendul online RIFT. Vezi [NOTICE.md](./NOTICE.md) pentru credite.
 
 ## Verificare după schimbări

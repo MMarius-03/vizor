@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js?v=8';
+import { createRiftCore } from './artifact.js?v=9';
 import { createCoreSession } from './sync.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -196,11 +196,11 @@ function makeProbe(scene) {
   artifact.root.scale.setScalar(.285);
   artifact.root.position.y = -.075;
   targetRoot.add(artifact.root);
-  scene.add(new three.HemisphereLight(0xe5efd4, 0x161d18, 2.2));
-  const key = new three.DirectionalLight(0xffffff, 2.4);
+  scene.add(new three.HemisphereLight(0xeaf3ee, 0x101b1a, 2.05));
+  const key = new three.DirectionalLight(0xf8fff8, 2.3);
   key.position.set(1, 2, 3);
   scene.add(key);
-  const rim = new three.DirectionalLight(0xd5ef44, 1.1);
+  const rim = new three.DirectionalLight(0x81d8d3, 1.25);
   rim.position.set(-2, -1, 1);
   scene.add(rim);
 }
@@ -589,7 +589,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=12`;
+    url.search = `?mode=phone&room=${session.code}&v=13`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

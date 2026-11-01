@@ -29,8 +29,43 @@ export function createRiftCore(THREE) {
     texture.anisotropy = 2;
     return texture;
   };
-  const ceramicGrain = grain(235, 18);
   const metalGrain = grain(226, 26, true);
+  const carbonCanvas = document.createElement('canvas');
+  carbonCanvas.width = carbonCanvas.height = 128;
+  const carbon = carbonCanvas.getContext('2d');
+  carbon.fillStyle = '#252a29';
+  carbon.fillRect(0, 0, 128, 128);
+  // Large twill blocks stay legible after the object is scaled onto a phone.
+  for (let row = 0; row < 4; row += 1) {
+    for (let column = 0; column < 4; column += 1) {
+      const x = column * 32;
+      const y = row * 32;
+      const raised = (column + row * 2) % 4 < 2;
+      carbon.fillStyle = raised ? '#626c68' : '#343c39';
+      carbon.fillRect(x + 1, y + 1, 30, 30);
+      carbon.save();
+      carbon.beginPath();
+      carbon.rect(x + 1, y + 1, 30, 30);
+      carbon.clip();
+      carbon.strokeStyle = raised ? '#a6b0aa' : '#65706b';
+      carbon.globalAlpha = raised ? .34 : .25;
+      carbon.lineWidth = 2;
+      for (let offset = -32; offset < 64; offset += 7) {
+        carbon.beginPath();
+        carbon.moveTo(x + offset, y);
+        carbon.lineTo(x + offset + 32, y + 32);
+        carbon.stroke();
+      }
+      carbon.restore();
+      carbon.fillStyle = raised ? '#28302d' : '#78847e';
+      carbon.fillRect(x, y + 30, 32, 2);
+    }
+  }
+  const carbonTexture = new THREE.CanvasTexture(carbonCanvas);
+  carbonTexture.colorSpace = THREE.SRGBColorSpace;
+  carbonTexture.wrapS = carbonTexture.wrapT = THREE.RepeatWrapping;
+  carbonTexture.repeat.set(2, 2);
+  carbonTexture.anisotropy = 4;
   const material = (color, options = {}) => {
     const value = new THREE.MeshStandardMaterial({
       color, metalness: .38, roughness: .43, flatShading: true,
@@ -40,16 +75,35 @@ export function createRiftCore(THREE) {
     return value;
   };
 
-  const ceramic = material(0x202923, { metalness: .22, roughness: .66, map: ceramicGrain });
+  const carbonMaterial = (tint) => {
+    const surface = new THREE.MeshPhysicalMaterial({
+      color: tint, map: carbonTexture, metalness: .08, roughness: .58,
+      clearcoat: .28, clearcoatRoughness: .34,
+      flatShading: true, transparent: true,
+    });
+    fadeMaterials.push(surface);
+    return surface;
+  };
+  const ceramic = carbonMaterial(0xcbd4cf);
   const metal = material(0x788079, { metalness: .67, roughness: .34, map: metalGrain });
   const recess = material(0x080d0b, { metalness: .1, roughness: .82 });
-  const bladeFace = material(0x344139, { metalness: .32, roughness: .5, map: ceramicGrain });
+  const bladeFace = carbonMaterial(0xb8c3bd);
   const acid = material(0xcde940, {
     metalness: .12, roughness: .3, emissive: 0x8ca521, emissiveIntensity: .65,
   });
-  const nucleusMaterial = material(0xa6cc9c, {
-    metalness: .26, roughness: .22, flatShading: false,
-    emissive: 0x7faf42, emissiveIntensity: .18,
+  const nucleusMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, vertexColors: true, metalness: .16, roughness: .26,
+    clearcoat: .48, clearcoatRoughness: .15, flatShading: true,
+    emissive: 0x40aeb5, emissiveIntensity: .35, transparent: true,
+  });
+  fadeMaterials.push(nucleusMaterial);
+  const heartMaterial = material(0xe9fff4, {
+    metalness: .04, roughness: .14, emissive: 0xb4fff0,
+    emissiveIntensity: 1.15,
+  });
+  const coolAccent = material(0x8deae0, {
+    metalness: .18, roughness: .24, emissive: 0x45c8c9,
+    emissiveIntensity: .75,
   });
 
   const polygon = (radius, sides = 6, offset = Math.PI / 6) =>
@@ -85,10 +139,10 @@ export function createRiftCore(THREE) {
   // separates. The dark cap frames the newly exposed mechanism.
   const sectionCutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), .46);
   const sectionLocalPlane = sectionCutPlane.clone();
-  const vesselMaterial = material(0x45564a, {
-    metalness: .62, roughness: .42, map: metalGrain,
-    side: THREE.DoubleSide, clippingPlanes: [sectionCutPlane],
-  });
+  const vesselMaterial = carbonMaterial(0xd1dad4);
+  vesselMaterial.side = THREE.DoubleSide;
+  vesselMaterial.clippingPlanes = [sectionCutPlane];
+  vesselMaterial.roughness = .64;
   const vessel = new THREE.Mesh(new THREE.CylinderGeometry(.365, .365, .34, 12, 1), vesselMaterial);
   vessel.name = 'rift-reactor-vessel';
   vessel.rotation.x = Math.PI / 2;
@@ -105,10 +159,17 @@ export function createRiftCore(THREE) {
   spindle.rotation.x = Math.PI / 2;
   spindle.position.z = .29;
   root.add(spindle);
-  for (const z of [.14, .24, .36]) {
+  const innerOrbits = [];
+  const orbitMarkGeometry = new THREE.BoxGeometry(.055, .026, .018);
+  for (const [index, z] of [.14, .24, .36].entries()) {
     const orbit = new THREE.Mesh(new THREE.TorusGeometry(.19, .012, 4, 32), z === .24 ? acid : innerMetal);
+    orbit.name = `rift-inner-orbit-${index + 1}`;
     orbit.position.z = z;
+    const mark = new THREE.Mesh(orbitMarkGeometry, index === 1 ? recess : coolAccent);
+    mark.position.set(.19, 0, .012);
+    orbit.add(mark);
     root.add(orbit);
+    innerOrbits.push(orbit);
   }
   const spokeGeometry = new THREE.BoxGeometry(.23, .018, .024);
   for (let i = 0; i < 6; i += 1) {
@@ -245,12 +306,41 @@ export function createRiftCore(THREE) {
   );
   collar.rotation.x = Math.PI / 2;
   nucleus.add(collar);
-  const crystal = new THREE.Mesh(new THREE.IcosahedronGeometry(.205, 0), nucleusMaterial);
+  let crystalGeometry = new THREE.IcosahedronGeometry(.205, 1);
+  if (crystalGeometry.index) crystalGeometry = crystalGeometry.toNonIndexed();
+  const positions = crystalGeometry.getAttribute('position');
+  const faceColors = new Float32Array(positions.count * 3);
+  const deepCyan = new THREE.Color(0x14555d);
+  const lightCyan = new THREE.Color(0xc8fff0);
+  const faceColor = new THREE.Color();
+  for (let i = 0; i < positions.count; i += 3) {
+    const centerZ = (positions.getZ(i) + positions.getZ(i + 1) + positions.getZ(i + 2)) / 3;
+    const towardCamera = THREE.MathUtils.clamp((centerZ / .205 + 1) * .5, 0, 1);
+    const variation = (Math.sin(i * 2.17) + 1) * .085;
+    faceColor.copy(deepCyan).lerp(lightCyan, .15 + towardCamera * .62 + variation);
+    for (let corner = 0; corner < 3; corner += 1) {
+      const at = (i + corner) * 3;
+      faceColors[at] = faceColor.r;
+      faceColors[at + 1] = faceColor.g;
+      faceColors[at + 2] = faceColor.b;
+    }
+  }
+  crystalGeometry.setAttribute('color', new THREE.BufferAttribute(faceColors, 3));
+  const crystal = new THREE.Mesh(crystalGeometry, nucleusMaterial);
+  crystal.name = 'rift-crystal';
   crystal.position.z = .09;
   nucleus.add(crystal);
-  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(.12, 0), recess);
-  crown.position.set(.015, -.012, .205);
+  const coreShadow = material(0x153e43, {
+    metalness: .28, roughness: .38, emissive: 0x115b60,
+    emissiveIntensity: .32,
+  });
+  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(.088, 0), coreShadow);
+  crown.position.set(.015, -.012, .218);
   nucleus.add(crown);
+  const heart = new THREE.Mesh(new THREE.IcosahedronGeometry(.052, 1), heartMaterial);
+  heart.name = 'rift-heart';
+  heart.position.set(.015, -.012, .294);
+  nucleus.add(heart);
   addPartTarget(nucleus, 'crystal', 'Cristalul central', .19, [0, 0, .105]);
   addPartTarget(nucleus, 'collar', 'Colierul nucleului', .17, [-.21, 0, .02]);
   const rotor = new THREE.Group();
@@ -258,6 +348,9 @@ export function createRiftCore(THREE) {
   nucleus.add(rotor);
   ring(.3, .255, .025, metal, .145, Math.PI / 6, rotor);
   addPartTarget(rotor, 'rotor', 'Rotorul', .12, [.28, 0, .17]);
+  const rotorMark = new THREE.Mesh(new THREE.BoxGeometry(.068, .028, .021), coolAccent);
+  rotorMark.position.set(-.28, 0, .18);
+  rotor.add(rotorMark);
   const toothGeometry = new THREE.BoxGeometry(.11, .025, .02);
   for (let i = 0; i < 3; i += 1) {
     const angle = Math.PI / 2 + i * Math.PI * 2 / 3;
@@ -275,6 +368,12 @@ export function createRiftCore(THREE) {
   crownRing.position.z = .62;
   crownRing.rotation.x = .28;
   crownRing.visible = false;
+  const crownMark = new THREE.Mesh(new THREE.BoxGeometry(.12, .058, .03), recess);
+  crownMark.position.set(.46, 0, .018);
+  crownRing.add(crownMark);
+  const crownMarkLight = new THREE.Mesh(new THREE.BoxGeometry(.055, .022, .034), coolAccent);
+  crownMarkLight.position.set(.46, 0, .037);
+  crownRing.add(crownMarkLight);
   root.add(crownRing);
   const pulseMaterial = new THREE.MeshBasicMaterial({
     color: 0xd5ef44, transparent: true, opacity: 0,
@@ -357,9 +456,11 @@ export function createRiftCore(THREE) {
   let sectionDragging = false;
   let selectedTarget = null;
   let selectionTime = 0;
+  let corePhase = 0;
   let fadeOpacity = 1;
   const selectionPosition = new THREE.Vector3();
   function update(dt) {
+    corePhase += dt;
     pulseFlash = Math.max(0, pulseFlash - dt * 1.4);
     const blend = 1 - Math.exp(-Math.min(dt, .08) * 7);
     openness += (desiredOpen - openness) * blend;
@@ -385,6 +486,9 @@ export function createRiftCore(THREE) {
     beam.visible = sectionProgress > .04;
     beam.scale.y = Math.max(.01, sectionProgress);
     beamMaterial.opacity = fadeOpacity * .17 * sectionProgress;
+    innerOrbits.forEach((orbit, index) => {
+      orbit.rotation.z += dt * sectionProgress * (index === 1 ? -1.05 : .7 + index * .22);
+    });
     for (const { hinge, angle, index } of blades) {
       hinge.position.x = Math.cos(angle) * (.31 * eased + .12 * sectionProgress);
       hinge.position.y = Math.sin(angle) * (.31 * eased + .12 * sectionProgress);
@@ -393,11 +497,15 @@ export function createRiftCore(THREE) {
     }
     nucleus.position.z = .275 + .11 * eased + .36 * sectionProgress;
     nucleus.rotation.z = .14 * eased;
-    nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased + (nodes.every((node) => node.active) ? .7 : 0) + pulseFlash * 2.4;
+    crystal.rotation.z += dt * (.05 + .17 * eased);
+    crystal.rotation.y += dt * .11 * eased;
+    const complete = nodes.every((node) => node.active);
+    nucleusMaterial.emissiveIntensity = .34 + .53 * eased + (complete ? .22 : 0) + pulseFlash * 1.3;
+    heartMaterial.emissiveIntensity = 1.15 + .35 * eased + (complete ? .28 : 0) + pulseFlash * 1.6;
+    heart.scale.setScalar(1 + eased * .045 * Math.sin(corePhase * 2.7) + pulseFlash * .18);
     nucleus.scale.setScalar(1 + pulseFlash * .16);
     acid.emissiveIntensity = .65 + pulseFlash * 1.5;
     rotor.rotation.z = rotorAngle;
-    const complete = nodes.every((node) => node.active);
     crownLift += ((complete ? 1 : 0) - crownLift) * blend;
     crownRing.visible = crownLift > .01;
     crownRing.position.x = .2 * sectionProgress;
