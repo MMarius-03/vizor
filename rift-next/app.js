@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js?v=4';
+import { createRiftCore } from './artifact.js?v=5';
 import { createCoreSession } from './sync.js?v=3';
 
 const $ = (id) => document.getElementById(id);
@@ -38,6 +38,7 @@ let anchorSized = false;
 let activePointer = null;
 let restoredCoreState = null;
 let lastLaptopPulseCount = null;
+let lastLaptopComplete = null;
 let laptopPulseTimer = 0;
 
 const session = createCoreSession({
@@ -58,7 +59,9 @@ const session = createCoreSession({
       if (error && debug) label.title = error;
     } else {
       const nextPulseCount = state?.pulseCount ?? 0;
-      if (lastLaptopPulseCount !== null && nextPulseCount > lastLaptopPulseCount) {
+      const complete = !!state?.nodes?.every(Boolean);
+      if ((lastLaptopPulseCount !== null && nextPulseCount > lastLaptopPulseCount) ||
+          (lastLaptopComplete !== null && complete && !lastLaptopComplete)) {
         const stage = $('sync-stage');
         stage.classList.remove('sync-pulse');
         void stage.offsetWidth;
@@ -67,6 +70,7 @@ const session = createCoreSession({
         laptopPulseTimer = setTimeout(() => stage.classList.remove('sync-pulse'), 1100);
       }
       lastLaptopPulseCount = nextPulseCount;
+      lastLaptopComplete = complete;
       try { if (code) sessionStorage.setItem('rift-core-room', code); else sessionStorage.removeItem('rift-core-room'); } catch {}
       $('room-code').textContent = code || '······';
       $('sync-status').textContent = !code ? (error || 'Se pregătește conexiunea…') : !online ? 'Reconectare la server…' : presence.phone ? 'iPhone conectat · gesturile apar aici' : 'Așteptăm iPhone-ul · trimite linkul';
@@ -97,7 +101,7 @@ function renderCoreState() {
   let instruction;
   if (artifact.isComplete) {
     status = 'CORE STABIL';
-    instruction = 'Atinge nucleul pentru un impuls, glisează ca să-l rotești sau reia ciclul.';
+    instruction = 'Mișcă telefonul lateral ca să vezi coroana 3D. Atinge nucleul pentru un impuls.';
     $('target-count').textContent = 'NODURI 3 / 3';
   } else if (!artifact.isOpen) {
     status = 'CORE ANCORAT';
@@ -501,7 +505,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=8`;
+    url.search = `?mode=phone&room=${session.code}&v=9`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

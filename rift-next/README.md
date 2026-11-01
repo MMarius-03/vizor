@@ -1,8 +1,10 @@
-# RIFT Core — etapa 3
+# RIFT Core — etapa 4
 
 Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Folderul este separat de versiunea [`../rift/`](../rift/).
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
+
+[Etapa 4](./PLAN-ETAPA-4.md) adaugă noduri care se ridică în 3D, o coroană finală și impulsuri spațiale sincronizate cu laptopul.
 
 ## Încearcă experiența
 
@@ -11,7 +13,7 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 3. Încadrează imaginea RIFT. Mișcă telefonul lateral ca să vezi adâncimea artefactului.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare.
-6. După 3/3, atinge nucleul pentru un impuls luminos sau continuă să îl rotești. **Reia ciclul** stinge nodurile și închide carcasa fără să oprească camera ori să schimbe codul sesiunii.
+6. După 3/3, privește coroana 3D și impulsul de lumină, apoi atinge nucleul pentru un alt impuls sau continuă să îl rotești. **Reia ciclul** retrage nodurile și coroana fără să oprească camera ori să schimbe codul sesiunii.
 7. Laptopul arată starea mecanismului și progresul nodurilor în afara imaginii scanate. Reîncărcarea aceleiași file de laptop păstrează codul sesiunii, iar reîncărcarea iPhone-ului restabilește starea din backend.
 
 [Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.

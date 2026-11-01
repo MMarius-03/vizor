@@ -86,7 +86,11 @@ export function createRiftCore(THREE) {
     path.rotation.z = angle;
     path.visible = false;
     root.add(path);
-    nodes.push({ holder, faceMaterial, path, active: false, flash: 0 });
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(.16, .012, 4, 24), acid);
+    halo.position.z = .08;
+    halo.visible = false;
+    holder.add(halo);
+    nodes.push({ holder, faceMaterial, path, halo, active: false, lift: 0, flash: 0 });
   }
 
   const nucleus = new THREE.Group();
@@ -116,6 +120,25 @@ export function createRiftCore(THREE) {
     rotor.add(tooth);
   }
   root.add(nucleus);
+
+  // The completed mechanism gains a raised crown, so its silhouette changes
+  // when viewed from the side instead of relying on a flat screen flash.
+  const crownRing = new THREE.Mesh(new THREE.TorusGeometry(.46, .022, 5, 36), acid);
+  crownRing.name = 'rift-crown';
+  crownRing.position.z = .62;
+  crownRing.rotation.x = .28;
+  crownRing.visible = false;
+  root.add(crownRing);
+  const pulseMaterial = new THREE.MeshBasicMaterial({
+    color: 0xd5ef44, transparent: true, opacity: 0,
+    depthWrite: false, side: THREE.DoubleSide,
+  });
+  const pulseRing = new THREE.Mesh(new THREE.TorusGeometry(.42, .02, 4, 40), pulseMaterial);
+  pulseRing.name = 'rift-pulse';
+  pulseRing.position.z = .69;
+  pulseRing.visible = false;
+  root.add(pulseRing);
+  fadeMaterials.push(pulseMaterial);
 
   const blades = [];
   for (let i = 0; i < 6; i += 1) {
@@ -156,6 +179,8 @@ export function createRiftCore(THREE) {
   let armed = false;
   let pulseFlash = 0;
   let pulseCount = 0;
+  let crownLift = 0;
+  let fadeOpacity = 1;
   function update(dt) {
     pulseFlash = Math.max(0, pulseFlash - dt * 1.4);
     const blend = 1 - Math.exp(-Math.min(dt, .08) * 7);
@@ -174,11 +199,25 @@ export function createRiftCore(THREE) {
     nucleus.scale.setScalar(1 + pulseFlash * .16);
     acid.emissiveIntensity = .65 + pulseFlash * 1.5;
     rotor.rotation.z = rotorAngle;
+    const complete = nodes.every((node) => node.active);
+    crownLift += ((complete ? 1 : 0) - crownLift) * blend;
+    crownRing.visible = crownLift > .01;
+    crownRing.position.z = .43 + .19 * crownLift;
+    crownRing.scale.setScalar(.75 + .25 * crownLift);
+    crownRing.rotation.z += dt * (.2 + .35 * crownLift);
+    pulseRing.visible = pulseFlash > .01;
+    pulseRing.scale.setScalar(1 + (1 - pulseFlash) * 2.3);
+    pulseMaterial.opacity = pulseFlash * .76 * fadeOpacity;
     for (const node of nodes) {
       node.flash = Math.max(0, node.flash - dt * 2.5);
+      node.lift += ((node.active ? 1 : 0) - node.lift) * blend;
       node.holder.visible = eased > .15;
-      node.path.visible = node.active && eased > .15;
-      node.holder.scale.setScalar(.55 + .45 * eased + node.flash * .22);
+      node.holder.position.z = .56 + node.lift * .17;
+      node.path.visible = node.lift > .01 && eased > .15;
+      node.path.scale.x = Math.max(.01, node.lift);
+      node.halo.visible = node.lift > .01;
+      node.halo.scale.setScalar(.6 + .4 * node.lift + node.flash * .18);
+      node.holder.scale.setScalar(.55 + .45 * eased + node.flash * .12);
       node.faceMaterial.color.setHex(node.active ? 0xf3ffd4 : armed ? 0xcde940 : 0x657064);
       node.faceMaterial.emissiveIntensity = node.active ? 1.4 + node.flash : armed ? .7 : .12;
     }
@@ -204,6 +243,9 @@ export function createRiftCore(THREE) {
       node.active = true;
       node.flash = 1;
       node.path.visible = true;
+      if (nodes.every((item) => item.active)) {
+        pulseFlash = 1;
+      }
       return true;
     },
     pulse() {
@@ -217,7 +259,8 @@ export function createRiftCore(THREE) {
       armed = false;
       rotorAngle = 0;
       pulseFlash = 0;
-      nodes.forEach((node) => { node.active = false; node.flash = 0; });
+      crownLift = 0;
+      nodes.forEach((node) => { node.active = false; node.lift = 0; node.flash = 0; });
       return true;
     },
     getNodeWorldPosition(index, out) { return nodes[index]?.holder.getWorldPosition(out); },
@@ -237,13 +280,15 @@ export function createRiftCore(THREE) {
       rotorAngle = armed ? .85 : 0;
       pulseFlash = 0;
       pulseCount = Number.isSafeInteger(state.pulseCount) && state.pulseCount >= 0 ? state.pulseCount : 0;
-      nodes.forEach((node, index) => { node.active = !!state.nodes[index]; node.flash = 0; });
+      nodes.forEach((node, index) => { node.active = !!state.nodes[index]; node.lift = node.active ? 1 : 0; node.flash = 0; });
+      crownLift = nodes.every((node) => node.active) ? 1 : 0;
       update(0);
     },
     setOpacity(alpha) {
+      fadeOpacity = alpha;
       for (const surface of fadeMaterials) {
-        surface.opacity = alpha;
-        surface.depthWrite = alpha >= .99;
+        surface.opacity = surface === pulseMaterial ? pulseFlash * .76 * alpha : alpha;
+        surface.depthWrite = surface !== pulseMaterial && alpha >= .99;
       }
     },
   };

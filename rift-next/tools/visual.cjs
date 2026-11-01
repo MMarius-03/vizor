@@ -88,6 +88,15 @@ fs.mkdirSync(output, { recursive: true });
     await model.locator('canvas').click({ position: { x: 450, y: 350 } });
     await model.waitForTimeout(500);
     await model.screenshot({ path: path.join(output, 'model-open.png') });
+    await model.evaluate(() => {
+      const { artifact, setAngle } = window.__PREVIEW__;
+      artifact.dragRotor(100);
+      for (let index = 0; index < 3; index += 1) artifact.activateNode(index);
+      setAngle(.65);
+    });
+    await model.waitForTimeout(650);
+    assert.equal(await model.evaluate(() => window.__PREVIEW__.artifact.isComplete), true);
+    await model.screenshot({ path: path.join(output, 'model-spatial-complete.png') });
     console.log(output);
   } finally {
     await browser.close();

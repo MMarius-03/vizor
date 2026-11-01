@@ -94,6 +94,16 @@ const { chromium } = require(process.argv[2] || 'playwright');
       await page.mouse.click(nodePoints[i].x, nodePoints[i].y);
       assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, i + 1);
     }
+    await page.waitForTimeout(80);
+    await page.evaluate(() => window.__fakeAR.tick());
+    const spatialFinish = await page.evaluate(() => ({
+      crown: window.__fakeAR.scene.scene.getObjectByName('rift-crown').visible,
+      pulse: window.__fakeAR.scene.scene.getObjectByName('rift-pulse').visible,
+      nodeDepth: window.__fakeAR.scene.scene.getObjectByName('rift-node-3').position.z,
+    }));
+    assert.equal(spatialFinish.crown, true);
+    assert.equal(spatialFinish.pulse, true);
+    assert.ok(spatialFinish.nodeDepth > .56);
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE STABIL');
     assert.equal(await page.locator('#restart').textContent(), 'REIA CICLUL');
     await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
@@ -114,6 +124,8 @@ const { chromium } = require(process.argv[2] || 'playwright');
     const rotorAfter = await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-rotor').rotation.z);
     assert.notEqual(rotorAfter, rotorBefore);
     await page.locator('#restart').click();
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-crown').visible), false);
     const resetState = await page.evaluate(() => window.__RIFT_NEXT__.getState());
     assert.equal(resetState.progress, 0);
     assert.equal(resetState.armed, false);
