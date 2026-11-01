@@ -22,11 +22,24 @@ fs.mkdirSync(output, { recursive: true });
     assert.ok(posterImage.complete && posterImage.width >= 900 && posterImage.height >= 1200,
       `ATLAS poster failed to decode at full resolution: ${JSON.stringify(posterImage)}`);
     await page.screenshot({ path: path.join(output, 'atlas.png') });
+    assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-river')));
+    const riverBefore = await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset);
+    await page.waitForTimeout(300);
+    assert.ok(await page.evaluate(before => window.__RIFT_STUDY__.atlas.riverOffset > before,
+      riverBefore), 'ATLAS river should flow continuously');
+    await page.locator('#effect').fill('0');
+    const frozenRiver = await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset);
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset), frozenRiver);
+    await page.locator('#effect').fill('65');
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), true);
     await page.locator('#progress').fill('0');
     await page.waitForTimeout(550);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
       .getObjectByName('atlas-building-0').visible), false);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-river').visible), false);
     await page.screenshot({ path: path.join(output, 'atlas-topography.png') });
     await page.locator('#progress').fill('24');
     await page.waitForTimeout(550);
@@ -35,7 +48,11 @@ fs.mkdirSync(output, { recursive: true });
     await page.screenshot({ path: path.join(output, 'atlas-foundations.png') });
     await page.locator('#progress').fill('90');
     await page.waitForTimeout(550);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-river').visible), true);
     await page.locator('#technical').click();
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-river').visible), false);
     await page.screenshot({ path: path.join(output, 'atlas-technical.png') });
     await page.locator('#orbit').click();
     await page.waitForTimeout(700);
@@ -43,6 +60,17 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), false);
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.posterOrbit.material.map.image?.naturalWidth >= 900));
     await page.screenshot({ path: path.join(output, 'orbit.png') });
+    assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.orbit.root
+      .getObjectByName('orbit-plasma')));
+    const plasmaBefore = await page.evaluate(() => window.__RIFT_STUDY__.orbit.plasmaTime);
+    await page.waitForTimeout(300);
+    assert.ok(await page.evaluate(before => window.__RIFT_STUDY__.orbit.plasmaTime > before,
+      plasmaBefore), 'ORBIT plasma should move continuously');
+    await page.locator('#effect').fill('0');
+    const frozenPlasma = await page.evaluate(() => window.__RIFT_STUDY__.orbit.plasmaTime);
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.orbit.plasmaTime), frozenPlasma);
+    await page.locator('#effect').fill('65');
     await page.locator('#progress').fill('100');
     await page.waitForTimeout(700);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.orbit.aligned), true);
@@ -51,8 +79,10 @@ fs.mkdirSync(output, { recursive: true });
     await page.waitForTimeout(550);
     await page.locator('#technical').click();
     await page.screenshot({ path: path.join(output, 'orbit-technical.png') });
-    await page.setViewportSize({ width: 430, height: 932 });
+    await page.setViewportSize({ width: 932, height: 430 });
     await page.locator('#technical').click();
+    await page.screenshot({ path: path.join(output, 'orbit-landscape.png') });
+    await page.setViewportSize({ width: 430, height: 932 });
     await page.screenshot({ path: path.join(output, 'orbit-phone.png') });
     await page.locator('#atlas').click();
     await page.locator('#technical').click();

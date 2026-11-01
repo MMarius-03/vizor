@@ -22,6 +22,7 @@
     .desc{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.4}
     .phase{font:700 10px ui-monospace,monospace;letter-spacing:.11em;color:var(--accent);margin:0 0 13px}
     .range-label{display:flex;justify-content:space-between;color:#d3d5cc;font:11px ui-monospace,monospace;letter-spacing:.04em;margin-bottom:8px}
+    .effect-control{margin-top:8px}
     input{width:100%;accent-color:var(--accent);height:24px}
     .foot{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font:10px ui-monospace,monospace;margin-top:8px}
     @media(max-width:520px){.bottom{left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));padding:12px}.desc{font-size:12px}.name{font-size:20px}.choices button{font-size:10px;padding:8px}}
@@ -39,8 +40,9 @@
     <p class="phase" id="phase" aria-live="polite">04 / ORAȘ COMPLET</p>
     <label class="range-label" for="progress"><span id="range-name">CONSTRUIEȘTE</span><span id="value">74%</span></label>
     <input id="progress" type="range" min="0" max="100" value="74">
+    <div class="effect-control"><label class="range-label" for="effect"><span id="effect-name">DEBITUL RÂULUI</span><span id="effect-value">65%</span></label><input id="effect" type="range" min="0" max="100" value="65"></div>
     <div class="foot"><span>GLISEAZĂ PE OBIECT PENTRU A-L ROTI</span><span>STUDIU VIZUAL · FĂRĂ CAMERĂ</span></div>
   </section>
-  <script type="module" src="./study.js?v=3"></script>
+  <script type="module" src="./study.js?v=4"></script>
 </body>
 </html>

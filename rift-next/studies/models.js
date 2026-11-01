@@ -61,12 +61,64 @@ export function createAtlas(THREE) {
     root.add(road);
     roads.push(road);
   }
-  for (const y of [-.54, .19, .75]) {
+  for (const y of [.19, .75]) {
     const road = new THREE.Mesh(new THREE.BoxGeometry(2.84, .07, .006), roadMaterial);
     road.position.set(0, y, .185);
     root.add(road);
     roads.push(road);
   }
+
+  // The river occupies the gap between the first two rows of buildings.
+  const riverCanvas = document.createElement('canvas');
+  riverCanvas.width = 256;
+  riverCanvas.height = 64;
+  const riverContext = riverCanvas.getContext('2d');
+  riverContext.fillStyle = '#304f5a';
+  riverContext.fillRect(0, 0, 256, 64);
+  for (let x = -64; x < 320; x += 34) {
+    riverContext.strokeStyle = x % 3 ? '#89aab0' : '#d2d6c9';
+    riverContext.lineWidth = x % 3 ? 7 : 4;
+    riverContext.beginPath();
+    riverContext.moveTo(x, 64);
+    riverContext.lineTo(x + 66, 0);
+    riverContext.stroke();
+  }
+  const riverTexture = new THREE.CanvasTexture(riverCanvas);
+  riverTexture.colorSpace = THREE.SRGBColorSpace;
+  riverTexture.wrapS = THREE.RepeatWrapping;
+  riverTexture.wrapT = THREE.RepeatWrapping;
+  const riverVertices = [];
+  const riverUV = [];
+  const riverIndices = [];
+  for (let i = 0; i <= 48; i++) {
+    const x = -1.48 + i * 2.96 / 48;
+    const y = -.51 + Math.sin(x * 3.4) * .018;
+    riverVertices.push(x, y - .11, .198, x, y + .11, .198);
+    riverUV.push(i / 12, 0, i / 12, 1);
+    if (i < 48) {
+      const n = i * 2;
+      riverIndices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2);
+    }
+  }
+  const riverGeometry = new THREE.BufferGeometry();
+  riverGeometry.setAttribute('position', new THREE.Float32BufferAttribute(riverVertices, 3));
+  riverGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(riverUV, 2));
+  riverGeometry.setIndex(riverIndices);
+  riverGeometry.computeVertexNormals();
+  const river = new THREE.Mesh(riverGeometry, new THREE.MeshBasicMaterial({
+    map: riverTexture, side: THREE.DoubleSide, depthWrite: false,
+  }));
+  river.name = 'atlas-river';
+  root.add(river);
+  const foregroundRiver = new THREE.Mesh(riverGeometry, river.material);
+  foregroundRiver.scale.y = .72;
+  foregroundRiver.position.y = -.66;
+  foregroundRiver.name = 'atlas-river-front';
+  root.add(foregroundRiver);
+  const bridge = register(new THREE.BoxGeometry(.22, .3, .035), limestone, root, false);
+  bridge.position.set(.44, -.51, .224);
+  const bridgeRail = register(new THREE.BoxGeometry(.02, .3, .035), terra, root, false);
+  bridgeRail.position.set(.44, -.51, .257);
 
   const plots = [
     [-1.22,-.82,.42,.39,.32,3],[-.68,-.8,.36,.43,.78,1],[-.04,-.83,.42,.42,.45,0],
@@ -128,20 +180,25 @@ export function createAtlas(THREE) {
   signal.scale.y = .75;
   signal.position.z = .21;
   root.add(signal);
-  root.rotation.x = -.72;
-  root.rotation.z = -.08;
+  root.rotation.x = -1.18;
+  root.rotation.z = 0;
   let target = .9;
   let progress = .9;
   let technical = false;
+  let effect = .65;
+  let riverOffset = 0;
   return {
     root,
     setProgress(value) { target = THREE.MathUtils.clamp(value, 0, 1); },
+    setEffect(value) { effect = THREE.MathUtils.clamp(value, 0, 1); },
     setTechnical(value) {
       technical = !!value;
       solid.forEach(mesh => { mesh.visible = !technical; });
       outline.forEach(({ edges, outlineEnabled }) => { edges.visible = technical && outlineEnabled; });
       roads.forEach(road => { road.visible = !technical; });
       details.forEach(detail => { detail.visible = !technical; });
+      river.visible = !technical;
+      foregroundRiver.visible = !technical;
     },
     update(dt) {
       progress = THREE.MathUtils.damp(progress, target, 7, Math.min(dt,.05));
@@ -159,10 +216,18 @@ export function createAtlas(THREE) {
         holder.scale.z = Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
       });
       roads.forEach(road => { road.visible = !technical && progress > .16; });
+      river.visible = !technical && progress > .16;
+      foregroundRiver.visible = river.visible;
+      bridge.visible = river.visible;
+      bridgeRail.visible = river.visible;
+      riverOffset = (riverOffset + dt * effect * .23) % 1;
+      riverTexture.offset.x = riverOffset;
       signal.material.opacity = .18 + .38 * progress;
     },
     get progress() { return progress; },
     get technical() { return technical; },
+    get effect() { return effect; },
+    get riverOffset() { return riverOffset; },
   };
 }
 
@@ -196,6 +261,39 @@ export function createOrbit(THREE) {
   axle.position.set(0,.14,.78);
   root.add(axle);
   const center = add(new THREE.SphereGeometry(.16,24,16), cobalt, axle);
+  const plasmaMaterial = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uPower: { value: .65 } },
+    vertexShader: `varying vec3 vPoint; varying vec3 vNormalView; varying vec3 vView;
+      void main() {
+        vPoint = position;
+        vNormalView = normalize(normalMatrix * normal);
+        vec4 viewPoint = modelViewMatrix * vec4(position, 1.0);
+        vView = normalize(-viewPoint.xyz);
+        gl_Position = projectionMatrix * viewPoint;
+      }`,
+    fragmentShader: `uniform float uTime; uniform float uPower;
+      varying vec3 vPoint; varying vec3 vNormalView; varying vec3 vView;
+      void main() {
+        vec3 p = normalize(vPoint);
+        float wave = sin(p.x * 27.0 + sin(p.y * 18.0 + uTime * 1.7) * 3.5 + uTime * 2.4);
+        float crossWave = sin(p.y * 19.0 - p.z * 11.0 - uTime * 1.5);
+        float filament = pow(max(0.0, wave * crossWave), 4.0);
+        float rim = pow(1.0 - abs(dot(normalize(vNormalView), normalize(vView))), 2.0);
+        vec3 color = mix(vec3(.13, .34, .77), vec3(.76, .94, 1.0), clamp(filament * 1.4 + rim * .4, 0.0, 1.0));
+        float alpha = (.09 + filament * .64 + rim * .38) * (.28 + uPower * .72);
+        gl_FragColor = vec4(color, alpha);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const plasma = add(new THREE.SphereGeometry(.3, 32, 24), plasmaMaterial, axle);
+  plasma.name = 'orbit-plasma';
+  const plasmaArcs = [0, 1, 2].map(index => {
+    const arc = add(new THREE.TorusGeometry(.34 + index * .024, .006, 4, 52, Math.PI * 1.55),
+      new THREE.MeshBasicMaterial({ color: index === 1 ? 0xd5f4ff : 0x6aaefb,
+        transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }), axle);
+    arc.rotation.set(index * .72, index * 1.1, index * 2.1);
+    return arc;
+  });
   const rings = [
     add(new THREE.TorusGeometry(.92,.026,8,96), metal, axle),
     add(new THREE.TorusGeometry(.78,.018,8,96), dark, axle),
@@ -303,15 +401,25 @@ export function createOrbit(THREE) {
   let angle = 0;
   let progress = 0;
   let technical = false;
+  let effect = .65;
+  let plasmaTime = 0;
   return {
     root,
     setProgress(value) { target = THREE.MathUtils.clamp(value,0,1)*Math.PI*2; },
+    setEffect(value) { effect = THREE.MathUtils.clamp(value,0,1); },
     setTechnical(value) {
       technical = !!value;
       solids.forEach(mesh => { mesh.visible = !technical; });
       technicalLines.visible = technical;
     },
     update(dt) {
+      plasmaTime += dt * effect * 2.8;
+      plasmaMaterial.uniforms.uTime.value = plasmaTime;
+      plasmaMaterial.uniforms.uPower.value = effect;
+      plasmaArcs.forEach((arc, index) => {
+        arc.rotation.z += dt * effect * (index % 2 ? -.9 : 1.2);
+        arc.material.opacity = .12 + effect * .48;
+      });
       angle = THREE.MathUtils.damp(angle,target,6,Math.min(dt,.05));
       progress=Math.abs(angle)/(Math.PI*2);
       armGroups.forEach((group,index) => {
@@ -329,12 +437,14 @@ export function createOrbit(THREE) {
       technicalLines.rotation.z = angle;
       const aligned=THREE.MathUtils.smoothstep(progress,.94,.995);
       convergenceMaterial.opacity=aligned*.93;
-      glowMaterial.opacity=aligned*.75;
+      glowMaterial.opacity=effect*.14+aligned*.75;
       glow.scale.setScalar(.75+aligned*.7);
       center.material.emissiveIntensity=.55+aligned*1.8;
     },
     get progress() { return progress; },
     get aligned() { return progress>.995; },
     get technical() { return technical; },
+    get effect() { return effect; },
+    get plasmaTime() { return plasmaTime; },
   };
 }

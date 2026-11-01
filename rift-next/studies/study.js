@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=2';
+import { createAtlas, createOrbit } from './models.js?v=3';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -39,8 +39,8 @@ rim.position.set(3,-2,2);
 scene.add(rim);
 
 let active='atlas';
-let azimuth=.38;
-let elevation=.22;
+let azimuth=0;
+let elevation=.06;
 let pointer=null;
 let previous=0;
 const renderPhase=value=>{
@@ -57,6 +57,9 @@ const updateCamera=()=>{
 const setActive=name=>{
   active=name;
   const isAtlas=name==='atlas';
+  azimuth=isAtlas?0:.38;
+  elevation=isAtlas?.06:.22;
+  updateCamera();
   document.body.dataset.object=name;
   scene.background.setHex(isAtlas?0x191612:0x101721);
   $('brand').innerHTML=`${isAtlas?'ATLAS':'ORBIT'}<span> / RIFT</span>`;
@@ -74,6 +77,9 @@ const setActive=name=>{
   $('range-name').textContent=isAtlas?'CONSTRUIEȘTE':'CALIBREAZĂ AXELE';
   $('progress').value=isAtlas?90:84;
   $('value').textContent=isAtlas?'90%':'302°';
+  $('effect-name').textContent=isAtlas?'DEBITUL RÂULUI':'ENERGIA PLASMEI';
+  $('effect').value=Math.round((isAtlas?atlas.effect:orbit.effect)*100);
+  $('effect-value').textContent=`${$('effect').value}%`;
   document.documentElement.style.setProperty('--accent',isAtlas?'#c86a4a':'#638bc6');
   const query = new URLSearchParams({object:name});
   if (room) query.set('room',room);
@@ -93,6 +99,11 @@ $('progress').addEventListener('input',event=>{
   if(active==='atlas') atlas.setProgress(value); else orbit.setProgress(value);
   $('value').textContent=active==='atlas'?`${Math.round(value*100)}%`:`${Math.round(value*360)}°`;
   renderPhase(value);
+});
+$('effect').addEventListener('input',event=>{
+  const value=Number(event.target.value)/100;
+  (active==='atlas'?atlas:orbit).setEffect(value);
+  $('effect-value').textContent=`${event.target.value}%`;
 });
 canvas.addEventListener('pointerdown',event=>{
   pointer={id:event.pointerId,x:event.clientX,y:event.clientY,azimuth,elevation};
