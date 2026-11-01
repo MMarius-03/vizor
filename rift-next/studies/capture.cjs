@@ -14,19 +14,51 @@ fs.mkdirSync(output, { recursive: true });
     await page.goto('http://127.0.0.1:4173/rift-next/studies/');
     await page.waitForFunction(() => !!window.__RIFT_STUDY__);
     await page.waitForTimeout(700);
+    const posterImage = await page.evaluate(() => ({
+      complete: window.__RIFT_STUDY__.posterAtlas.material.map.image?.complete,
+      width: window.__RIFT_STUDY__.posterAtlas.material.map.image?.naturalWidth,
+      height: window.__RIFT_STUDY__.posterAtlas.material.map.image?.naturalHeight,
+    }));
+    assert.ok(posterImage.complete && posterImage.width >= 900 && posterImage.height >= 1200,
+      `ATLAS poster failed to decode at full resolution: ${JSON.stringify(posterImage)}`);
     await page.screenshot({ path: path.join(output, 'atlas.png') });
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), true);
+    await page.locator('#progress').fill('0');
+    await page.waitForTimeout(550);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-building-0').visible), false);
+    await page.screenshot({ path: path.join(output, 'atlas-topography.png') });
+    await page.locator('#progress').fill('24');
+    await page.waitForTimeout(550);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-foundation-0').visible), true);
+    await page.screenshot({ path: path.join(output, 'atlas-foundations.png') });
+    await page.locator('#progress').fill('90');
+    await page.waitForTimeout(550);
     await page.locator('#technical').click();
     await page.screenshot({ path: path.join(output, 'atlas-technical.png') });
     await page.locator('#orbit').click();
     await page.waitForTimeout(700);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterOrbit.visible), true);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), false);
+    assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.posterOrbit.material.map.image?.naturalWidth >= 900));
     await page.screenshot({ path: path.join(output, 'orbit.png') });
+    await page.locator('#progress').fill('100');
+    await page.waitForTimeout(700);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.orbit.aligned), true);
+    await page.screenshot({ path: path.join(output, 'orbit-convergence.png') });
+    await page.locator('#progress').fill('84');
+    await page.waitForTimeout(550);
     await page.locator('#technical').click();
     await page.screenshot({ path: path.join(output, 'orbit-technical.png') });
     await page.setViewportSize({ width: 430, height: 932 });
     await page.locator('#technical').click();
     await page.screenshot({ path: path.join(output, 'orbit-phone.png') });
     await page.locator('#atlas').click();
+    await page.locator('#technical').click();
     await page.screenshot({ path: path.join(output, 'atlas-phone.png') });
+    await page.locator('#technical').click();
+    await page.screenshot({ path: path.join(output, 'atlas-phone-technical.png') });
     await page.locator('#progress').fill('100');
     await page.waitForTimeout(450);
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.progress > .9));

@@ -3,29 +3,34 @@
 export function createAtlas(THREE) {
   const root = new THREE.Group();
   const buildings = [];
+  const foundations = [];
   const solid = [];
   const outline = [];
   const roads = [];
-  const concrete = new THREE.MeshStandardMaterial({ color: 0xb8afa0, roughness: .88 });
-  const limestone = new THREE.MeshStandardMaterial({ color: 0xeae3d4, roughness: .92 });
-  const terra = new THREE.MeshStandardMaterial({ color: 0xc86a4a, roughness: .78 });
-  const charcoal = new THREE.MeshStandardMaterial({ color: 0x252c2b, roughness: .8 });
+  const details = [];
+  const concrete = new THREE.MeshStandardMaterial({ color: 0xa59d90, roughness: .9 });
+  const limestone = new THREE.MeshStandardMaterial({ color: 0xd3c7b6, roughness: .92 });
+  const terrainDark = new THREE.MeshStandardMaterial({ color: 0x746c60, roughness: .95 });
+  const sandstone = new THREE.MeshStandardMaterial({ color: 0xb4957c, roughness: .94 });
+  const terra = new THREE.MeshStandardMaterial({ color: 0xb95f43, roughness: .78 });
+  const charcoal = new THREE.MeshStandardMaterial({ color: 0x38403d, roughness: .8 });
+  const windowDark = new THREE.MeshBasicMaterial({ color: 0x3b423e });
   const glass = new THREE.MeshPhysicalMaterial({ color: 0x667573, metalness: .08,
     roughness: .22, transparent: true, opacity: .72, depthWrite: false });
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xeae3d4 });
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xe2c7aa, transparent: true, opacity: .86 });
   const roadMaterial = new THREE.MeshBasicMaterial({ color: 0x443c35 });
-  const register = (geometry, material, parent = root) => {
+  const register = (geometry, material, parent = root, outlineEnabled = true) => {
     const mesh = new THREE.Mesh(geometry, material);
     parent.add(mesh);
     solid.push(mesh);
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 20), lineMaterial);
     edges.visible = false;
     parent.add(edges);
-    outline.push({ mesh, edges });
+    outline.push({ mesh, edges, outlineEnabled });
     return mesh;
   };
 
-  const base = register(new THREE.BoxGeometry(3.35, 2.45, .15), concrete);
+  const base = register(new THREE.BoxGeometry(3.35, 2.45, .15), terrainDark, root, false);
   base.position.z = -.02;
   const terrainShape = new THREE.Shape();
   [[-1.48,-.99],[-1.08,-1.15],[-.57,-1.05],[-.12,-1.16],[.5,-1.03],[1.17,-1.1],
@@ -33,10 +38,21 @@ export function createAtlas(THREE) {
     [-.63,1.17],[-1.42,.87],[-1.53,.25]].forEach(([x,y],i) =>
     i ? terrainShape.lineTo(x,y) : terrainShape.moveTo(x,y));
   terrainShape.closePath();
+  const lowerTerrain = register(new THREE.ExtrudeGeometry(terrainShape, {
+    depth: .08, bevelEnabled: false, steps: 1,
+  }), concrete, root, false);
+  lowerTerrain.scale.set(.97,.96,1);
+  lowerTerrain.position.z = .025;
   const terrain = register(new THREE.ExtrudeGeometry(terrainShape, {
     depth: .09, bevelEnabled: true, bevelSegments: 1, steps: 1, bevelSize: .035, bevelThickness: .025,
-  }), limestone);
+  }), limestone, root, false);
   terrain.position.z = .055;
+  const contourMaterial = new THREE.LineBasicMaterial({ color: 0x8b7969, transparent: true, opacity: .6 });
+  for (const scale of [.91,.76,.61]) {
+    const points = terrainShape.getPoints(36).map(point => new THREE.Vector3(point.x*scale,point.y*scale,.169));
+    const contour = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),contourMaterial);
+    root.add(contour);
+  }
 
   // Streets are actual recesses between blocks, visible from oblique angles.
   for (const x of [-.95, -.27, .43, 1.03]) {
@@ -53,31 +69,58 @@ export function createAtlas(THREE) {
   }
 
   const plots = [
-    [-1.22,-.82,.42,.39,.31,0],[-.68,-.8,.36,.43,.56,1],[-.04,-.83,.42,.42,.37,0],
-    [.72,-.82,.4,.4,.5,0],[1.24,-.77,.29,.38,.3,1],
-    [-1.27,-.19,.4,.42,.68,1],[-.62,-.17,.39,.39,.42,0],[.08,-.14,.43,.47,.98,2],
-    [.75,-.15,.42,.41,.46,0],[1.29,-.1,.28,.38,.57,1],
-    [-1.25,.52,.42,.37,.43,0],[-.63,.5,.35,.4,.62,1],[.07,.49,.4,.43,1.43,2],
-    [.75,.49,.38,.4,.73,1],[1.27,.54,.29,.37,.38,0],
+    [-1.22,-.82,.42,.39,.32,3],[-.68,-.8,.36,.43,.78,1],[-.04,-.83,.42,.42,.45,0],
+    [.72,-.82,.4,.4,.67,3],[1.24,-.77,.29,.38,.38,1],
+    [-1.27,-.19,.4,.42,.94,1],[-.62,-.17,.39,.39,.53,3],[.08,-.14,.43,.47,1.18,2],
+    [.75,-.15,.42,.41,.63,0],[1.29,-.1,.28,.38,.72,3],
+    [-1.25,.52,.42,.37,.55,0],[-.63,.5,.35,.4,.83,3],[.07,.49,.4,.43,1.43,2],
+    [.75,.49,.38,.4,1.02,1],[1.27,.54,.29,.37,.45,0],
   ];
   plots.forEach(([x,y,w,d,h,kind], index) => {
+    const foundation = new THREE.Group();
+    foundation.name = `atlas-foundation-${index}`;
+    foundation.position.set(x,y,.178);
+    const pad = register(new THREE.BoxGeometry(w*1.19,d*1.19,.055),kind === 2 ? terra : terrainDark,foundation,false);
+    pad.position.z = .027;
+    root.add(foundation);
+    foundations.push({holder:foundation,start:.07+index*.01,end:.25+index*.01});
     const holder = new THREE.Group();
-    holder.position.set(x,y,.2);
+    holder.name = `atlas-building-${index}`;
+    holder.position.set(x,y,.235);
     root.add(holder);
-    const face = kind === 2 ? terra : kind === 1 ? charcoal : concrete;
+    const face = kind === 2 ? terra : kind === 1 ? charcoal : kind === 3 ? sandstone : concrete;
     const body = register(new THREE.BoxGeometry(w,d,h), face, holder);
     body.position.z = h/2;
-    const crown = register(new THREE.BoxGeometry(w*1.08,d*1.08,.035), kind === 2 ? limestone : concrete, holder);
+    const crown = register(new THREE.BoxGeometry(w*1.08,d*1.08,.035), kind === 2 ? limestone : terrainDark, holder, false);
     crown.position.z = h + .02;
+    if (h > .44) {
+      const terrace = register(new THREE.BoxGeometry(w*.82,d*.82,.045),kind === 2 ? terra : limestone,holder,false);
+      terrace.position.z = h + .058;
+    }
     if (h > .5) {
-      const window = register(new THREE.BoxGeometry(w*.15,d*.72,.012), kind === 2 ? limestone : glass, holder);
-      window.position.set(w*.22,0,h*.52);
+      const rows = Math.min(5,Math.floor(h/.18));
+      for(let row=1;row<=rows;row++) {
+        const z=row*h/(rows+1);
+        for(const offset of [-.21,.21]) {
+          const pane = new THREE.Mesh(new THREE.BoxGeometry(w*.16,.008,.075),kind === 2 ? limestone : windowDark);
+          pane.position.set(offset*w,-d/2-.007,z);
+          holder.add(pane);
+          details.push(pane);
+        }
+      }
+      const sideWindow = register(new THREE.BoxGeometry(.009,d*.32,h*.36),kind === 2 ? limestone : glass,holder,false);
+      sideWindow.position.set(w/2+.007,0,h*.53);
     }
     if (kind === 2 && h > 1) {
-      const beacon = register(new THREE.SphereGeometry(.055,8,6), terra, holder);
-      beacon.position.z = h + .13;
+      const crownTop = register(new THREE.BoxGeometry(w*.57,d*.57,.13),charcoal,holder,false);
+      crownTop.position.z = h + .135;
+      const antenna = register(new THREE.CylinderGeometry(.012,.012,.19,8),terra,holder,false);
+      antenna.rotation.x = Math.PI/2;
+      antenna.position.z = h + .29;
+      const beacon = register(new THREE.SphereGeometry(.045,8,6),terra,holder,false);
+      beacon.position.z = h + .39;
     }
-    buildings.push({ holder, start: .09 + index * .027, end: .44 + index * .028 });
+    buildings.push({ holder, start: .21 + index * .018, end: .53 + index * .026 });
   });
 
   const signal = new THREE.Mesh(new THREE.TorusGeometry(1.02,.009,3,80),
@@ -87,8 +130,8 @@ export function createAtlas(THREE) {
   root.add(signal);
   root.rotation.x = -.72;
   root.rotation.z = -.08;
-  let target = .74;
-  let progress = .74;
+  let target = .9;
+  let progress = .9;
   let technical = false;
   return {
     root,
@@ -96,8 +139,9 @@ export function createAtlas(THREE) {
     setTechnical(value) {
       technical = !!value;
       solid.forEach(mesh => { mesh.visible = !technical; });
-      outline.forEach(({ edges }) => { edges.visible = technical; });
+      outline.forEach(({ edges, outlineEnabled }) => { edges.visible = technical && outlineEnabled; });
       roads.forEach(road => { road.visible = !technical; });
+      details.forEach(detail => { detail.visible = !technical; });
     },
     update(dt) {
       progress = THREE.MathUtils.damp(progress, target, 7, Math.min(dt,.05));
@@ -107,8 +151,14 @@ export function createAtlas(THREE) {
         edges.scale.copy(mesh.scale);
       });
       buildings.forEach(({holder,start,end}) => {
+        holder.visible = progress > start + .06;
         holder.scale.z = Math.max(.003, THREE.MathUtils.smoothstep(progress,start,end));
       });
+      foundations.forEach(({holder,start,end}) => {
+        holder.visible = progress > start;
+        holder.scale.z = Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
+      });
+      roads.forEach(road => { road.visible = !technical && progress > .16; });
       signal.material.opacity = .18 + .38 * progress;
     },
     get progress() { return progress; },
@@ -132,16 +182,18 @@ export function createOrbit(THREE) {
     return mesh;
   };
   const base = add(new THREE.CylinderGeometry(.63,.69,.11,48), dark);
-  base.rotation.x = Math.PI/2;
-  base.position.z = .05;
+  base.position.set(0,-1.05,.28);
   const plinth = add(new THREE.CylinderGeometry(.49,.54,.045,48), metal);
-  plinth.rotation.x = Math.PI/2;
-  plinth.position.z = .13;
-  const stem = add(new THREE.CylinderGeometry(.065,.082,.72,20), dark);
-  stem.rotation.x = Math.PI/2;
-  stem.position.z = .47;
+  plinth.position.set(0,-.97,.28);
+  const baseRim = add(new THREE.TorusGeometry(.51,.018,8,64),cobalt);
+  baseRim.rotation.x = Math.PI/2;
+  baseRim.position.set(0,-.93,.28);
+  const stem = add(new THREE.CylinderGeometry(.06,.085,.76,20), dark);
+  stem.position.set(0,-.57,.5);
+  const mount = add(new THREE.CylinderGeometry(.11,.07,.26,20),metal);
+  mount.position.set(0,-.14,.65);
   const axle = new THREE.Group();
-  axle.position.z = .94;
+  axle.position.set(0,.14,.78);
   root.add(axle);
   const center = add(new THREE.SphereGeometry(.16,24,16), cobalt, axle);
   const rings = [
@@ -152,18 +204,66 @@ export function createOrbit(THREE) {
   rings[0].rotation.x = .52;
   rings[1].rotation.y = .94;
   rings[2].rotation.set(.68,.68,0);
+  [rings[0],rings[1]].forEach((ring,ringIndex) => {
+    const count = ringIndex ? 16 : 24;
+    const radius = ringIndex ? .78 : .92;
+    for(let i=0;i<count;i++) {
+      const t=i*Math.PI*2/count;
+      const tick = add(new THREE.BoxGeometry(i%4 ? .027 : .052,.014,.014),
+        i%4 ? dark : cobalt,ring);
+      tick.position.set(Math.cos(t)*radius,Math.sin(t)*radius,.008);
+      tick.rotation.z=t;
+    }
+  });
   const arms = new THREE.Group();
   axle.add(arms);
+  const armGroups=[];
   const armLengths = [.72,.7,.75];
   armLengths.forEach((length,index) => {
+    const armGroup=new THREE.Group();
+    arms.add(armGroup);
+    armGroups.push(armGroup);
     const angle = Math.PI/2 + index * Math.PI*2/3;
     const end = new THREE.Vector3(Math.cos(angle)*length, Math.sin(angle)*length, .09);
-    const beam = add(new THREE.CylinderGeometry(.042,.046,length,10), metal, arms);
+    const beam = add(new THREE.CylinderGeometry(.042,.046,length,10), metal, armGroup);
     beam.position.copy(end).multiplyScalar(.5);
     beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),end.clone().normalize());
-    const tip = add(new THREE.SphereGeometry(.095,16,12), index === 0 ? cobalt : metal, arms);
+    const tip = add(new THREE.SphereGeometry(.095,16,12), index === 0 ? cobalt : metal, armGroup);
     tip.position.copy(end);
   });
+  const glowCanvas=document.createElement('canvas');
+  glowCanvas.width=glowCanvas.height=64;
+  const glowContext=glowCanvas.getContext('2d');
+  const glowGradient=glowContext.createRadialGradient(32,32,2,32,32,31);
+  glowGradient.addColorStop(0,'rgba(239,250,255,1)');
+  glowGradient.addColorStop(.25,'rgba(145,196,255,.8)');
+  glowGradient.addColorStop(1,'rgba(60,110,200,0)');
+  glowContext.fillStyle=glowGradient;
+  glowContext.fillRect(0,0,64,64);
+  const glowTexture=new THREE.CanvasTexture(glowCanvas);
+  const glowMaterial=new THREE.SpriteMaterial({map:glowTexture,transparent:true,opacity:0,
+    blending:THREE.AdditiveBlending,depthWrite:false});
+  const glow=new THREE.Sprite(glowMaterial);
+  glow.position.z=.23;
+  glow.scale.set(.95,.95,1);
+  axle.add(glow);
+  const convergenceMaterial=new THREE.LineBasicMaterial({color:0xe5f4ff,transparent:true,opacity:0,depthWrite:false});
+  const convergence=new THREE.Group();
+  axle.add(convergence);
+  const beamPoints=[];
+  for(let i=0;i<3;i++) {
+    const t=Math.PI/2+i*Math.PI*2/3;
+    beamPoints.push(new THREE.Vector3(Math.cos(t)*.7,Math.sin(t)*.7,.16),new THREE.Vector3(0,0,.18));
+  }
+  convergence.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(beamPoints),convergenceMaterial));
+  for(const [radius,sides,rotation] of [[.28,4,Math.PI/4],[.42,4,0],[.57,3,Math.PI/2]]) {
+    const points=[];
+    for(let i=0;i<=sides;i++) {
+      const t=i*Math.PI*2/sides+rotation;
+      points.push(new THREE.Vector3(Math.cos(t)*radius,Math.sin(t)*radius,.2));
+    }
+    convergence.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),convergenceMaterial));
+  }
   for (const [radius,rotation] of [[1.03,0],[.87,.65]]) {
     const points = [];
     for (let i=0;i<=120;i++) {
@@ -201,6 +301,7 @@ export function createOrbit(THREE) {
   }
   let target = 0;
   let angle = 0;
+  let progress = 0;
   let technical = false;
   return {
     root,
@@ -212,16 +313,28 @@ export function createOrbit(THREE) {
     },
     update(dt) {
       angle = THREE.MathUtils.damp(angle,target,6,Math.min(dt,.05));
-      const reveal = THREE.MathUtils.smoothstep(Math.abs(angle),.04,1.3);
-      arms.scale.setScalar(Math.max(.01,reveal));
+      progress=Math.abs(angle)/(Math.PI*2);
+      armGroups.forEach((group,index) => {
+        const reveal=THREE.MathUtils.smoothstep(progress,index*.23+.03,index*.23+.26);
+        group.scale.setScalar(Math.max(.01,reveal));
+      });
       arms.rotation.z = angle;
       rings[0].rotation.z = angle*.42;
       rings[1].rotation.z = -angle*.57;
       rings[2].rotation.z = angle*.29;
+      rings.forEach((ring,index) => {
+        const reveal=THREE.MathUtils.smoothstep(progress,.09+index*.08,.38+index*.08);
+        ring.scale.setScalar(Math.max(.02,reveal));
+      });
       technicalLines.rotation.z = angle;
-      center.material.emissiveIntensity = .5 + .35 * Math.max(0,1-Math.abs(angle/(Math.PI*2)-1));
+      const aligned=THREE.MathUtils.smoothstep(progress,.94,.995);
+      convergenceMaterial.opacity=aligned*.93;
+      glowMaterial.opacity=aligned*.75;
+      glow.scale.setScalar(.75+aligned*.7);
+      center.material.emissiveIntensity=.55+aligned*1.8;
     },
-    get progress() { return angle/(Math.PI*2); },
+    get progress() { return progress; },
+    get aligned() { return progress>.995; },
     get technical() { return technical; },
   };
 }

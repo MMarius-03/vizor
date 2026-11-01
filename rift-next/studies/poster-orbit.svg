@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+  <defs>
+    <radialGradient id="field"><stop stop-color="#25344b"/><stop offset=".62" stop-color="#182334"/><stop offset="1" stop-color="#111922"/></radialGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#9db4ce" stroke-opacity=".1"/></pattern>
+  </defs>
+  <rect width="900" height="1200" fill="url(#field)"/>
+  <rect x="24" y="24" width="852" height="1152" fill="url(#grid)" stroke="#a8b8c9" stroke-opacity=".46" stroke-width="2"/>
+  <g fill="none" stroke="#6e9bd1" stroke-opacity=".39"><circle cx="450" cy="562" r="307" stroke-width="3" stroke-dasharray="5 13"/><circle cx="450" cy="562" r="248" stroke-width="2"/><circle cx="450" cy="562" r="181" stroke-width="2" stroke-dasharray="12 11"/><path d="M450 248V875M136 562H764" stroke-width="2"/></g>
+  <g stroke="#d7dee3" stroke-opacity=".4" stroke-width="3" fill="none"><path d="M450 562L450 331M450 562L650 679M450 562L250 679"/><circle cx="450" cy="562" r="28"/><circle cx="450" cy="331" r="12"/><circle cx="650" cy="679" r="12"/><circle cx="250" cy="679" r="12"/></g>
+  <g fill="#81a8d8"><circle cx="450" cy="252" r="8"/><circle cx="718" cy="717" r="8"/><circle cx="182" cy="717" r="8"/></g>
+  <path d="M82 80H818M82 1116H818" stroke="#d7dee3" stroke-opacity=".58" stroke-width="2"/>
+  <path d="M82 80V127M818 80V127M82 1069V1116M818 1069V1116" stroke="#638bc6" stroke-width="6"/>
+  <g fill="#d7dee3" font-family="Arial,Helvetica,sans-serif"><text x="82" y="160" font-size="84" font-weight="700" letter-spacing="-5">ORBIT</text><text x="87" y="202" font-size="19" letter-spacing="7">INSTRUMENT KINETIC / 03</text><text x="82" y="1050" font-size="18" letter-spacing="5">CALIBRARE  /  ALINIERE  /  CONVERGENTA</text></g>
+  <g fill="#88a7d0" font-family="monospace" font-size="15" letter-spacing="2"><text x="82" y="936">AXA 01  —  000°</text><text x="82" y="966">AXA 02  —  120°</text><text x="82" y="996">AXA 03  —  240°</text><text x="84" y="1151">RIFT / OBJECT STUDY</text><text x="721" y="1151">O—03</text></g>
+</svg>

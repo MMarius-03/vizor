@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=1';
+import { createAtlas, createOrbit } from './models.js?v=2';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -16,10 +16,19 @@ const camera = new THREE.PerspectiveCamera(40,1,.01,30);
 const atlas = createAtlas(THREE);
 const orbit = createOrbit(THREE);
 scene.add(atlas.root,orbit.root);
-const poster = new THREE.Mesh(new THREE.PlaneGeometry(4.3,5.75),
-  new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load('../target-source.png'),transparent:true,opacity:.27,depthWrite:false}));
-poster.position.z = -.45;
-scene.add(poster);
+const posterGeometry = new THREE.PlaneGeometry(4.3,5.75);
+const loader = new THREE.TextureLoader();
+const makePoster = file => {
+  const map = loader.load(file);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(posterGeometry,
+    new THREE.MeshBasicMaterial({map,transparent:true,opacity:.88,depthWrite:false}));
+  mesh.position.z = -.52;
+  scene.add(mesh);
+  return mesh;
+};
+const posterAtlas = makePoster('./poster-atlas.svg');
+const posterOrbit = makePoster('./poster-orbit.svg');
 const ambient = new THREE.HemisphereLight(0xfff4e0,0x343c45,2.3);
 scene.add(ambient);
 const key = new THREE.DirectionalLight(0xfff0dc,4.2);
@@ -34,6 +43,11 @@ let azimuth=.38;
 let elevation=.22;
 let pointer=null;
 let previous=0;
+const renderPhase=value=>{
+  $('phase').textContent=active==='atlas'
+    ? value<.18?'01 / TOPOGRAFIE':value<.43?'02 / FUNDAȚII':value<.8?'03 / ORAȘUL SE RIDICĂ':'04 / ORAȘ COMPLET'
+    : value<.25?'01 / REPAUS':value<.55?'02 / BRAȚELE SE DESCHID':value<.94?'03 / CALIBRARE':'04 / CONVERGENȚĂ';
+};
 const updateCamera=()=>{
   const radius=Math.max(8.6,4.15/(2*Math.tan(THREE.MathUtils.degToRad(20))*camera.aspect));
   camera.position.set(Math.sin(azimuth)*radius*Math.cos(elevation),
@@ -48,6 +62,8 @@ const setActive=name=>{
   $('brand').innerHTML=`${isAtlas?'ATLAS':'ORBIT'}<span> / RIFT</span>`;
   atlas.root.visible=isAtlas;
   orbit.root.visible=!isAtlas;
+  posterAtlas.visible=isAtlas;
+  posterOrbit.visible=!isAtlas;
   $('atlas').setAttribute('aria-pressed',String(isAtlas));
   $('orbit').setAttribute('aria-pressed',String(!isAtlas));
   $('technical').setAttribute('aria-pressed',String(isAtlas?atlas.technical:orbit.technical));
@@ -56,13 +72,14 @@ const setActive=name=>{
     ? 'O insulă construită în straturi, ridicată din planul ecranului.'
     : 'Brațe și inele pe axe diferite, cu aliniere controlată.';
   $('range-name').textContent=isAtlas?'CONSTRUIEȘTE':'CALIBREAZĂ AXELE';
-  $('progress').value=isAtlas?74:25;
-  $('value').textContent=isAtlas?'74%':'90°';
+  $('progress').value=isAtlas?90:84;
+  $('value').textContent=isAtlas?'90%':'302°';
   document.documentElement.style.setProperty('--accent',isAtlas?'#c86a4a':'#638bc6');
   const query = new URLSearchParams({object:name});
   if (room) query.set('room',room);
   history.replaceState(null,'',`?${query}`);
-  if(isAtlas) atlas.setProgress(.74); else orbit.setProgress(.25);
+  renderPhase(isAtlas ? .9 : .84);
+  if(isAtlas) atlas.setProgress(.9); else orbit.setProgress(.84);
 };
 $('atlas').addEventListener('click',()=>setActive('atlas'));
 $('orbit').addEventListener('click',()=>setActive('orbit'));
@@ -75,6 +92,7 @@ $('progress').addEventListener('input',event=>{
   const value=Number(event.target.value)/100;
   if(active==='atlas') atlas.setProgress(value); else orbit.setProgress(value);
   $('value').textContent=active==='atlas'?`${Math.round(value*100)}%`:`${Math.round(value*360)}°`;
+  renderPhase(value);
 });
 canvas.addEventListener('pointerdown',event=>{
   pointer={id:event.pointerId,x:event.clientX,y:event.clientY,azimuth,elevation};
@@ -108,4 +126,4 @@ const draw=now=>{
   requestAnimationFrame(draw);
 };
 requestAnimationFrame(draw);
-window.__RIFT_STUDY__={atlas,orbit,setActive,renderer};
+window.__RIFT_STUDY__={atlas,orbit,posterAtlas,posterOrbit,setActive,renderer};
