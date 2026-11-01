@@ -61,7 +61,7 @@ const { chromium } = require('playwright');
     await phone.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
     await laptop.locator('#sync-stage.sync-pulse').waitFor({ timeout: 15000 });
     await phone.getByRole('button', { name: 'SECȚIONEAZĂ NUCLEUL' }).click();
-    await laptop.getByText('STRATURI DESCHISE', { exact: true }).waitFor({ timeout: 15000 });
+    await laptop.getByText('REACTOR SECȚIONAT', { exact: true }).waitFor({ timeout: 15000 });
     await phone.reload();
     await start();
     await phone.getByRole('button', { name: 'ÎNCHIDE SECȚIUNEA' }).waitFor();

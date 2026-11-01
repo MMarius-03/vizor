@@ -3,6 +3,8 @@
 export function createRiftCore(THREE) {
   const root = new THREE.Group();
   const fadeMaterials = [];
+  const effectMaterials = new Set();
+  const originalDepthWrite = new WeakMap();
   // Small, deterministic maps add surface grain without external image assets.
   const grain = (base, variation, brushed = false) => {
     const canvas = document.createElement('canvas');
@@ -185,6 +187,7 @@ export function createRiftCore(THREE) {
   );
   cap.name = 'rift-cut-face';
   cap.visible = false;
+  effectMaterials.add(cap.material);
   root.add(cap);
   const cutRim = new THREE.Mesh(new THREE.TorusGeometry(.367, .012, 4, 48), acid);
   cutRim.visible = false;
@@ -195,8 +198,10 @@ export function createRiftCore(THREE) {
   });
   fadeMaterials.push(scanMaterial);
   const scanRing = new THREE.Mesh(new THREE.TorusGeometry(.44, .007, 3, 48), scanMaterial);
+  scanRing.name = 'rift-scan-ring';
   scanRing.visible = false;
   root.add(scanRing);
+  effectMaterials.add(scanMaterial);
   const beamMaterial = new THREE.MeshBasicMaterial({
     color: 0xb7ed75, transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false,
@@ -206,10 +211,12 @@ export function createRiftCore(THREE) {
   const beam = new THREE.Mesh(
     new THREE.CylinderGeometry(.035, .11, .54, 12, 1, true), beamMaterial,
   );
+  beam.name = 'rift-section-beam';
   beam.rotation.x = Math.PI / 2;
   beam.position.z = .5;
   beam.visible = false;
   root.add(beam);
+  effectMaterials.add(beamMaterial);
 
   // Engraved ticks make the structure readable when it is only a few pixels wide.
   const tickGeometry = new THREE.BoxGeometry(.035, .008, .004);
@@ -286,6 +293,7 @@ export function createRiftCore(THREE) {
       transparent: true, opacity: 0, depthWrite: false,
     });
     fadeMaterials.push(energyMaterial);
+    effectMaterials.add(energyMaterial);
     const energyLine = new THREE.Line(energyGeometry, energyMaterial);
     energyLine.name = `rift-energy-${i + 1}`;
     energyLine.computeLineDistances();
@@ -385,6 +393,7 @@ export function createRiftCore(THREE) {
   pulseRing.visible = false;
   root.add(pulseRing);
   fadeMaterials.push(pulseMaterial);
+  effectMaterials.add(pulseMaterial);
 
   // Three slender rails make the depth between the anchored base and the
   // lifted core legible from oblique phone angles.
@@ -428,6 +437,7 @@ export function createRiftCore(THREE) {
     depthWrite: false, side: THREE.DoubleSide,
   });
   fadeMaterials.push(selectionMaterial);
+  effectMaterials.add(selectionMaterial);
   const selectionRing = new THREE.Mesh(new THREE.TorusGeometry(.15, .008, 4, 32), selectionMaterial);
   selectionRing.name = 'rift-selection';
   selectionRing.visible = false;
@@ -639,14 +649,17 @@ export function createRiftCore(THREE) {
     },
     restoreState(state) {
       if (state?.experience !== 'core' || !Array.isArray(state.nodes) || state.nodes.length !== 3) return;
-      desiredOpen = state.open ? 1 : 0;
+      const restoredNodes = state.nodes.map(Boolean);
+      const anyNodeActive = restoredNodes.some(Boolean);
+      // An active node or armed rotor requires the housing to be open.
+      desiredOpen = state.open || state.armed || anyNodeActive ? 1 : 0;
       openness = desiredOpen;
-      armed = !!state.armed;
+      armed = !!state.armed || anyNodeActive;
       rotorAngle = armed ? .85 : 0;
       pulseFlash = 0;
       pulseCount = Number.isSafeInteger(state.pulseCount) && state.pulseCount >= 0 ? state.pulseCount : 0;
       nodes.forEach((node, index) => {
-        node.active = !!state.nodes[index];
+        node.active = restoredNodes[index];
         node.lift = node.active ? 1 : 0;
         node.flash = 0;
         node.energyTime = 1;
@@ -661,10 +674,14 @@ export function createRiftCore(THREE) {
     },
     setOpacity(alpha) {
       if (fadeOpacity === alpha) return;
+      const previousFade = fadeOpacity;
       fadeOpacity = alpha;
       for (const surface of fadeMaterials) {
-        surface.opacity = surface === pulseMaterial ? pulseFlash * .76 * alpha : alpha;
-        surface.depthWrite = surface !== pulseMaterial && alpha >= .99;
+        if (!originalDepthWrite.has(surface)) originalDepthWrite.set(surface, surface.depthWrite);
+        surface.opacity = effectMaterials.has(surface)
+          ? surface.opacity * alpha / Math.max(previousFade, .001)
+          : alpha;
+        surface.depthWrite = originalDepthWrite.get(surface) && alpha >= .99;
       }
     },
   };

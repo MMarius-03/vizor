@@ -33,7 +33,7 @@ fs.mkdirSync(output, { recursive: true });
     await laptop.locator('#sync-stage.sync-pulse').waitFor();
     await laptop.screenshot({ path: path.join(output, 'laptop-pulse.png') });
     laptopState = { ...laptopState, section: true, revision: 7, lastAction: 'section:open' };
-    await laptop.getByText('STRATURI DESCHISE', { exact: true }).waitFor();
+    await laptop.getByText('REACTOR SECȚIONAT', { exact: true }).waitFor();
     await laptop.screenshot({ path: path.join(output, 'laptop-section.png') });
 
     const phone = await browser.newPage({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 1 });
@@ -125,6 +125,28 @@ fs.mkdirSync(output, { recursive: true });
     await model.waitForTimeout(650);
     assert.equal(await model.evaluate(() => window.__PREVIEW__.renderer.localClippingEnabled), true);
     await model.screenshot({ path: path.join(output, 'model-section.png') });
+    const fadeAudit = await model.evaluate(() => {
+      const { artifact } = window.__PREVIEW__;
+      const beam = artifact.root.getObjectByName('rift-section-beam').material;
+      const scan = artifact.root.getObjectByName('rift-scan-ring').material;
+      const cap = artifact.root.getObjectByName('rift-cut-face').material;
+      const initial = { beam: beam.opacity, scan: scan.opacity, cap: cap.opacity };
+      artifact.setOpacity(.45);
+      const faded = { beam: beam.opacity, scan: scan.opacity, cap: cap.opacity,
+        beamDepth: beam.depthWrite, scanDepth: scan.depthWrite };
+      artifact.setOpacity(1);
+      return { initial, faded, restored: { beam: beam.opacity, scan: scan.opacity,
+        beamDepth: beam.depthWrite, scanDepth: scan.depthWrite } };
+    });
+    for (const name of ['beam', 'scan', 'cap']) {
+      assert.ok(Math.abs(fadeAudit.faded[name] - fadeAudit.initial[name] * .45) < .001,
+        `${name} must keep its relative opacity while tracking fades`);
+    }
+    assert.equal(fadeAudit.faded.beamDepth, false);
+    assert.equal(fadeAudit.faded.scanDepth, false);
+    assert.equal(fadeAudit.restored.beamDepth, false);
+    assert.equal(fadeAudit.restored.scanDepth, false);
+    assert.ok(Math.abs(fadeAudit.restored.beam - fadeAudit.initial.beam) < .001);
     await model.evaluate(() => window.__PREVIEW__.setAngle(0));
     await model.screenshot({ path: path.join(output, 'model-section-front.png') });
     const ringAngles = await model.evaluate(() => {
@@ -140,6 +162,14 @@ fs.mkdirSync(output, { recursive: true });
     });
     assert.ok(Math.abs(movedAngles[0] - ringAngles[0]) > .3, 'crown marker must visibly move');
     assert.ok(Math.abs(movedAngles[1] - ringAngles[1]) > .4, 'inner orbit marker must visibly move');
+    const restored = await model.evaluate(() => {
+      const { artifact } = window.__PREVIEW__;
+      artifact.restoreState({ experience: 'core', open: false, armed: false,
+        nodes: [true, false, false], section: false, pulseCount: 0 });
+      return { open: artifact.isOpen, armed: artifact.isArmed, progress: artifact.progress };
+    });
+    assert.deepEqual(restored, { open: true, armed: true, progress: 1 },
+      'restoring a node must also restore its required housing and rotor state');
     console.log(output);
   } finally {
     await browser.close();

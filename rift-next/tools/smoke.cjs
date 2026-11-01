@@ -186,6 +186,17 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await touchDrag(215, 466, 215, 566);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).sectionOpen, false);
     await page.getByRole('button', { name: 'SECȚIONEAZĂ NUCLEUL' }).click();
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
+    await page.waitForTimeout(80);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true);
+    assert.equal(await page.locator('#section-toggle').isHidden(), true);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+    }));
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).sectionOpen, true);
+    assert.equal(await page.locator('#section-toggle').isVisible(), true);
     await page.locator('#restart').click();
     await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-crown').visible), false);
@@ -219,7 +230,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       name: 'rift-screen', position: { x: .1, y: 0, z: -1 },
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1, scaledWidth: .75,
     }));
-    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).recoveredCount, 1);
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).recoveredCount, 2);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'rift-screen' }));
     await page.waitForTimeout(1150);

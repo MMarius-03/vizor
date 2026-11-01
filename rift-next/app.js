@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js?v=9';
+import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -86,7 +86,7 @@ const session = createCoreSession({
       $('sync-stage').dataset.section = String(!!state?.section);
       $('sync-progress').textContent = `${state?.nodes?.filter(Boolean).length || 0} / 3`;
       for (let i = 0; i < 3; i += 1) $('sync-node-' + i).dataset.active = String(!!state?.nodes?.[i]);
-      $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.section ? 'STRATURI DESCHISE' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
+      $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.section ? 'REACTOR SECȚIONAT' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
     }
   },
 });
@@ -589,7 +589,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=13`;
+    url.search = `?mode=phone&room=${session.code}&v=14`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
