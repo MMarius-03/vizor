@@ -10,4 +10,4 @@ Acestea sunt machete de obiecte, separate de fluxul AR existent. `index.html` pe
 
 Referința vizuală a fost schița HTML `Schițe ATLAS & ORBIT — AR peste laptop.html` furnizată de utilizator. Culorile și ritmul celor două modele pornesc de acolo; geometriile sunt construite în three.js pentru această machetă.
 
-**Următorul pas:** alegerea formei și a mișcării, apoi un test fizic al celor două obiecte ancorate în camera iPhone-ului. Interfața tematică și selecția celor trei experiențe vin după validarea obiectelor.
+**Următorul pas:** alegerea formei și a mișcării, apoi un test fizic al celor două obiecte ancorate în camera iPhone-ului. Pagina neutră de alegere și temele beta sunt disponibile; controalele finale AR vin după validarea obiectelor.

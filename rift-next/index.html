@@ -9,15 +9,19 @@
   <meta name="theme-color" content="#0b0d0b">
   <meta name="description" content="RIFT Core — un artefact AR ancorat de laptop, cu secțiune interactivă controlată cu un deget.">
   <title>RIFT Core / AR</title>
-  <script>document.documentElement.dataset.mode = new URLSearchParams(location.search).get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');</script>
-  <link rel="stylesheet" href="./styles.css?v=8">
+  <script>
+    const query = new URLSearchParams(location.search);
+    if (!query.has('mode') && !query.has('room')) location.replace(`./choose.html${location.search}`);
+    document.documentElement.dataset.mode = query.get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=9">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
   <canvas id="ar-canvas" aria-label="Camera și obiectul AR"></canvas>
 
   <main id="laptop" class="laptop">
-    <header class="laptop-header"><a href="../rift/" class="brand">RIFT<span> / CORE</span></a><span class="header-tag">05 — INSPECȚIE AR</span></header>
+    <header class="laptop-header"><a href="./choose.html" class="brand">RIFT<span> / CORE</span></a><a href="./choose.html" class="header-back">← ALEGE ALT OBIECT</a></header>
     <div class="laptop-layout">
       <section class="laptop-copy">
         <span class="eyebrow"><span class="led"></span> RIFT CORE / ETAPA 05</span>
@@ -45,21 +49,21 @@
 
   <main id="phone" class="phone">
     <section id="intro" class="intro">
-      <div class="phone-brand">RIFT<span> / CORE</span></div>
+      <div class="intro-head"><span class="phone-brand">RIFT<span> / CORE</span></span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div>
       <div class="intro-copy"><span class="eyebrow"><span class="led"></span> AR ANCORAT DE ECRAN</span><h1>Privește<br><em>laptopul.</em></h1><p>Încadrează imaginea RIFT. Atinge piesele, rotește mecanismul și activează cele trei puncte. Glisează în sus pentru a descoperi interiorul reactorului.</p></div>
       <div class="intro-action"><button id="start-ar" type="button">PORNEȘTE CAMERA <span>↗</span></button><span id="phone-sync">SE CONECTEAZĂ…</span><span>Safari · camera din spate · lumină bună</span></div>
     </section>
 
     <section id="live" class="live" hidden>
-      <div class="live-top"><span class="phone-brand">RIFT<span> / CORE</span></span><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span><span id="phone-sync-live" class="phone-sync-live">SE CONECTEAZĂ…</span></div>
+      <div class="live-top"><a href="./choose.html" class="phone-brand live-brand" aria-label="Înapoi la alegerea obiectului">← RIFT<span> / CORE</span></a><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span><span id="phone-sync-live" class="phone-sync-live">SE CONECTEAZĂ…</span></div>
       <div id="scan-guide" class="scan-guide"><span></span><span></span><span></span><span></span></div>
       <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div id="node-controls" class="node-controls" aria-label="Punctele nucleului" hidden><button type="button" data-node="0" aria-label="Activează punctul 1">01</button><button type="button" data-node="1" aria-label="Activează punctul 2">02</button><button type="button" data-node="2" aria-label="Activează punctul 3">03</button></div><button id="section-toggle" class="section-toggle" type="button" hidden>DESFĂ STRATURILE</button><div class="live-actions"><span id="target-count">RIFT CORE / ÎN AȘTEPTARE</span><button id="restart" type="button">REPORNEȘTE CAMERA</button></div></div>
       <pre id="debug-panel" class="debug-panel" hidden></pre>
     </section>
 
-    <section id="error" class="error" hidden><span class="phone-brand">RIFT / CORE</span><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
+    <section id="error" class="error" hidden><div class="intro-head"><span class="phone-brand">RIFT / CORE</span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=14"></script>
+  <script type="module" src="./app.js?v=15"></script>
 </body>
 </html>

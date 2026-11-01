@@ -3,6 +3,8 @@ import { createAtlas, createOrbit } from './models.js?v=1';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
+const room = new URLSearchParams(location.search).get('room');
+if (room) $('back').href = `../choose.html?room=${encodeURIComponent(room)}`;
 const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -41,6 +43,9 @@ const updateCamera=()=>{
 const setActive=name=>{
   active=name;
   const isAtlas=name==='atlas';
+  document.body.dataset.object=name;
+  scene.background.setHex(isAtlas?0x191612:0x101721);
+  $('brand').innerHTML=`${isAtlas?'ATLAS':'ORBIT'}<span> / RIFT</span>`;
   atlas.root.visible=isAtlas;
   orbit.root.visible=!isAtlas;
   $('atlas').setAttribute('aria-pressed',String(isAtlas));
@@ -54,6 +59,9 @@ const setActive=name=>{
   $('progress').value=isAtlas?74:25;
   $('value').textContent=isAtlas?'74%':'90°';
   document.documentElement.style.setProperty('--accent',isAtlas?'#c86a4a':'#638bc6');
+  const query = new URLSearchParams({object:name});
+  if (room) query.set('room',room);
+  history.replaceState(null,'',`?${query}`);
   if(isAtlas) atlas.setProgress(.74); else orbit.setProgress(.25);
 };
 $('atlas').addEventListener('click',()=>setActive('atlas'));

@@ -1,10 +1,10 @@
 # Etapa 6 — trei experiențe AR la alegere
 
-**Stare:** machete 3D ATLAS și ORBIT disponibile în `studies/`; integrarea AR și interfața finală urmează după alegerea formei. Nucleul are inspecția în straturi din etapa 5.
+**Stare:** pagina neutră de alegere și temele inițiale pentru cele trei obiecte sunt disponibile. CORE rămâne experiența AR funcțională; ATLAS și ORBIT sunt machete 3D beta fără cameră în `studies/`. Integrarea lor AR și fluxul de sesiune comună sunt pașii următori.
 
-La început, înainte de pornirea camerei, utilizatorul alege **una dintre trei experiențe**: Nucleu (cea existentă) și două animații noi. Alegerea trebuie să fie rapidă și clară, fără o pagină plină de carduri. Laptopul și iPhone-ul afișează aceeași alegere prin sesiunea online.
+La început, înainte de pornirea camerei, utilizatorul alege **una dintre trei experiențe**: Nucleu (cea existentă) și două animații noi. Alegerea trebuie să fie rapidă și clară, fără o pagină plină de carduri. În prezent, doar CORE folosește sesiunea online.
 
-## Fluxul interfeței
+## Fluxul complet planificat
 
 1. Linkul de iPhone deschide ecranul de alegere, nu camera. Sunt vizibile cele trei experiențe, fiecare cu un nume, o descriere scurtă și un indiciu despre gest. Niciuna nu pornește automat.
 2. Atingerea unei opțiuni o marchează clar ca activă. Un singur buton principal, **Pornește camera**, lansează experiența selectată.

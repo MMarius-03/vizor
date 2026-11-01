@@ -249,6 +249,8 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await expired.goto('http://127.0.0.1:4173/rift-next/?mode=phone&room=ABCDEF');
     await expired.getByText('SESIUNE EXPIRATĂ · CERE UN LINK NOU').first().waitFor();
     assert.equal(await expired.locator('#start-ar').isDisabled(), true);
+    await page.locator('.live-brand').click();
+    await page.getByRole('heading', { name: 'Alege un obiect.' }).waitFor();
     console.log('RIFT NEXT mock camera flow: OK');
   } finally {
     await browser.close();

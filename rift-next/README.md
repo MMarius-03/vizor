@@ -1,6 +1,6 @@
-# RIFT Core — secțiune interactivă
+# RIFT — trei obiecte de explorat
 
-Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Folderul este separat de versiunea [`../rift/`](../rift/).
+Pagina de intrare oferă trei alegeri: CORE este experiența AR ancorată de imaginea statică de pe laptop; ATLAS și ORBIT sunt încă machete 3D fără cameră. Fiecare folosește propria temă vizuală. Folderul este separat de versiunea [`../rift/`](../rift/).
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
 
@@ -12,8 +12,8 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 
 ## Încearcă experiența
 
-1. Deschide [pagina de laptop](https://mmarius-03.github.io/vizor/rift-next/). Așteaptă codul sesiunii, copiază linkul generat pentru iPhone și apasă **Mărește ținta**. Ține imaginea întreagă pe ecran, cu luminozitate suficientă și fără reflexii puternice.
-2. Deschide linkul copiat pe iPhone în Safari și permite camera din spate. Codul din link conectează telefonul la laptop; o adresă fără cod pornește modul solo.
+1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop. Alege **CORE**. Așteaptă codul sesiunii, copiază linkul generat pentru iPhone și apasă **Mărește ținta**. Ține imaginea întreagă pe ecran, cu luminozitate suficientă și fără reflexii puternice.
+2. Deschide linkul copiat pe iPhone în Safari, alege **CORE**, pornește camera și permite accesul la camera din spate. Codul se păstrează dacă revii la alegere; o adresă fără cod pornește modul solo.
 3. Încadrează imaginea RIFT. Mișcă telefonul lateral ca să vezi adâncimea artefactului.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
@@ -22,6 +22,8 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 8. **Reia ciclul** închide secțiunea și resetează nodurile fără să oprească camera ori să schimbe codul sesiunii. Laptopul arată starea mecanismului în afara imaginii scanate; reîncărcarea filelor păstrează codul și progresul.
 
 [Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.
+
+Din pagina de alegere poți deschide și **ATLAS** sau **ORBIT** pe laptop ori iPhone. Sunt machete 3D beta cu control prin atingere, cursor și tragere. Nu folosesc încă aparatul foto și nu transmit progresul prin sesiunea online.
 
 ## Tracking și limite
 
@@ -38,4 +40,4 @@ Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualiza
 
 ## Verificare după schimbări
 
-Pornește `python -m http.server 4173 --bind 127.0.0.1` din rădăcina repo-ului, apoi rulează `node rift-next/tools/smoke.cjs`, `node rift-next/tools/sync-audit.cjs` și `node rift-next/tools/visual.cjs <folder-capturi>`. `node rift-next/tools/live-audit.cjs` verifică și backendul online cu o sesiune nouă. Aceste verificări folosesc o cameră simulată; trackingul și gesturile finale se confirmă pe iPhone fizic.
+Pornește `python -m http.server 4173 --bind 127.0.0.1` din rădăcina repo-ului, apoi rulează `node rift-next/tools/selection.cjs <folder-capturi>`, `node rift-next/tools/smoke.cjs`, `node rift-next/tools/sync-audit.cjs` și `node rift-next/tools/visual.cjs <folder-capturi>`. `node rift-next/tools/live-audit.cjs` verifică și backendul online cu o sesiune nouă. Aceste verificări folosesc o cameră simulată; trackingul și gesturile finale se confirmă pe iPhone fizic.

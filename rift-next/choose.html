@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171a1a">
+  <title>RIFT — Alege experiența</title>
+  <style>
+    :root{font-family:Arial,Helvetica,sans-serif;color:#ecebe6;background:#171a1a}
+    *{box-sizing:border-box}html{min-height:100%;background:#171a1a}body{margin:0;min-height:100svh;background:radial-gradient(ellipse at 75% 10%,#2a2e2d,#171a1a 58%)}a{color:inherit;text-decoration:none}
+    .shell{width:min(100% - 72px,1120px);min-height:100svh;margin:auto;display:flex;flex-direction:column}
+    header{height:86px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #454a48}
+    .brand{font-size:23px;font-weight:800;letter-spacing:-.07em}.brand span{font-size:11px;font-weight:600;letter-spacing:.14em;color:#a4aaa5;margin-left:12px}
+    .header-note,.eyebrow,.number,.state,footer{font-family:Consolas,Menlo,monospace;font-size:11px;letter-spacing:.09em}.header-note{color:#919a95}
+    main{flex:1;display:grid;grid-template-columns:minmax(230px,.78fr) minmax(430px,1.22fr);gap:clamp(40px,7vw,110px);align-items:center;padding:55px 0 70px}
+    .intro{align-self:start;padding-top:28px}.eyebrow{color:#acb4ae}.intro h1{font-size:clamp(48px,5.2vw,80px);line-height:.98;letter-spacing:-.075em;margin:25px 0 20px;font-weight:700}.intro h1 em{font-style:normal;color:#b6beb7}.intro p{max-width:350px;color:#a9b0aa;line-height:1.55;font-size:15px;margin:0}
+    .choices{border-top:1px solid #626864}.choice{display:grid;grid-template-columns:47px 1fr auto;gap:15px;align-items:start;min-height:145px;padding:25px 9px 22px 3px;border-bottom:1px solid #626864;transition:background .2s,padding-left .2s}.choice:hover,.choice:focus-visible{background:#282d2a;padding-left:13px;outline:0}.number{color:#8e9891;padding-top:8px}.choice h2{font-size:clamp(30px,3.5vw,48px);letter-spacing:-.07em;line-height:1;margin:0 0 10px;font-weight:700}.choice p{color:#adb4ad;margin:0;font-size:14px;line-height:1.45}.meta{display:flex;gap:12px;align-items:center;margin-top:16px}.state{color:#a9b0aa}.swatch{width:18px;height:5px;background:var(--swatch)}.arrow{font-size:26px;line-height:1;color:#abb3ab;padding-top:3px;transition:transform .2s}.choice:hover .arrow{transform:translate(4px,-4px)}
+    footer{border-top:1px solid #454a48;min-height:57px;display:flex;align-items:center;justify-content:space-between;gap:18px;color:#8e9991}
+    @media(max-width:850px){.shell{width:min(100% - 44px,620px)}main{display:block;padding:35px 0 42px}.intro{padding:0 0 35px}.intro h1{font-size:clamp(48px,11vw,68px);margin:18px 0}.choice{min-height:120px;padding:21px 3px}.choice h2{font-size:36px}}
+    @media(max-width:520px){.shell{width:calc(100% - 36px);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}header{height:66px}.brand{font-size:20px}.brand span{font-size:9px;margin-left:7px}.header-note{font-size:9px}.intro h1{font-size:51px}.intro p{font-size:14px}.choice{grid-template-columns:31px 1fr 23px;gap:8px;min-height:114px}.choice h2{font-size:33px}.choice p{font-size:12px}.meta{margin-top:10px}.state{font-size:9px}footer{font-size:9px;align-items:start;padding:16px 0}}
+    @media(orientation:landscape) and (max-height:500px){.shell{width:calc(100% - 32px);padding:0 max(0px,env(safe-area-inset-right)) 0 max(0px,env(safe-area-inset-left))}header{height:44px}.brand{font-size:17px}.brand span{font-size:8px}.header-note{font-size:8px}main{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(300px,1.15fr);gap:18px;align-items:start;padding:10px 0}.intro{padding:10px 0 0}.eyebrow{font-size:8px}.intro h1{font-size:39px;margin:9px 0}.intro p{font-size:11px;line-height:1.35}.choice{min-height:0;grid-template-columns:23px 1fr 16px;gap:7px;padding:9px 2px}.choice h2{font-size:23px;margin:0 0 4px}.choice p{font-size:10px;line-height:1.2}.meta{margin-top:5px}.state{font-size:8px}.swatch{width:12px;height:4px}.arrow{font-size:16px}footer{display:none}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header><div class="brand">RIFT<span> / EXPERIENCES</span></div><span class="header-note">01 — 03 / ALEGE</span></header>
+    <main>
+      <section class="intro"><span class="eyebrow">TREI MODURI DE A PRIVI MAI DEPARTE</span><h1>Alege un<br><em>obiect.</em></h1><p>CORE este experiența AR activă. ATLAS și ORBIT sunt studii 3D în lucru; le poți explora înainte să intre în cameră.</p></section>
+      <nav class="choices" aria-label="Experiențe">
+        <a id="choose-core" class="choice" href="./?mode=laptop"><span class="number">01</span><div><h2>CORE</h2><p>Deschide reactorul, activează nodurile și privește secțiunea din lateral.</p><div class="meta"><span class="swatch" style="--swatch:#d5ef44"></span><span class="state">AR LIVE · LAPTOP + IPHONE</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
+        <a id="choose-atlas" class="choice" href="./studies/?object=atlas"><span class="number">02</span><div><h2>ATLAS</h2><p>Un oraș în miniatură se construiește în straturi, din planul ecranului.</p><div class="meta"><span class="swatch" style="--swatch:#c86a4a"></span><span class="state">BETA · MACHETĂ 3D</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
+        <a id="choose-orbit" class="choice" href="./studies/?object=orbit"><span class="number">03</span><div><h2>ORBIT</h2><p>Un instrument cinetic cu trei brațe și inele pe axe diferite.</p><div class="meta"><span class="swatch" style="--swatch:#638bc6"></span><span class="state">BETA · MACHETĂ 3D</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
+      </nav>
+    </main>
+    <footer><span>CORE: ÎNCEPE PE LAPTOP, CONTINUĂ PE IPHONE</span><span>ATLAS / ORBIT: PREVIZUALIZĂRI FĂRĂ CAMERĂ</span></footer>
+  </div>
+  <script>
+    const room = new URLSearchParams(location.search).get('room');
+    const onPhone = /iPhone|Android|Mobile/i.test(navigator.userAgent) || !!room;
+    const core = document.getElementById('choose-core');
+    core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}`;
+    if (room) for (const name of ['atlas', 'orbit']) {
+      const link = document.getElementById(`choose-${name}`);
+      link.href += `&room=${encodeURIComponent(room)}`;
+    }
+    if (onPhone) document.querySelector('footer span').textContent = 'CORE: PORNEȘTE CAMERA ȘI ÎNCADREAZĂ ȚINTA DE PE LAPTOP';
+  </script>
+</body>
+</html>

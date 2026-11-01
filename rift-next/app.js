@@ -54,6 +54,8 @@ const session = createCoreSession({
   onUpdate({ code, state, presence, online, error, errorStatus }) {
     if (phoneMode) {
       const label = $('phone-sync');
+      const selectionUrl = code ? `./choose.html?room=${encodeURIComponent(code)}` : './choose.html';
+      document.querySelectorAll('#phone a[href^="./choose.html"]').forEach((link) => { link.href = selectionUrl; });
       roomUnavailable = invalidRoom || errorStatus === 404;
       label.textContent = invalidRoom ? 'COD INVALID · CERE UN LINK NOU' : !code ? 'SOLO · FĂRĂ LAPTOP' : errorStatus === 404 ? 'SESIUNE EXPIRATĂ · CERE UN LINK NOU' : !online ? `RECONECTARE · ${code}` : presence.console ? `SINCRONIZAT · ${code}` : `LAPTOP ÎN AȘTEPTARE · ${code}`;
       label.dataset.online = String(online && presence.console);
@@ -588,8 +590,8 @@ if (phoneMode) {
       $('copy-status').textContent = 'Conexiunea se pregătește. Încearcă din nou în câteva secunde.';
       return;
     }
-    const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=14`;
+    const url = new URL('./choose.html', location.href);
+    url.search = `?room=${session.code}&v=15`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
