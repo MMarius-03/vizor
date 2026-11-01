@@ -1,0 +1,103 @@
+import * as THREE from 'three';
+import { createAtlas, createOrbit } from './models.js?v=1';
+
+const $ = id => document.getElementById(id);
+const canvas = $('scene');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.55;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111311);
+const camera = new THREE.PerspectiveCamera(40,1,.01,30);
+const atlas = createAtlas(THREE);
+const orbit = createOrbit(THREE);
+scene.add(atlas.root,orbit.root);
+const poster = new THREE.Mesh(new THREE.PlaneGeometry(4.3,5.75),
+  new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load('../target-source.png'),transparent:true,opacity:.27,depthWrite:false}));
+poster.position.z = -.45;
+scene.add(poster);
+const ambient = new THREE.HemisphereLight(0xfff4e0,0x343c45,2.3);
+scene.add(ambient);
+const key = new THREE.DirectionalLight(0xfff0dc,4.2);
+key.position.set(-2.6,3.8,5);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x7ca4d4,2.5);
+rim.position.set(3,-2,2);
+scene.add(rim);
+
+let active='atlas';
+let azimuth=.38;
+let elevation=.22;
+let pointer=null;
+let previous=0;
+const updateCamera=()=>{
+  const radius=Math.max(8.6,4.15/(2*Math.tan(THREE.MathUtils.degToRad(20))*camera.aspect));
+  camera.position.set(Math.sin(azimuth)*radius*Math.cos(elevation),
+    Math.sin(elevation)*radius,Math.cos(azimuth)*radius*Math.cos(elevation));
+  camera.lookAt(0,0,.25);
+};
+const setActive=name=>{
+  active=name;
+  const isAtlas=name==='atlas';
+  atlas.root.visible=isAtlas;
+  orbit.root.visible=!isAtlas;
+  $('atlas').setAttribute('aria-pressed',String(isAtlas));
+  $('orbit').setAttribute('aria-pressed',String(!isAtlas));
+  $('technical').setAttribute('aria-pressed',String(isAtlas?atlas.technical:orbit.technical));
+  $('name').textContent=isAtlas?'ATLAS — oraș în miniatură':'ORBIT — instrument cinetic';
+  $('description').textContent=isAtlas
+    ? 'O insulă construită în straturi, ridicată din planul ecranului.'
+    : 'Brațe și inele pe axe diferite, cu aliniere controlată.';
+  $('range-name').textContent=isAtlas?'CONSTRUIEȘTE':'CALIBREAZĂ AXELE';
+  $('progress').value=isAtlas?74:25;
+  $('value').textContent=isAtlas?'74%':'90°';
+  document.documentElement.style.setProperty('--accent',isAtlas?'#c86a4a':'#638bc6');
+  if(isAtlas) atlas.setProgress(.74); else orbit.setProgress(.25);
+};
+$('atlas').addEventListener('click',()=>setActive('atlas'));
+$('orbit').addEventListener('click',()=>setActive('orbit'));
+$('technical').addEventListener('click',()=>{
+  const model=active==='atlas'?atlas:orbit;
+  model.setTechnical(!model.technical);
+  $('technical').setAttribute('aria-pressed',String(model.technical));
+});
+$('progress').addEventListener('input',event=>{
+  const value=Number(event.target.value)/100;
+  if(active==='atlas') atlas.setProgress(value); else orbit.setProgress(value);
+  $('value').textContent=active==='atlas'?`${Math.round(value*100)}%`:`${Math.round(value*360)}°`;
+});
+canvas.addEventListener('pointerdown',event=>{
+  pointer={id:event.pointerId,x:event.clientX,y:event.clientY,azimuth,elevation};
+  canvas.setPointerCapture(event.pointerId);
+});
+canvas.addEventListener('pointermove',event=>{
+  if(!pointer||event.pointerId!==pointer.id)return;
+  azimuth=pointer.azimuth+(event.clientX-pointer.x)*.006;
+  elevation=THREE.MathUtils.clamp(pointer.elevation-(event.clientY-pointer.y)*.004,-.5,.65);
+  updateCamera();
+});
+const end=event=>{if(pointer?.id===event.pointerId)pointer=null;};
+canvas.addEventListener('pointerup',end);
+canvas.addEventListener('pointercancel',end);
+const resize=()=>{
+  renderer.setSize(innerWidth,innerHeight,false);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  updateCamera();
+};
+addEventListener('resize',resize);
+resize();
+updateCamera();
+setActive(new URLSearchParams(location.search).get('object')==='orbit'?'orbit':'atlas');
+const draw=now=>{
+  const dt=Math.min((now-(previous||now))/1000,.05);
+  previous=now;
+  atlas.update(dt);
+  orbit.update(dt);
+  renderer.render(scene,camera);
+  requestAnimationFrame(draw);
+};
+requestAnimationFrame(draw);
+window.__RIFT_STUDY__={atlas,orbit,setActive,renderer};
