@@ -1,4 +1,4 @@
-# RIFT Core — etapa 5
+# RIFT Core — secțiune interactivă
 
 Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Folderul este separat de versiunea [`../rift/`](../rift/).
 
@@ -8,7 +8,7 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 
 [Etapa 4](./PLAN-ETAPA-4.md) adaugă noduri care se ridică în 3D, o coroană finală și impulsuri spațiale sincronizate cu laptopul.
 
-[Etapa 5](./PLAN-ETAPA-5.md) adaugă inspecția în straturi, controlată prin glisare verticală sau un buton după 3/3.
+[Etapa 5](./PLAN-ETAPA-5.md) adaugă inspecția în straturi. Extinderea ei aduce un plan real de tăiere prin camera reactorului, selecția pieselor și trasee scurte de energie.
 
 ## Încearcă experiența
 
@@ -16,9 +16,10 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 2. Deschide linkul copiat pe iPhone în Safari și permite camera din spate. Codul din link conectează telefonul la laptop; o adresă fără cod pornește modul solo.
 3. Încadrează imaginea RIFT. Mișcă telefonul lateral ca să vezi adâncimea artefactului.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
-5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare.
-6. După 3/3, glisează în sus peste nucleu sau apasă **Desfă straturile**. Mișcă telefonul lateral ca să vezi spațiul dintre piese. Glisează în jos sau apasă **Strânge straturile** pentru a reveni. Atingerea nucleului trimite în continuare un impuls.
-7. **Reia ciclul** retrage straturile și resetează nodurile fără să oprească camera ori să schimbe codul sesiunii. Laptopul arată starea mecanismului în afara imaginii scanate; reîncărcarea filelor păstrează codul și progresul.
+5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
+6. Atinge carcasa, inelul, rotorul, colierul sau camera reactorului pentru a le identifica. Piesa atinsă este marcată scurt. Atingerea cristalului după 3/3 trimite un impuls.
+7. După 3/3, glisează în sus peste nucleu. Secțiunea urmează degetul și se fixează la eliberare. Poți folosi și **Secționează nucleul**. Mișcă telefonul lateral ca să vezi interiorul expus și distanța dintre piese. Glisează în jos sau apasă **Închide secțiunea** pentru a reveni.
+8. **Reia ciclul** închide secțiunea și resetează nodurile fără să oprească camera ori să schimbe codul sesiunii. Laptopul arată starea mecanismului în afara imaginii scanate; reîncărcarea filelor păstrează codul și progresul.
 
 [Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.
 
@@ -32,7 +33,7 @@ Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualiza
 
 - `target-source.png` este imaginea statică afișată pe laptop; `tools/make-target.py` o regenerează cu Pillow.
 - `target-data/rift-screen.json` și imaginile derivate au fost generate cu [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
-- `artifact.js` construiește obiectul din geometrii Three.js, rotește mecanismul la glisare și actualizează vizual cele trei puncte. Zonele tactile sunt mai largi decât detaliile vizibile.
+- `artifact.js` construiește obiectul din geometrii Three.js, inclusiv suprafețe cu granulație procedurală, un vas tăiat cu clipping și un mecanism intern. Zonele tactile au identificatori de piesă și sunt mai largi decât detaliile vizibile. Traseele de lumină apar doar la activarea nodurilor.
 - `app.js` folosește [8th Wall Engine Binary](https://8thwall.org/docs/open-source), [configurarea țintelor](https://8thwall.org/docs/api/engine/xrcontroller/configure) și [evenimentele de tracking](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule). `sync.js` transmite starea prin backendul online RIFT. Vezi [NOTICE.md](./NOTICE.md) pentru credite.
 
 ## Verificare după schimbări

@@ -4,17 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RIFT Core / Model Preview</title>
-  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d0b}canvas{display:block;width:100%;height:100%}#note{position:fixed;left:18px;bottom:16px;color:#d5ef44;font:12px monospace;pointer-events:none}</style>
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d0b}canvas{display:block;width:100%;height:100%}#note{position:fixed;left:18px;bottom:16px;color:#d5ef44;font:12px monospace;pointer-events:none}#controls{position:fixed;z-index:2;right:16px;bottom:16px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:480px}#controls button{background:#172018de;border:1px solid #9bb354;color:#e8f6c4;padding:10px 12px;font:11px monospace;cursor:pointer}#controls button:hover{background:#d5ef44;color:#10150a}@media(max-width:600px){#note{top:12px;bottom:auto}#controls{left:12px;right:12px;bottom:12px}}</style>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
-  <div id="note">RIFT CORE / clic: deschide · trage: rotește perspectiva</div>
+  <div id="note">RIFT CORE / trage: rotește perspectiva</div>
+  <div id="controls"><button data-action="open">DESCHIDE</button><button data-action="arm">ARMEAZĂ</button><button data-action="nodes">3 NODURI</button><button data-action="section">SECȚIUNE</button><button data-action="reset">REIA</button></div>
   <script type="module">
     import * as THREE from 'three';
-    import { createRiftCore } from './artifact.js?v=7';
+    import { createRiftCore } from './artifact.js?v=8';
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b0d0b);
     const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.localClippingEnabled = true;
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     document.body.prepend(renderer.domElement);
     const camera = new THREE.PerspectiveCamera(45, 1, .01, 20);
@@ -51,6 +53,23 @@
       if (dragStart && Math.abs(event.clientX-dragStart.x)<5) artifact.toggle();
       dragStart=null;
     });
+    document.getElementById('controls').addEventListener('click', (event) => {
+      const action = event.target.closest('button')?.dataset.action;
+      if (action === 'open' && !artifact.isOpen) artifact.toggle();
+      if (action === 'arm') { if (!artifact.isOpen) artifact.toggle(); artifact.dragRotor(70); }
+      if (action === 'nodes') {
+        if (!artifact.isOpen) artifact.toggle();
+        artifact.dragRotor(70);
+        for (let i = 0; i < 3; i += 1) artifact.activateNode(i);
+      }
+      if (action === 'section') {
+        if (!artifact.isOpen) artifact.toggle();
+        artifact.dragRotor(70);
+        for (let i = 0; i < 3; i += 1) artifact.activateNode(i);
+        artifact.setSection(!artifact.isSectionOpen);
+      }
+      if (action === 'reset') artifact.reset();
+    });
     const resize = () => {
       renderer.setSize(innerWidth,innerHeight);
       camera.aspect=innerWidth/innerHeight;
@@ -65,7 +84,7 @@
       requestAnimationFrame(draw);
     };
     requestAnimationFrame(draw);
-    window.__PREVIEW__ = { artifact, setAngle(value){angle=value;setView();} };
+    window.__PREVIEW__ = { artifact, renderer, setAngle(value){angle=value;setView();} };
   </script>
 </body>
 </html>

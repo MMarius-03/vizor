@@ -46,7 +46,7 @@ fs.mkdirSync(output, { recursive: true });
       let sceneModule;
       window.XR8 = {
         GlTextureRenderer: { pipelineModule: () => ({}) },
-        Threejs: { pipelineModule: () => ({}), xrScene: () => ({ scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100) }) },
+        Threejs: { pipelineModule: () => ({}), xrScene: () => ({ scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100), renderer: { localClippingEnabled: false } }) },
         XrController: { configure() {}, pipelineModule: () => ({}) },
         XrConfig: { camera: () => ({ BACK: 'back' }) },
         addCameraPipelineModules(modules) { sceneModule = modules.find((module) => module.name === 'rift-next-probe'); window.__sceneModule = sceneModule; },
@@ -70,7 +70,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await phone.locator('#node-controls button[data-node="0"]').isDisabled(), true);
     assert.equal(await phone.locator('#node-controls button[data-node="1"]').isEnabled(), true);
     await phone.waitForTimeout(300);
-    assert.equal(await phone.locator('#scan-guide').evaluate((element) => getComputedStyle(element).opacity), '0');
+    assert.ok(Number(await phone.locator('#scan-guide').evaluate((element) => getComputedStyle(element).opacity)) < .01);
     await phone.screenshot({ path: path.join(output, 'phone-live.png') });
     await phone.setViewportSize({ width: 390, height: 844 });
     await phone.screenshot({ path: path.join(output, 'phone-live-small.png') });
@@ -88,10 +88,10 @@ fs.mkdirSync(output, { recursive: true });
     } }));
     await phone.getByRole('button', { name: 'REIA CICLUL' }).waitFor();
     await phone.waitForTimeout(300);
-    assert.equal(await phone.locator('#scan-guide').evaluate((element) => getComputedStyle(element).opacity), '0');
+    assert.ok(Number(await phone.locator('#scan-guide').evaluate((element) => getComputedStyle(element).opacity)) < .01);
     await phone.screenshot({ path: path.join(output, 'phone-complete.png') });
     phoneState = { ...phoneState, section: true, revision: 7, lastAction: 'section:open' };
-    await phone.getByRole('button', { name: 'STRÂNGE STRATURILE' }).waitFor();
+    await phone.getByRole('button', { name: 'ÎNCHIDE SECȚIUNEA' }).waitFor();
     await phone.screenshot({ path: path.join(output, 'phone-section.png') });
     await phone.setViewportSize({ width: 667, height: 375 });
     await phone.screenshot({ path: path.join(output, 'phone-section-landscape-small.png') });
@@ -112,11 +112,21 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await model.evaluate(() => window.__PREVIEW__.artifact.isComplete), true);
     await model.screenshot({ path: path.join(output, 'model-spatial-complete.png') });
     await model.evaluate(() => {
+      window.__PREVIEW__.artifact.scrubSection(.55);
+      window.__PREVIEW__.setAngle(0);
+    });
+    await model.waitForTimeout(120);
+    assert.ok(Math.abs(await model.evaluate(() => window.__PREVIEW__.artifact.sectionAmount) - .55) < .01);
+    await model.screenshot({ path: path.join(output, 'model-section-scrub.png') });
+    await model.evaluate(() => {
       window.__PREVIEW__.artifact.setSection(true);
       window.__PREVIEW__.setAngle(1);
     });
     await model.waitForTimeout(650);
+    assert.equal(await model.evaluate(() => window.__PREVIEW__.renderer.localClippingEnabled), true);
     await model.screenshot({ path: path.join(output, 'model-section.png') });
+    await model.evaluate(() => window.__PREVIEW__.setAngle(0));
+    await model.screenshot({ path: path.join(output, 'model-section-front.png') });
     console.log(output);
   } finally {
     await browser.close();

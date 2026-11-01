@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js?v=7';
+import { createRiftCore } from './artifact.js?v=8';
 import { createCoreSession } from './sync.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -108,11 +108,11 @@ function renderCoreState() {
   let instruction;
   if (artifact.isSectionOpen) {
     status = 'SECȚIUNE DESCHISĂ';
-    instruction = 'Privește din lateral. Glisează în jos ca să strângi; atinge pentru impuls.';
-    $('target-count').textContent = 'STRATURI DESCHISE';
+    instruction = 'Privește în interior din lateral. Glisează în jos sau atinge o piesă.';
+    $('target-count').textContent = 'REACTOR SECȚIONAT';
   } else if (artifact.isComplete) {
     status = 'CORE STABIL';
-    instruction = 'Glisează în sus pe nucleu ca să desfaci straturile; atinge pentru impuls.';
+    instruction = 'Glisează în sus pe nucleu pentru secțiune. Poți atinge și piesele.';
     $('target-count').textContent = 'NODURI 3 / 3';
   } else if (!artifact.isOpen) {
     status = 'CORE ANCORAT';
@@ -120,7 +120,7 @@ function renderCoreState() {
     $('target-count').textContent = 'CARCASĂ ÎNCHISĂ';
   } else if (!artifact.isArmed) {
     status = 'CORE DESCHIS';
-    instruction = 'Glisează orizontal peste nucleu ca să rotești mecanismul.';
+    instruction = 'Glisează orizontal ca să rotești. Atinge o piesă ca să o identifici.';
     $('target-count').textContent = 'ROTEȘTE NUCLEUL';
   } else {
     status = 'MECANISM ARMAT';
@@ -131,7 +131,7 @@ function renderCoreState() {
   $('restart').textContent = artifact.isComplete ? 'REIA CICLUL' : 'REPORNEȘTE CAMERA';
   $('node-controls').hidden = !artifact.isOpen || !artifact.isArmed || artifact.isComplete;
   $('section-toggle').hidden = !artifact.isComplete;
-  $('section-toggle').textContent = artifact.isSectionOpen ? 'STRÂNGE STRATURILE' : 'DESFĂ STRATURILE';
+  $('section-toggle').textContent = artifact.isSectionOpen ? 'ÎNCHIDE SECȚIUNEA' : 'SECȚIONEAZĂ NUCLEUL';
   for (const button of $('node-controls').querySelectorAll('button')) {
     const active = artifact.nodeStates[Number(button.dataset.node)];
     button.disabled = active;
@@ -262,6 +262,7 @@ function updateTargetPose(dt) {
 
 function markLost() {
   if (!found) return;
+  if (activePointer?.axis === 'section') artifact?.setSection(artifact.isSectionOpen);
   found = false;
   activePointer = null;
   $('node-controls').hidden = true;
@@ -346,6 +347,7 @@ async function startAR() {
       onStart: () => {
         const scene = xr.Threejs.xrScene();
         camera = scene.camera;
+        scene.renderer.localClippingEnabled = true;
         makeProbe(scene.scene);
         setStatus('CAUTĂ IMAGINEA', 'searching', 'Încadrează imaginea RIFT întreagă de pe laptop.');
       },
@@ -414,6 +416,20 @@ function coreHit(clientX, clientY) {
   return ray.intersectObject(artifact.hitTarget, false).length > 0;
 }
 
+function pickPart(clientX, clientY) {
+  if (!artifact?.isOpen) return null;
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new three.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  preparePicking();
+  const ray = new three.Raycaster();
+  ray.setFromCamera(pointer, camera);
+  return ray.intersectObjects(artifact.partTargets, false)
+    .find(({ object }) => object.parent.visible && object.userData.kind === 'part')?.object || null;
+}
+
 function pickNode(clientX, clientY) {
   if (!artifact?.isOpen) return -1;
   preparePicking();
@@ -460,11 +476,13 @@ function changeSection(open) {
 function onCanvasPointerDown(event) {
   if (!found || !artifact || !camera || activePointer) return;
   const node = pickNode(event.clientX, event.clientY);
+  const part = node < 0 ? pickPart(event.clientX, event.clientY) : null;
   const onCore = coreHit(event.clientX, event.clientY);
-  if (node < 0 && !onCore) return;
+  if (node < 0 && !onCore && !part) return;
   activePointer = {
     id: event.pointerId, startX: event.clientX, startY: event.clientY,
-    lastX: event.clientX, onCore, node, dragging: false, axis: null,
+    lastX: event.clientX, onCore: onCore || !!part, node, part,
+    sectionStart: artifact.sectionAmount, dragging: false, axis: null,
   };
   try { canvas.setPointerCapture(event.pointerId); } catch {}
 }
@@ -479,7 +497,11 @@ function onCanvasPointerMove(event) {
     activePointer.axis = 'section';
     activePointer.dragging = true;
   }
-  if (activePointer.axis === 'section') return;
+  if (activePointer.axis === 'section') {
+    artifact.scrubSection(activePointer.sectionStart - dy / 170);
+    activePointer.lastX = event.clientX;
+    return;
+  }
   if (activePointer.onCore && artifact.isOpen &&
       (activePointer.axis === 'rotate' || (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
     activePointer.axis = 'rotate';
@@ -500,17 +522,24 @@ function onCanvasPointerUp(event) {
   const gesture = activePointer;
   activePointer = null;
   if (gesture.axis === 'section' && found) {
-    changeSection(event.clientY < gesture.startY);
+    artifact.scrubSection(gesture.sectionStart - (event.clientY - gesture.startY) / 170);
+    changeSection(artifact.sectionAmount >= .45);
     return;
   }
   if (!found || gesture.dragging || Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 14) return;
   if (gesture.node >= 0) {
     activateNode(gesture.node);
   } else if (gesture.onCore) {
-    if (artifact.isComplete) {
+    if (artifact.isComplete && (!gesture.part || gesture.part.userData.partId === 'crystal')) {
       artifact.pulse();
       lastEvent = 'impuls core';
       publishCore('pulse');
+    } else if (gesture.part) {
+      const label = artifact.selectPart(gesture.part);
+      if (label) {
+        lastEvent = `piesă: ${label}`;
+        $('instruction').textContent = `${label} · mișcă telefonul lateral ca să vezi forma.`;
+      }
     } else if (artifact.isArmed) {
       $('instruction').textContent = 'Atinge punctele de pe obiect sau folosește 01–03 de jos.';
     } else {
@@ -538,7 +567,10 @@ if (phoneMode) {
   canvas.addEventListener('pointerdown', onCanvasPointerDown);
   canvas.addEventListener('pointermove', onCanvasPointerMove);
   canvas.addEventListener('pointerup', onCanvasPointerUp);
-  canvas.addEventListener('pointercancel', () => { activePointer = null; });
+  canvas.addEventListener('pointercancel', () => {
+    if (activePointer?.axis === 'section') changeSection(artifact.sectionAmount >= .5);
+    activePointer = null;
+  });
   $('node-controls').addEventListener('click', (event) => {
     const button = event.target.closest('button[data-node]');
     if (button) activateNode(Number(button.dataset.node));
@@ -557,7 +589,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=11`;
+    url.search = `?mode=phone&room=${session.code}&v=12`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

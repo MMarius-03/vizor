@@ -33,7 +33,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
         Threejs: {
           pipelineModule: () => ({ name: 'three' }),
           xrScene: () => {
-            const result = { scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100) };
+            const result = { scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100), renderer: { localClippingEnabled: false } };
             window.__fakeAR.scene = result;
             return result;
           },
@@ -103,6 +103,17 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.waitForTimeout(80);
     await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-node-1').visible), true);
+    const framePoint = await page.evaluate(() => {
+      const { scene, camera } = window.__fakeAR.scene;
+      scene.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
+      const point = scene.getObjectByName('rift-hit-frame').getWorldPosition(new window.THREE.Vector3()).project(camera);
+      return { x: (point.x + 1) * 430 / 2, y: (1 - point.y) * 932 / 2 };
+    });
+    await page.mouse.click(framePoint.x, framePoint.y);
+    assert.match((await page.evaluate(() => window.__RIFT_NEXT__.getState())).lastEvent, /^piesă:/);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-selection').visible), true);
     const nodePoints = await page.evaluate(() => {
       const { scene, camera } = window.__fakeAR.scene;
       scene.updateMatrixWorld(true);
@@ -125,6 +136,8 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.evaluate(() => window.__fakeAR.tick());
     await page.locator('#node-controls button[data-node="0"]').click();
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 1);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-energy-1').visible), true);
     for (let i = 1; i < 3; i += 1) {
       await page.mouse.click(nodePoints[i].x, nodePoints[i].y);
       assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, i + 1);
@@ -166,13 +179,13 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.evaluate(() => window.__fakeAR.tick());
     const nucleusAfterSection = await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-nucleus').position.z);
     assert.ok(nucleusAfterSection > nucleusBeforeSection);
-    await page.getByRole('button', { name: 'STRÂNGE STRATURILE' }).click();
+    await page.getByRole('button', { name: 'ÎNCHIDE SECȚIUNEA' }).click();
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).sectionOpen, false);
-    await page.getByRole('button', { name: 'DESFĂ STRATURILE' }).click();
+    await page.getByRole('button', { name: 'SECȚIONEAZĂ NUCLEUL' }).click();
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).sectionOpen, true);
     await touchDrag(215, 466, 215, 566);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).sectionOpen, false);
-    await page.getByRole('button', { name: 'DESFĂ STRATURILE' }).click();
+    await page.getByRole('button', { name: 'SECȚIONEAZĂ NUCLEUL' }).click();
     await page.locator('#restart').click();
     await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('rift-crown').visible), false);

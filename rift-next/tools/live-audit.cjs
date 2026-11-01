@@ -26,6 +26,7 @@ const { chromium } = require('playwright');
         Threejs: { pipelineModule: () => ({}), xrScene: () => ({
           scene: new window.THREE.Scene(),
           camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100),
+          renderer: { localClippingEnabled: false },
         }) },
         XrController: { configure() {}, pipelineModule: () => ({}) },
         XrConfig: { camera: () => ({ BACK: 'back' }) },
@@ -59,12 +60,12 @@ const { chromium } = require('playwright');
     await laptop.getByText('CORE STABIL', { exact: true }).waitFor({ timeout: 15000 });
     await phone.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
     await laptop.locator('#sync-stage.sync-pulse').waitFor({ timeout: 15000 });
-    await phone.getByRole('button', { name: 'DESFĂ STRATURILE' }).click();
+    await phone.getByRole('button', { name: 'SECȚIONEAZĂ NUCLEUL' }).click();
     await laptop.getByText('STRATURI DESCHISE', { exact: true }).waitFor({ timeout: 15000 });
     await phone.reload();
     await start();
-    await phone.getByRole('button', { name: 'STRÂNGE STRATURILE' }).waitFor();
-    await phone.getByRole('button', { name: 'STRÂNGE STRATURILE' }).click();
+    await phone.getByRole('button', { name: 'ÎNCHIDE SECȚIUNEA' }).waitFor();
+    await phone.getByRole('button', { name: 'ÎNCHIDE SECȚIUNEA' }).click();
     await laptop.getByText('CORE STABIL', { exact: true }).waitFor({ timeout: 15000 });
     await phone.getByRole('button', { name: 'REIA CICLUL' }).click();
     await laptop.getByText('CORE ÎNCHIS', { exact: true }).waitFor({ timeout: 15000 });
