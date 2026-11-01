@@ -4,6 +4,8 @@ Experiența AR ancorează un artefact 3D de imaginea statică de pe laptop. Fold
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
 
+[Analiza celor zece exemple Three.js și CodePen](./RESEARCH-THREE-EXAMPLES.md) notează tehnicile utile, adaptările necesare pentru iPhone și limitele de acces la surse.
+
 [Etapa 4](./PLAN-ETAPA-4.md) adaugă noduri care se ridică în 3D, o coroană finală și impulsuri spațiale sincronizate cu laptopul.
 
 [Etapa 5](./PLAN-ETAPA-5.md) adaugă inspecția în straturi, controlată prin glisare verticală sau un buton după 3/3.
