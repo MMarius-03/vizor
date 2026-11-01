@@ -226,7 +226,7 @@ export function createRiftCore(THREE) {
   return {
     root, hitTarget, update,
     toggle() {
-      if (nodes.every((node) => node.active)) return true;
+      if (armed || nodes.some((node) => node.active)) return !!desiredOpen;
       desiredOpen = desiredOpen ? 0 : 1;
       return !!desiredOpen;
     },
@@ -264,6 +264,7 @@ export function createRiftCore(THREE) {
       return true;
     },
     getNodeWorldPosition(index, out) { return nodes[index]?.holder.getWorldPosition(out); },
+    getCoreWorldPosition(out) { return nucleus.getWorldPosition(out); },
     get isOpen() { return !!desiredOpen; },
     get isArmed() { return armed; },
     get progress() { return nodes.filter((node) => node.active).length; },
@@ -285,6 +286,7 @@ export function createRiftCore(THREE) {
       update(0);
     },
     setOpacity(alpha) {
+      if (fadeOpacity === alpha) return;
       fadeOpacity = alpha;
       for (const surface of fadeMaterials) {
         surface.opacity = surface === pulseMaterial ? pulseFlash * .76 * alpha : alpha;

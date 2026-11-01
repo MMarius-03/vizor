@@ -4,7 +4,18 @@ const { chromium } = require(process.argv[2] || 'playwright');
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
   try {
-    const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
+    const page = await browser.newPage({ viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true });
+    const cdp = await page.context().newCDPSession(page);
+    const touchDrag = async (startX, startY, endX, endY) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: startY, id: 1 }] });
+      for (let step = 1; step <= 6; step += 1) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
+          x: startX + (endX - startX) * step / 6,
+          y: startY + (endY - startY) * step / 6, id: 1,
+        }] });
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.addInitScript(() => {
@@ -50,13 +61,40 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.match(configuration.imageTargetData[0].imagePath, /rift-next\/target-data\/rift-screen_luminance\.png$/);
 
     await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
+      name: 'rift-screen', position: { x: NaN, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+    }));
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).foundCount, 0);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
       name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
-      scaledWidth: 0.75, scaledHeight: 1,
     }));
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE ANCORAT');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).found, true);
-    await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).anchorSized, false);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+      scaledWidth: .75, scaledHeight: 1,
+    }));
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).anchorSized, true);
+    const uiMutations = await page.evaluate(async () => {
+      let count = 0;
+      const observer = new MutationObserver((records) => { count += records.length; });
+      for (const id of ['tracking-state', 'instruction', 'restart']) {
+        observer.observe(document.getElementById(id), { childList: true, subtree: true, characterData: true });
+      }
+      for (let i = 0; i < 30; i += 1) window.__fakeAR.emit('reality.imageupdated', {
+        name: 'rift-screen', position: { x: i * .001, y: 0, z: -1 },
+        rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+        scaledWidth: .75, scaledHeight: 1,
+      });
+      await Promise.resolve();
+      observer.disconnect();
+      return count;
+    });
+    assert.equal(uiMutations, 0, 'tracking updates should not rewrite the HUD');
+    await page.touchscreen.tap(215, 466);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true);
     assert.equal(await page.locator('#tracking-state').textContent(), 'CORE DESCHIS');
     await page.evaluate(() => window.__fakeAR.emit('reality.imagescanning', {}));
@@ -77,16 +115,13 @@ const { chromium } = require(process.argv[2] || 'playwright');
     });
     await page.mouse.click(nodePoints[0].x, nodePoints[0].y);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 0);
-    await page.mouse.move(215, 466);
-    await page.mouse.down();
-    await page.mouse.move(215, 566, { steps: 6 });
-    await page.mouse.up();
+    await touchDrag(215, 466, 215, 566);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).armed, false);
-    await page.mouse.move(215, 466);
-    await page.mouse.down();
-    await page.mouse.move(310, 466, { steps: 6 });
-    await page.mouse.up();
+    await touchDrag(215, 466, 310, 466);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).armed, true);
+    await page.locator('#ar-canvas').click({ position: { x: 215, y: 466 } });
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).coreOpen, true,
+      'a missed node tap must not close the armed core');
     await page.evaluate(() => window.__fakeAR.tick());
     await page.locator('#node-controls button[data-node="0"]').click();
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).progress, 1);
@@ -163,6 +198,16 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).found, false);
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, false);
     assert.deepEqual(errors, []);
+    const invalid = await browser.newPage({ viewport: { width: 430, height: 932 } });
+    await invalid.goto('http://127.0.0.1:4173/rift-next/?mode=phone&room=BAD');
+    await invalid.getByText('COD INVALID · CERE UN LINK NOU').first().waitFor();
+    assert.equal(await invalid.locator('#start-ar').isDisabled(), true);
+    const expired = await browser.newPage({ viewport: { width: 430, height: 932 } });
+    await expired.route('https://rift-sync-api.grassyyew19.chatgpt.site/**', (route) =>
+      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Camera nu mai există.' }) }));
+    await expired.goto('http://127.0.0.1:4173/rift-next/?mode=phone&room=ABCDEF');
+    await expired.getByText('SESIUNE EXPIRATĂ · CERE UN LINK NOU').first().waitFor();
+    assert.equal(await expired.locator('#start-ar').isDisabled(), true);
     console.log('RIFT NEXT mock camera flow: OK');
   } finally {
     await browser.close();

@@ -27,9 +27,16 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
   let online = false;
   let presence = { console: false, phone: false };
   let started = false;
-  let localChanges = false;
 
   const notify = (error = '', errorStatus = 0) => onUpdate({ code, state, presence, online, error, errorStatus });
+  const revision = (value) => Number.isSafeInteger(value?.revision) ? value.revision : -1;
+  function acceptState(next, restore = false) {
+    if (!next || revision(next) < revision(state)) return false;
+    if (revision(next) === revision(state) && state) return false;
+    state = next;
+    if (restore && role === 'phone' && !pending.length && !sending) onRestore(state);
+    return true;
+  }
 
   async function flush() {
     if (!code || !pending.length || sending) return;
@@ -40,15 +47,15 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
         const result = await request(`/api/room/${code}/event`, {
           method: 'POST', body: JSON.stringify({ type: 'core/sync', ...next }),
         });
-        state = result.state;
+        acceptState(result.state);
         pending.shift();
+        if (!pending.length && revision(state) > revision(result.state)) onRestore(state);
         online = true;
         notify();
       } catch (error) {
         if (error.status === 409 && error.responseState?.experience === 'core') {
           pending = [];
-          state = error.responseState;
-          localChanges = false;
+          acceptState(error.responseState);
           online = true;
           onRestore(state);
           notify('Starea a fost actualizată pe alt dispozitiv.');
@@ -78,8 +85,7 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
       }
       const room = await request(`/api/room/${code}?role=${role}`);
       if (room.state?.experience !== 'core') throw new Error('Camera aparține altei experiențe RIFT.');
-      if (role === 'phone' && !state && !localChanges) onRestore(room.state);
-      state = room.state;
+      acceptState(room.state, true);
       presence = room.presence;
       online = true;
       notify();
@@ -107,8 +113,7 @@ export function createCoreSession({ role, initialCode, onUpdate, onRestore }) {
       document.addEventListener('visibilitychange', () => { if (!document.hidden) void poll(); });
     },
     publish(snapshot, action) {
-      if (role !== 'phone') return;
-      localChanges = true;
+      if (role !== 'phone' || !code) return;
       pending.push({ ...snapshot, action });
       void flush();
     },

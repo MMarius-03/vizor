@@ -1,9 +1,10 @@
-import { createRiftCore } from './artifact.js?v=5';
-import { createCoreSession } from './sync.js?v=3';
+import { createRiftCore } from './artifact.js?v=6';
+import { createCoreSession } from './sync.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
 const roomParam = new URLSearchParams(location.search).get('room');
+const invalidRoom = phoneMode && roomParam !== null && !/^[A-HJ-NP-Z2-9]{6}$/.test(roomParam);
 const savedRoom = (() => { try { return sessionStorage.getItem('rift-core-room'); } catch { return ''; } })();
 const canvas = $('ar-canvas');
 const viewport = document.querySelector('meta[name="viewport"]');
@@ -40,6 +41,7 @@ let restoredCoreState = null;
 let lastLaptopPulseCount = null;
 let lastLaptopComplete = null;
 let laptopPulseTimer = 0;
+let roomUnavailable = invalidRoom;
 
 const session = createCoreSession({
   role: phoneMode ? 'phone' : 'console',
@@ -52,10 +54,14 @@ const session = createCoreSession({
   onUpdate({ code, state, presence, online, error, errorStatus }) {
     if (phoneMode) {
       const label = $('phone-sync');
-      label.textContent = !code ? 'SOLO · FĂRĂ LAPTOP' : errorStatus === 404 ? 'SESIUNE EXPIRATĂ · CERE UN LINK NOU' : !online ? `RECONECTARE · ${code}` : presence.console ? `SINCRONIZAT · ${code}` : `LAPTOP ÎN AȘTEPTARE · ${code}`;
+      roomUnavailable = invalidRoom || errorStatus === 404;
+      label.textContent = invalidRoom ? 'COD INVALID · CERE UN LINK NOU' : !code ? 'SOLO · FĂRĂ LAPTOP' : errorStatus === 404 ? 'SESIUNE EXPIRATĂ · CERE UN LINK NOU' : !online ? `RECONECTARE · ${code}` : presence.console ? `SINCRONIZAT · ${code}` : `LAPTOP ÎN AȘTEPTARE · ${code}`;
       label.dataset.online = String(online && presence.console);
+      label.dataset.error = String(roomUnavailable);
       $('phone-sync-live').textContent = label.textContent;
       $('phone-sync-live').dataset.online = label.dataset.online;
+      $('phone-sync-live').dataset.error = label.dataset.error;
+      $('start-ar').disabled = roomUnavailable;
       if (error && debug) label.title = error;
     } else {
       const nextPulseCount = state?.pulseCount ?? 0;
@@ -113,7 +119,7 @@ function renderCoreState() {
     $('target-count').textContent = 'ROTEȘTE NUCLEUL';
   } else {
     status = 'MECANISM ARMAT';
-    instruction = 'Atinge cele trei puncte luminoase din jurul nucleului.';
+    instruction = 'Atinge punctele de pe obiect sau folosește 01–03 de jos.';
     $('target-count').textContent = `NODURI ${artifact.progress} / 3`;
   }
   if (found) setStatus(status, 'found', instruction);
@@ -179,6 +185,9 @@ function makeProbe(scene) {
 
   artifact = createRiftCore(three);
   if (restoredCoreState) artifact.restoreState(restoredCoreState);
+  // A conservative size until the tracker reports the target width.
+  artifact.root.scale.setScalar(.285);
+  artifact.root.position.y = -.075;
   targetRoot.add(artifact.root);
   scene.add(new three.HemisphereLight(0xe5efd4, 0x161d18, 2.2));
   const key = new three.DirectionalLight(0xffffff, 2.4);
@@ -190,29 +199,35 @@ function makeProbe(scene) {
 }
 
 function applyTarget(detail) {
-  if (!targetRoot || detail?.name !== targetName || !detail.position || !detail.rotation) return;
+  if (!targetRoot || detail?.name !== targetName || !detail.position || !detail.rotation) return false;
+  const position = detail.position;
+  const rotation = detail.rotation;
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(position.z) ||
+      !Number.isFinite(rotation.x) || !Number.isFinite(rotation.y) ||
+      !Number.isFinite(rotation.z) || !Number.isFinite(rotation.w) ||
+      rotation.x ** 2 + rotation.y ** 2 + rotation.z ** 2 + rotation.w ** 2 < .001) return false;
   const now = performance.now();
+  const wasFound = found;
   const recovering = lossStartedAt > 0;
   if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
-  const nextPosition = new three.Vector3(detail.position.x, detail.position.y, detail.position.z);
-  const nextRotation = new three.Quaternion(detail.rotation.x, detail.rotation.y, detail.rotation.z, detail.rotation.w);
-  const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : 1;
-  desiredPosition.copy(nextPosition);
-  desiredRotation.copy(nextRotation);
+  desiredPosition.set(position.x, position.y, position.z);
+  desiredRotation.set(rotation.x, rotation.y, rotation.z, rotation.w).normalize();
+  const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : desiredScale;
   desiredScale = scale;
   // First detection and reacquisition after a long loss need an exact pose.
   // Subsequent measurements are blended in the render loop.
   if (!hasPose || !targetRoot.visible) {
-    targetRoot.position.copy(nextPosition);
-    targetRoot.quaternion.copy(nextRotation);
+    targetRoot.position.copy(desiredPosition);
+    targetRoot.quaternion.copy(desiredRotation);
     targetRoot.scale.setScalar(scale);
   }
 
   // The printed target has fixed dimensions. Lock its local size once so
   // detector width noise cannot resize the artifact on every image update.
-  if (!anchorSized) {
-    const width = detail.scaledWidth && detail.scaledWidth > 0 ? detail.scaledWidth / scale : 1;
-    const height = detail.scaledHeight && detail.scaledHeight > 0 ? detail.scaledHeight / scale : width * 4 / 3;
+  if (!anchorSized && Number.isFinite(detail.scaledWidth) && detail.scaledWidth > 0) {
+    const width = detail.scaledWidth / scale;
+    const height = Number.isFinite(detail.scaledHeight) && detail.scaledHeight > 0
+      ? detail.scaledHeight / scale : width * 4 / 3;
     artifact.root.scale.setScalar(Math.min(1.5, Math.max(0.06, width * 0.38)));
     artifact.root.position.y = -height * .075;
     anchorSized = true;
@@ -224,7 +239,8 @@ function applyTarget(detail) {
   lastSeenAt = now;
   found = true;
   updates += 1;
-  renderCoreState();
+  if (!wasFound) renderCoreState();
+  return true;
 }
 
 function updateTargetPose(dt) {
@@ -279,6 +295,10 @@ function updateDebug() {
 
 async function startAR() {
   if (starting) return;
+  if (roomUnavailable) {
+    $('intro').hidden = true;
+    return showError('Linkul sesiunii nu este valid. Copiază un link nou de pe laptop.');
+  }
   starting = true;
   $('intro').hidden = true;
   $('live').hidden = false;
@@ -342,9 +362,10 @@ async function startAR() {
         } },
         { event: 'reality.imagefound', process: ({ detail }) => {
           if (detail?.name !== targetName) return;
-          foundCount += 1;
-          lastEvent = 'imagine găsită';
-          applyTarget(detail);
+          if (applyTarget(detail)) {
+            foundCount += 1;
+            lastEvent = 'imagine găsită';
+          }
         } },
         { event: 'reality.imageupdated', process: ({ detail }) => applyTarget(detail) },
         { event: 'reality.imagelost', process: ({ detail }) => {
@@ -389,7 +410,7 @@ function pickNode(clientX, clientY) {
   if (!artifact?.isOpen) return -1;
   preparePicking();
   const rect = canvas.getBoundingClientRect();
-  const center = artifact.root.getWorldPosition(new three.Vector3()).project(camera);
+  const center = artifact.getCoreWorldPosition(new three.Vector3()).project(camera);
   const centerX = rect.left + (center.x + 1) * rect.width / 2;
   const centerY = rect.top + (1 - center.y) * rect.height / 2;
   const centerDistance = Math.hypot(clientX - centerX, clientY - centerY);
@@ -462,6 +483,8 @@ function onCanvasPointerUp(event) {
       artifact.pulse();
       lastEvent = 'impuls core';
       publishCore('pulse');
+    } else if (artifact.isArmed) {
+      $('instruction').textContent = 'Atinge punctele de pe obiect sau folosește 01–03 de jos.';
     } else {
       const open = artifact.toggle();
       lastEvent = open ? 'core deschis' : 'core închis';
@@ -505,7 +528,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=9`;
+    url.search = `?mode=phone&room=${session.code}&v=10`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -515,4 +538,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
