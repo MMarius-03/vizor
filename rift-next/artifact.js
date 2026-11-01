@@ -140,6 +140,19 @@ export function createRiftCore(THREE) {
   root.add(pulseRing);
   fadeMaterials.push(pulseMaterial);
 
+  // Three slender rails make the depth between the anchored base and the
+  // lifted core legible from oblique phone angles.
+  const sectionRails = [];
+  const railGeometry = new THREE.BoxGeometry(.018, .018, .46);
+  for (let i = 0; i < 3; i += 1) {
+    const angle = Math.PI / 2 + i * Math.PI * 2 / 3;
+    const rail = new THREE.Mesh(railGeometry, i === 0 ? acid : metal);
+    rail.position.set(Math.cos(angle) * .32, Math.sin(angle) * .32, .48);
+    rail.visible = false;
+    root.add(rail);
+    sectionRails.push(rail);
+  }
+
   const blades = [];
   for (let i = 0; i < 6; i += 1) {
     const angle = Math.PI / 6 + i * Math.PI / 3;
@@ -180,20 +193,24 @@ export function createRiftCore(THREE) {
   let pulseFlash = 0;
   let pulseCount = 0;
   let crownLift = 0;
+  let sectionOpen = false;
+  let sectionProgress = 0;
   let fadeOpacity = 1;
   function update(dt) {
     pulseFlash = Math.max(0, pulseFlash - dt * 1.4);
     const blend = 1 - Math.exp(-Math.min(dt, .08) * 7);
     openness += (desiredOpen - openness) * blend;
     if (Math.abs(desiredOpen - openness) < .001) openness = desiredOpen;
+    sectionProgress += ((sectionOpen ? 1 : 0) - sectionProgress) * blend;
+    if (Math.abs((sectionOpen ? 1 : 0) - sectionProgress) < .001) sectionProgress = sectionOpen ? 1 : 0;
     const eased = openness * openness * (3 - 2 * openness);
     for (const { hinge, angle, index } of blades) {
-      hinge.position.x = Math.cos(angle) * .31 * eased;
-      hinge.position.y = Math.sin(angle) * .31 * eased;
-      hinge.position.z = .36 + (index % 2) * .012 + .06 * eased;
+      hinge.position.x = Math.cos(angle) * (.31 * eased + .12 * sectionProgress);
+      hinge.position.y = Math.sin(angle) * (.31 * eased + .12 * sectionProgress);
+      hinge.position.z = .36 + (index % 2) * .012 + .06 * eased + .16 * sectionProgress;
       hinge.rotation.z = (index % 2 ? 1 : -1) * .15 * eased;
     }
-    nucleus.position.z = .275 + .11 * eased;
+    nucleus.position.z = .275 + .11 * eased + .36 * sectionProgress;
     nucleus.rotation.z = .14 * eased;
     nucleusMaterial.emissiveIntensity = .12 + 1.35 * eased + (nodes.every((node) => node.active) ? .7 : 0) + pulseFlash * 2.4;
     nucleus.scale.setScalar(1 + pulseFlash * .16);
@@ -202,17 +219,18 @@ export function createRiftCore(THREE) {
     const complete = nodes.every((node) => node.active);
     crownLift += ((complete ? 1 : 0) - crownLift) * blend;
     crownRing.visible = crownLift > .01;
-    crownRing.position.z = .43 + .19 * crownLift;
+    crownRing.position.z = .43 + .19 * crownLift + .42 * sectionProgress;
     crownRing.scale.setScalar(.75 + .25 * crownLift);
     crownRing.rotation.z += dt * (.2 + .35 * crownLift);
     pulseRing.visible = pulseFlash > .01;
+    pulseRing.position.z = .69 + .42 * sectionProgress;
     pulseRing.scale.setScalar(1 + (1 - pulseFlash) * 2.3);
     pulseMaterial.opacity = pulseFlash * .76 * fadeOpacity;
     for (const node of nodes) {
       node.flash = Math.max(0, node.flash - dt * 2.5);
       node.lift += ((node.active ? 1 : 0) - node.lift) * blend;
       node.holder.visible = eased > .15;
-      node.holder.position.z = .56 + node.lift * .17;
+      node.holder.position.z = .56 + node.lift * .17 + .2 * sectionProgress;
       node.path.visible = node.lift > .01 && eased > .15;
       node.path.scale.x = Math.max(.01, node.lift);
       node.halo.visible = node.lift > .01;
@@ -220,6 +238,12 @@ export function createRiftCore(THREE) {
       node.holder.scale.setScalar(.55 + .45 * eased + node.flash * .12);
       node.faceMaterial.color.setHex(node.active ? 0xf3ffd4 : armed ? 0xcde940 : 0x657064);
       node.faceMaterial.emissiveIntensity = node.active ? 1.4 + node.flash : armed ? .7 : .12;
+    }
+    hitTarget.position.z = .22 + .3 * sectionProgress;
+    for (const rail of sectionRails) {
+      rail.visible = sectionProgress > .02;
+      rail.scale.z = Math.max(.01, sectionProgress);
+      rail.position.z = .48 + .12 * sectionProgress;
     }
   }
 
@@ -254,12 +278,18 @@ export function createRiftCore(THREE) {
       pulseCount += 1;
       return true;
     },
+    setSection(open) {
+      if (!desiredOpen || !nodes.every((node) => node.active) || sectionOpen === !!open) return false;
+      sectionOpen = !!open;
+      return true;
+    },
     reset() {
       desiredOpen = 0;
       armed = false;
       rotorAngle = 0;
       pulseFlash = 0;
       crownLift = 0;
+      sectionOpen = false;
       nodes.forEach((node) => { node.active = false; node.lift = 0; node.flash = 0; });
       return true;
     },
@@ -269,9 +299,10 @@ export function createRiftCore(THREE) {
     get isArmed() { return armed; },
     get progress() { return nodes.filter((node) => node.active).length; },
     get isComplete() { return nodes.every((node) => node.active); },
+    get isSectionOpen() { return sectionOpen; },
     get nodeStates() { return nodes.map((node) => node.active); },
     getSyncState() {
-      return { open: !!desiredOpen, armed, nodes: nodes.map((node) => node.active), pulseCount };
+      return { open: !!desiredOpen, armed, nodes: nodes.map((node) => node.active), section: sectionOpen, pulseCount };
     },
     restoreState(state) {
       if (state?.experience !== 'core' || !Array.isArray(state.nodes) || state.nodes.length !== 3) return;
@@ -283,6 +314,8 @@ export function createRiftCore(THREE) {
       pulseCount = Number.isSafeInteger(state.pulseCount) && state.pulseCount >= 0 ? state.pulseCount : 0;
       nodes.forEach((node, index) => { node.active = !!state.nodes[index]; node.lift = node.active ? 1 : 0; node.flash = 0; });
       crownLift = nodes.every((node) => node.active) ? 1 : 0;
+      sectionOpen = !!state.section && nodes.every((node) => node.active);
+      sectionProgress = sectionOpen ? 1 : 0;
       update(0);
     },
     setOpacity(alpha) {

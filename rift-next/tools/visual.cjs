@@ -32,6 +32,9 @@ fs.mkdirSync(output, { recursive: true });
     laptopState = { ...laptopState, pulseCount: 1, revision: 6, lastAction: 'pulse' };
     await laptop.locator('#sync-stage.sync-pulse').waitFor();
     await laptop.screenshot({ path: path.join(output, 'laptop-pulse.png') });
+    laptopState = { ...laptopState, section: true, revision: 7, lastAction: 'section:open' };
+    await laptop.getByText('STRATURI DESCHISE', { exact: true }).waitFor();
+    await laptop.screenshot({ path: path.join(output, 'laptop-section.png') });
 
     const phone = await browser.newPage({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 1 });
     let phoneState = { experience: 'core', open: true, armed: true, nodes: [true, false, false], pulseCount: 0, revision: 3, lastAction: 'node:0' };
@@ -87,6 +90,11 @@ fs.mkdirSync(output, { recursive: true });
     await phone.waitForTimeout(300);
     assert.equal(await phone.locator('#scan-guide').evaluate((element) => getComputedStyle(element).opacity), '0');
     await phone.screenshot({ path: path.join(output, 'phone-complete.png') });
+    phoneState = { ...phoneState, section: true, revision: 7, lastAction: 'section:open' };
+    await phone.getByRole('button', { name: 'STRÂNGE STRATURILE' }).waitFor();
+    await phone.screenshot({ path: path.join(output, 'phone-section.png') });
+    await phone.setViewportSize({ width: 667, height: 375 });
+    await phone.screenshot({ path: path.join(output, 'phone-section-landscape-small.png') });
     const model = await browser.newPage({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 1 });
     await model.goto('http://127.0.0.1:4173/rift-next/model-preview.html');
     await model.locator('canvas').waitFor();
@@ -103,6 +111,12 @@ fs.mkdirSync(output, { recursive: true });
     await model.waitForTimeout(650);
     assert.equal(await model.evaluate(() => window.__PREVIEW__.artifact.isComplete), true);
     await model.screenshot({ path: path.join(output, 'model-spatial-complete.png') });
+    await model.evaluate(() => {
+      window.__PREVIEW__.artifact.setSection(true);
+      window.__PREVIEW__.setAngle(1);
+    });
+    await model.waitForTimeout(650);
+    await model.screenshot({ path: path.join(output, 'model-section.png') });
     console.log(output);
   } finally {
     await browser.close();

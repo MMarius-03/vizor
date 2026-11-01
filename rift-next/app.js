@@ -1,4 +1,4 @@
-import { createRiftCore } from './artifact.js?v=6';
+import { createRiftCore } from './artifact.js?v=7';
 import { createCoreSession } from './sync.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -83,9 +83,10 @@ const session = createCoreSession({
       $('sync-stage').dataset.online = String(online && presence.phone);
       $('sync-stage').dataset.open = String(!!state?.open);
       $('sync-stage').dataset.armed = String(!!state?.armed);
+      $('sync-stage').dataset.section = String(!!state?.section);
       $('sync-progress').textContent = `${state?.nodes?.filter(Boolean).length || 0} / 3`;
       for (let i = 0; i < 3; i += 1) $('sync-node-' + i).dataset.active = String(!!state?.nodes?.[i]);
-      $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
+      $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.section ? 'STRATURI DESCHISE' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
     }
   },
 });
@@ -105,9 +106,13 @@ function renderCoreState() {
   if (!artifact) return;
   let status;
   let instruction;
-  if (artifact.isComplete) {
+  if (artifact.isSectionOpen) {
+    status = 'SECȚIUNE DESCHISĂ';
+    instruction = 'Privește din lateral. Glisează în jos ca să strângi; atinge pentru impuls.';
+    $('target-count').textContent = 'STRATURI DESCHISE';
+  } else if (artifact.isComplete) {
     status = 'CORE STABIL';
-    instruction = 'Mișcă telefonul lateral ca să vezi coroana 3D. Atinge nucleul pentru un impuls.';
+    instruction = 'Glisează în sus pe nucleu ca să desfaci straturile; atinge pentru impuls.';
     $('target-count').textContent = 'NODURI 3 / 3';
   } else if (!artifact.isOpen) {
     status = 'CORE ANCORAT';
@@ -125,6 +130,8 @@ function renderCoreState() {
   if (found) setStatus(status, 'found', instruction);
   $('restart').textContent = artifact.isComplete ? 'REIA CICLUL' : 'REPORNEȘTE CAMERA';
   $('node-controls').hidden = !artifact.isOpen || !artifact.isArmed || artifact.isComplete;
+  $('section-toggle').hidden = !artifact.isComplete;
+  $('section-toggle').textContent = artifact.isSectionOpen ? 'STRÂNGE STRATURILE' : 'DESFĂ STRATURILE';
   for (const button of $('node-controls').querySelectorAll('button')) {
     const active = artifact.nodeStates[Number(button.dataset.node)];
     button.disabled = active;
@@ -258,6 +265,7 @@ function markLost() {
   found = false;
   activePointer = null;
   $('node-controls').hidden = true;
+  $('section-toggle').hidden = true;
   lossStartedAt = performance.now();
   lostCount += 1;
   lastEvent = 'imagine pierdută';
@@ -284,7 +292,7 @@ function updateDebug() {
     `event: ${lastEvent}`,
     `target: ${targetName || '—'} | found: ${found} | updates: ${updates}`,
     `tracking: ${trackingMode} | losses: ${lostCount} | recovered: ${recoveredCount}`,
-    `core: ${artifact?.isOpen ? 'open' : 'closed'} | armed: ${artifact?.isArmed} | nodes: ${artifact?.progress ?? 0}/3`,
+    `core: ${artifact?.isOpen ? 'open' : 'closed'} | armed: ${artifact?.isArmed} | nodes: ${artifact?.progress ?? 0}/3 | section: ${artifact?.isSectionOpen}`,
     `last pose: ${lastSeenAt ? ((performance.now() - lastSeenAt) / 1000).toFixed(1) + 's' : '—'}`,
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
     `depth: ${pose?.z.toFixed(2) ?? '—'} → ${desiredPosition?.z.toFixed(2) ?? '—'} | scale: ${targetRoot?.scale.x.toFixed(2) ?? '—'} → ${desiredScale.toFixed(2)}`,
@@ -441,6 +449,14 @@ function activateNode(index) {
   updateDebug();
 }
 
+function changeSection(open) {
+  if (!found || !artifact?.setSection(open)) return;
+  lastEvent = open ? 'straturi desfăcute' : 'straturi strânse';
+  publishCore('section');
+  renderCoreState();
+  updateDebug();
+}
+
 function onCanvasPointerDown(event) {
   if (!found || !artifact || !camera || activePointer) return;
   const node = pickNode(event.clientX, event.clientY);
@@ -448,7 +464,7 @@ function onCanvasPointerDown(event) {
   if (node < 0 && !onCore) return;
   activePointer = {
     id: event.pointerId, startX: event.clientX, startY: event.clientY,
-    lastX: event.clientX, onCore, node, dragging: false,
+    lastX: event.clientX, onCore, node, dragging: false, axis: null,
   };
   try { canvas.setPointerCapture(event.pointerId); } catch {}
 }
@@ -458,7 +474,15 @@ function onCanvasPointerMove(event) {
   if (!found) { activePointer = null; return; }
   const dx = event.clientX - activePointer.startX;
   const dy = event.clientY - activePointer.startY;
-  if (activePointer.onCore && artifact.isOpen && (activePointer.dragging || (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
+  if (activePointer.onCore && artifact.isComplete && !activePointer.axis &&
+      Math.abs(dy) > 25 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+    activePointer.axis = 'section';
+    activePointer.dragging = true;
+  }
+  if (activePointer.axis === 'section') return;
+  if (activePointer.onCore && artifact.isOpen &&
+      (activePointer.axis === 'rotate' || (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
+    activePointer.axis = 'rotate';
     activePointer.dragging = true;
     const result = artifact.dragRotor(event.clientX - activePointer.lastX);
     if (result.justArmed) {
@@ -475,6 +499,10 @@ function onCanvasPointerUp(event) {
   if (!activePointer || event.pointerId !== activePointer.id) return;
   const gesture = activePointer;
   activePointer = null;
+  if (gesture.axis === 'section' && found) {
+    changeSection(event.clientY < gesture.startY);
+    return;
+  }
   if (!found || gesture.dragging || Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 14) return;
   if (gesture.node >= 0) {
     activateNode(gesture.node);
@@ -515,6 +543,7 @@ if (phoneMode) {
     const button = event.target.closest('button[data-node]');
     if (button) activateNode(Number(button.dataset.node));
   });
+  $('section-toggle').addEventListener('click', () => changeSection(!artifact?.isSectionOpen));
 } else {
   session.start();
   $('focus-target').addEventListener('click', () => document.body.classList.add('target-focus'));
@@ -528,7 +557,7 @@ if (phoneMode) {
       return;
     }
     const url = new URL(location.href);
-    url.search = `?mode=phone&room=${session.code}&v=10`;
+    url.search = `?mode=phone&room=${session.code}&v=11`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -538,4 +567,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, sectionOpen: !!artifact?.isSectionOpen, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };

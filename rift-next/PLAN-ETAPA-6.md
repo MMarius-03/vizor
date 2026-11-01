@@ -1,6 +1,6 @@
 # Etapa 6 — trei experiențe AR la alegere
 
-**Stare:** planificată. Nu schimbăm încă nucleul sau fluxul etapei 3. Vom decide forma finală după feedbackul de pe iPhone și după etapele intermediare.
+**Stare:** planificată. Nucleul are acum inspecția în straturi din etapa 5. Vom decide forma finală a celor două experiențe noi după feedbackul de pe iPhone.
 
 La început, înainte de pornirea camerei, utilizatorul alege **una dintre trei experiențe**: Nucleu (cea existentă) și două animații noi. Alegerea trebuie să fie rapidă și clară, fără o pagină plină de carduri. Laptopul și iPhone-ul afișează aceeași alegere prin sesiunea online.
 
