@@ -24,6 +24,9 @@ fs.mkdirSync(output, { recursive: true });
     await page.screenshot({ path: path.join(output, 'atlas.png') });
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
       .getObjectByName('atlas-river')));
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-river-front')), undefined,
+      'ATLAS should render a single river');
     const riverBefore = await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset);
     await page.waitForTimeout(300);
     assert.ok(await page.evaluate(before => window.__RIFT_STUDY__.atlas.riverOffset > before,

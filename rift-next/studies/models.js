@@ -61,14 +61,14 @@ export function createAtlas(THREE) {
     root.add(road);
     roads.push(road);
   }
-  for (const y of [.19, .75]) {
+  for (const y of [-.4, .19, .75]) {
     const road = new THREE.Mesh(new THREE.BoxGeometry(2.84, .07, .006), roadMaterial);
-    road.position.set(0, y, .185);
+    road.position.set(0, y + .22, .185);
     root.add(road);
     roads.push(road);
   }
 
-  // The river occupies the gap between the first two rows of buildings.
+  // One river runs along the open waterfront in front of the city.
   const riverCanvas = document.createElement('canvas');
   riverCanvas.width = 256;
   riverCanvas.height = 64;
@@ -92,8 +92,8 @@ export function createAtlas(THREE) {
   const riverIndices = [];
   for (let i = 0; i <= 48; i++) {
     const x = -1.48 + i * 2.96 / 48;
-    const y = -.51 + Math.sin(x * 3.4) * .018;
-    riverVertices.push(x, y - .11, .198, x, y + .11, .198);
+    const y = -1.13 + Math.sin(x * 3.4) * .018;
+    riverVertices.push(x, y - .09, .198, x, y + .09, .198);
     riverUV.push(i / 12, 0, i / 12, 1);
     if (i < 48) {
       const n = i * 2;
@@ -110,35 +110,31 @@ export function createAtlas(THREE) {
   }));
   river.name = 'atlas-river';
   root.add(river);
-  const foregroundRiver = new THREE.Mesh(riverGeometry, river.material);
-  foregroundRiver.scale.y = .72;
-  foregroundRiver.position.y = -.66;
-  foregroundRiver.name = 'atlas-river-front';
-  root.add(foregroundRiver);
   const bridge = register(new THREE.BoxGeometry(.22, .3, .035), limestone, root, false);
-  bridge.position.set(.44, -.51, .224);
+  bridge.position.set(.44, -1.13, .224);
   const bridgeRail = register(new THREE.BoxGeometry(.02, .3, .035), terra, root, false);
-  bridgeRail.position.set(.44, -.51, .257);
+  bridgeRail.position.set(.44, -1.13, .257);
 
   const plots = [
-    [-1.22,-.82,.42,.39,.32,3],[-.68,-.8,.36,.43,.78,1],[-.04,-.83,.42,.42,.45,0],
-    [.72,-.82,.4,.4,.67,3],[1.24,-.77,.29,.38,.38,1],
+    [-1.22,-.64,.42,.39,.32,3],[-.68,-.62,.36,.43,.78,1],[-.04,-.65,.42,.42,.45,0],
+    [.72,-.64,.4,.4,.67,3],[1.24,-.59,.29,.38,.38,1],
     [-1.27,-.19,.4,.42,.94,1],[-.62,-.17,.39,.39,.53,3],[.08,-.14,.43,.47,1.18,2],
     [.75,-.15,.42,.41,.63,0],[1.29,-.1,.28,.38,.72,3],
     [-1.25,.52,.42,.37,.55,0],[-.63,.5,.35,.4,.83,3],[.07,.49,.4,.43,1.43,2],
     [.75,.49,.38,.4,1.02,1],[1.27,.54,.29,.37,.45,0],
   ];
   plots.forEach(([x,y,w,d,h,kind], index) => {
+    const cityY = y + .22;
     const foundation = new THREE.Group();
     foundation.name = `atlas-foundation-${index}`;
-    foundation.position.set(x,y,.178);
+    foundation.position.set(x,cityY,.178);
     const pad = register(new THREE.BoxGeometry(w*1.19,d*1.19,.055),kind === 2 ? terra : terrainDark,foundation,false);
     pad.position.z = .027;
     root.add(foundation);
     foundations.push({holder:foundation,start:.07+index*.01,end:.25+index*.01});
     const holder = new THREE.Group();
     holder.name = `atlas-building-${index}`;
-    holder.position.set(x,y,.235);
+    holder.position.set(x,cityY,.235);
     root.add(holder);
     const face = kind === 2 ? terra : kind === 1 ? charcoal : kind === 3 ? sandstone : concrete;
     const body = register(new THREE.BoxGeometry(w,d,h), face, holder);
@@ -198,7 +194,6 @@ export function createAtlas(THREE) {
       roads.forEach(road => { road.visible = !technical; });
       details.forEach(detail => { detail.visible = !technical; });
       river.visible = !technical;
-      foregroundRiver.visible = !technical;
     },
     update(dt) {
       progress = THREE.MathUtils.damp(progress, target, 7, Math.min(dt,.05));
@@ -217,7 +212,6 @@ export function createAtlas(THREE) {
       });
       roads.forEach(road => { road.visible = !technical && progress > .16; });
       river.visible = !technical && progress > .16;
-      foregroundRiver.visible = river.visible;
       bridge.visible = river.visible;
       bridgeRail.visible = river.visible;
       riverOffset = (riverOffset + dt * effect * .23) % 1;
