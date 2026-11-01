@@ -25,25 +25,27 @@
   <div class="shell">
     <header><div class="brand">RIFT<span> / EXPERIENCES</span></div><span class="header-note">01 — 03 / ALEGE</span></header>
     <main>
-      <section class="intro"><span class="eyebrow">TREI MODURI DE A PRIVI MAI DEPARTE</span><h1>Alege un<br><em>obiect.</em></h1><p>CORE este experiența AR activă. ATLAS și ORBIT sunt studii 3D în lucru; le poți explora înainte să intre în cameră.</p></section>
+      <section class="intro"><span class="eyebrow">TREI MODURI DE A PRIVI MAI DEPARTE</span><h1>Alege un<br><em>obiect.</em></h1><p>CORE, ATLAS și ORBIT se ancorează de imaginea de pe laptop și apar în camera iPhone-ului. ATLAS și ORBIT sunt primele lor versiuni live.</p></section>
       <nav class="choices" aria-label="Experiențe">
         <a id="choose-core" class="choice" href="./?mode=laptop"><span class="number">01</span><div><h2>CORE</h2><p>Deschide reactorul, activează nodurile și privește secțiunea din lateral.</p><div class="meta"><span class="swatch" style="--swatch:#d5ef44"></span><span class="state">AR LIVE · LAPTOP + IPHONE</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
-        <a id="choose-atlas" class="choice" href="./studies/?object=atlas"><span class="number">02</span><div><h2>ATLAS</h2><p>Un oraș în miniatură se construiește în straturi, din planul ecranului.</p><div class="meta"><span class="swatch" style="--swatch:#c86a4a"></span><span class="state">BETA · MACHETĂ 3D</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
-        <a id="choose-orbit" class="choice" href="./studies/?object=orbit"><span class="number">03</span><div><h2>ORBIT</h2><p>Un instrument cinetic cu trei brațe și inele pe axe diferite.</p><div class="meta"><span class="swatch" style="--swatch:#638bc6"></span><span class="state">BETA · MACHETĂ 3D</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
+        <a id="choose-atlas" class="choice" href="./?mode=phone&amp;experience=atlas"><span class="number">02</span><div><h2>ATLAS</h2><p>Un oraș suspendat deasupra tastaturii, ancorat de marginea ecranului.</p><div class="meta"><span class="swatch" style="--swatch:#c86a4a"></span><span class="state">AR LIVE · IPHONE + LAPTOP</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
+        <a id="choose-orbit" class="choice" href="./?mode=phone&amp;experience=orbit"><span class="number">03</span><div><h2>ORBIT</h2><p>Un instrument cinetic ancorat de imaginea laptopului.</p><div class="meta"><span class="swatch" style="--swatch:#638bc6"></span><span class="state">AR LIVE · IPHONE + LAPTOP</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
       </nav>
     </main>
-    <footer><span>CORE: ÎNCEPE PE LAPTOP, CONTINUĂ PE IPHONE</span><span>ATLAS / ORBIT: PREVIZUALIZĂRI FĂRĂ CAMERĂ</span></footer>
+    <footer><span>DESCHIDE IMAGINEA RIFT PE LAPTOP</span><span>SELECTEAZĂ OBIECTUL ȘI PORNEȘTE CAMERA PE IPHONE</span></footer>
   </div>
   <script>
     const room = new URLSearchParams(location.search).get('room');
     const onPhone = /iPhone|Android|Mobile/i.test(navigator.userAgent) || !!room;
     const core = document.getElementById('choose-core');
     core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}`;
-    if (room) for (const name of ['atlas', 'orbit']) {
-      const link = document.getElementById(`choose-${name}`);
-      link.href += `&room=${encodeURIComponent(room)}`;
+    for (const name of ['atlas', 'orbit']) {
+      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=16`;
     }
-    if (onPhone) document.querySelector('footer span').textContent = 'CORE: PORNEȘTE CAMERA ȘI ÎNCADREAZĂ ȚINTA DE PE LAPTOP';
+    if (onPhone) {
+      document.querySelector('footer span').textContent = 'ALEGE UN OBIECT ȘI PORNEȘTE CAMERA DIN SPATE';
+      document.querySelector('footer span:last-child').textContent = 'ȚINE IMAGINEA RIFT DE PE LAPTOP ÎN CADRU';
+    }
   </script>
 </body>
 </html>

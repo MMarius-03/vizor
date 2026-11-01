@@ -1,16 +1,20 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
+import { createAtlas, createOrbit } from './studies/models.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
-const roomParam = new URLSearchParams(location.search).get('room');
-const invalidRoom = phoneMode && roomParam !== null && !/^[A-HJ-NP-Z2-9]{6}$/.test(roomParam);
+const query = new URLSearchParams(location.search);
+const requestedExperience = query.get('experience');
+const experience = ['atlas', 'orbit'].includes(requestedExperience) ? requestedExperience : 'core';
+const roomParam = query.get('room');
+const invalidRoom = experience === 'core' && phoneMode && roomParam !== null && !/^[A-HJ-NP-Z2-9]{6}$/.test(roomParam);
 const savedRoom = (() => { try { return sessionStorage.getItem('rift-core-room'); } catch { return ''; } })();
 const canvas = $('ar-canvas');
 const viewport = document.querySelector('meta[name="viewport"]');
 const normalViewport = viewport.content;
-const debug = new URLSearchParams(location.search).has('debug');
-const trackingMode = new URLSearchParams(location.search).get('tracking') === 'image' ? 'image' : 'hybrid';
+const debug = query.has('debug');
+const trackingMode = query.get('tracking') === 'image' ? 'image' : 'hybrid';
 const lossGraceMs = trackingMode === 'hybrid' ? 1100 : 350;
 
 let xr = null;
@@ -43,7 +47,7 @@ let lastLaptopComplete = null;
 let laptopPulseTimer = 0;
 let roomUnavailable = invalidRoom;
 
-const session = createCoreSession({
+const session = experience === 'core' ? createCoreSession({
   role: phoneMode ? 'phone' : 'console',
   initialCode: phoneMode ? roomParam : savedRoom,
   onRestore(state) {
@@ -91,7 +95,73 @@ const session = createCoreSession({
       $('sync-action').textContent = !state ? 'AȘTEPTARE' : !state.open ? 'CORE ÎNCHIS' : !state.armed ? 'CORE DESCHIS' : state.section ? 'REACTOR SECȚIONAT' : state.nodes.every(Boolean) ? 'CORE STABIL' : 'MECANISM ARMAT';
     }
   },
-});
+}) : {
+  start() {},
+  publish() {},
+  get code() { return ''; },
+  get state() { return null; },
+};
+
+const experienceCopy = {
+  atlas: {
+    label: 'ATLAS',
+    laptopEyebrow: 'ATLAS / AR LIVE · BETA',
+    laptopTitle: 'Un oraș<br><em>plutește.</em>',
+    laptopDescription: 'Lasă această imagine deschisă pe laptop. Pe iPhone alege ATLAS și pornește camera: orașul se așază deasupra tastaturii, cu baza ridicată cât să vezi dedesubt.',
+    laptopStep: 'Pe iPhone alege ATLAS. Ține imaginea în cadru și privește orașul ridicându-se de la marginea ecranului.',
+    phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
+    phoneTitle: 'Un oraș<br><em>plutește.</em>',
+    phoneDescription: 'Încadrează imaginea RIFT de pe laptop. Orașul se ridică drept de la marginea ecranului și plutește deasupra tastaturii.',
+    found: 'Orașul este ancorat de laptop. Mișcă telefonul lateral ca să vezi spațiul de sub insulă.',
+  },
+  orbit: {
+    label: 'ORBIT',
+    laptopEyebrow: 'ORBIT / AR LIVE · BETA',
+    laptopTitle: 'Mecanism în<br><em>orbită.</em>',
+    laptopDescription: 'Lasă această imagine deschisă pe laptop. Pe iPhone alege ORBIT și pornește camera pentru a vedea instrumentul cinetic ancorat de ecran.',
+    laptopStep: 'Pe iPhone alege ORBIT și ține imaginea întreagă în cadru. Mecanismul va apărea în fața ecranului.',
+    phoneEyebrow: 'ORBIT · AR PRIN IMAGINE',
+    phoneTitle: 'Privește<br><em>mecanismul.</em>',
+    phoneDescription: 'Încadrează imaginea RIFT de pe laptop. Instrumentul ORBIT va apărea în fața ecranului, ancorat de imagine.',
+    found: 'ORBIT este ancorat de imaginea laptopului. Mișcă telefonul lateral ca să privești inelele din unghiuri diferite.',
+  },
+};
+
+function configureExperience() {
+  document.documentElement.dataset.experience = experience;
+  document.body.dataset.experience = experience;
+  if (experience === 'core') return;
+  const copy = experienceCopy[experience];
+  if (roomParam) {
+    const selectionUrl = `./choose.html?room=${encodeURIComponent(roomParam)}`;
+    document.querySelectorAll('#laptop a[href="./choose.html"], #phone a[href="./choose.html"]').forEach((link) => {
+      link.href = selectionUrl;
+    });
+  }
+  document.title = `RIFT / ${copy.label} AR`;
+  $('laptop-brand').innerHTML = `RIFT<span> / ${copy.label}</span>`;
+  $('laptop-eyebrow').innerHTML = `<span class="led"></span> ${copy.laptopEyebrow}`;
+  $('laptop-title').innerHTML = copy.laptopTitle;
+  $('laptop-description').textContent = copy.laptopDescription;
+  $('laptop-step-3').textContent = copy.laptopStep;
+  $('copy-link').innerHTML = 'COPIAZĂ LINKUL AR <span>↗</span>';
+  $('copy-status').textContent = `Trimite linkul ${copy.label} pe iPhone și deschide-l în Safari.`;
+  $('room-line').hidden = true;
+  $('sync-visual').hidden = true;
+  $('sync-stage').dataset.experience = experience;
+  $('phone-brand').innerHTML = `RIFT<span> / ${copy.label}</span>`;
+  $('live-brand').innerHTML = `← RIFT<span> / ${copy.label}</span>`;
+  $('error').querySelector('.phone-brand').innerHTML = `RIFT<span> / ${copy.label}</span>`;
+  $('phone-eyebrow').innerHTML = `<span class="led"></span> ${copy.phoneEyebrow}`;
+  $('phone-title').innerHTML = copy.phoneTitle;
+  $('phone-description').textContent = copy.phoneDescription;
+  $('phone-sync').textContent = `${copy.label} · AR SOLO`;
+  $('phone-sync-live').hidden = true;
+  $('target-count').textContent = `${copy.label} / ÎN AȘTEPTARE`;
+  $('node-controls').hidden = true;
+  $('section-toggle').hidden = true;
+}
+configureExperience();
 
 function publishCore(action) {
   if (artifact) session.publish(artifact.getSyncState(), action);
@@ -192,11 +262,22 @@ function makeProbe(scene) {
   desiredPosition = new three.Vector3();
   desiredRotation = new three.Quaternion();
 
-  artifact = createRiftCore(three);
-  if (restoredCoreState) artifact.restoreState(restoredCoreState);
-  // A conservative size until the tracker reports the target width.
-  artifact.root.scale.setScalar(.285);
-  artifact.root.position.y = -.075;
+  if (experience === 'core') {
+    artifact = createRiftCore(three);
+    if (restoredCoreState) artifact.restoreState(restoredCoreState);
+    // A conservative size until the tracker reports the target width.
+    artifact.root.scale.setScalar(.285);
+    artifact.root.position.y = -.075;
+  } else {
+    artifact = experience === 'atlas' ? createAtlas(three) : createOrbit(three);
+    artifact.root.scale.setScalar(.12);
+    artifact.setProgress(1);
+    artifact.setEffect(0);
+    // Settle the model once, then leave it still for this live beta.
+    for (let frame = 0; frame < 120; frame += 1) artifact.update(.05);
+    if (experience === 'atlas') artifact.root.rotation.set(-Math.PI / 2, 0, 0);
+    artifact.root.position.z = experience === 'atlas' ? .18 : .12;
+  }
   targetRoot.add(artifact.root);
   scene.add(new three.HemisphereLight(0xeaf3ee, 0x101b1a, 2.05));
   const key = new three.DirectionalLight(0xf8fff8, 2.3);
@@ -237,19 +318,41 @@ function applyTarget(detail) {
     const width = detail.scaledWidth / scale;
     const height = Number.isFinite(detail.scaledHeight) && detail.scaledHeight > 0
       ? detail.scaledHeight / scale : width * 4 / 3;
-    artifact.root.scale.setScalar(Math.min(1.5, Math.max(0.06, width * 0.38)));
-    artifact.root.position.y = -height * .075;
+    if (experience === 'core') {
+      artifact.root.scale.setScalar(Math.min(1.5, Math.max(0.06, width * 0.38)));
+      artifact.root.position.y = -height * .075;
+    } else if (experience === 'atlas') {
+      artifact.root.scale.setScalar(Math.min(.34, Math.max(.08, width * .24)));
+      artifact.root.rotation.set(-Math.PI / 2, 0, 0);
+      artifact.root.position.set(0, -height * .43, width * .36);
+    } else {
+      artifact.root.scale.setScalar(Math.min(.42, Math.max(.09, width * .28)));
+      artifact.root.rotation.set(0, 0, 0);
+      artifact.root.position.set(0, -height * .035, width * .18);
+    }
     anchorSized = true;
   }
   targetRoot.visible = true;
-  artifact.setOpacity(1);
+  if (experience === 'core') artifact.setOpacity(1);
   hasPose = true;
   lossStartedAt = 0;
   lastSeenAt = now;
   found = true;
   updates += 1;
-  if (!wasFound) renderCoreState();
+  if (!wasFound) {
+    if (experience === 'core') renderCoreState();
+    else renderPassiveState();
+  }
   return true;
+}
+
+function renderPassiveState() {
+  const copy = experienceCopy[experience];
+  setStatus(`${copy.label} ANCORAT`, 'found', copy.found);
+  $('target-count').textContent = `${copy.label} / AR LIVE`;
+  $('restart').textContent = 'REIA CAMERA';
+  $('node-controls').hidden = true;
+  $('section-toggle').hidden = true;
 }
 
 function updateTargetPose(dt) {
@@ -264,7 +367,7 @@ function updateTargetPose(dt) {
 
 function markLost() {
   if (!found) return;
-  if (activePointer?.axis === 'section') artifact?.setSection(artifact.isSectionOpen);
+  if (experience === 'core' && activePointer?.axis === 'section') artifact?.setSection(artifact.isSectionOpen);
   found = false;
   activePointer = null;
   $('node-controls').hidden = true;
@@ -285,7 +388,7 @@ function updateTrackingHold(now) {
     return;
   }
   const opacity = Math.max(0.25, 1 - (elapsed / lossGraceMs) * 0.65);
-  artifact.setOpacity(opacity);
+  if (experience === 'core') artifact.setOpacity(opacity);
 }
 
 function updateDebug() {
@@ -351,14 +454,16 @@ async function startAR() {
         camera = scene.camera;
         scene.renderer.localClippingEnabled = true;
         makeProbe(scene.scene);
-        setStatus('CAUTĂ IMAGINEA', 'searching', 'Încadrează imaginea RIFT întreagă de pe laptop.');
+        setStatus('CAUTĂ IMAGINEA', 'searching', experience === 'core'
+          ? 'Încadrează imaginea RIFT întreagă de pe laptop.'
+          : `Încadrează imaginea RIFT întreagă pentru a ancora ${experienceCopy[experience].label}.`);
       },
       onUpdate: () => {
         const now = performance.now();
         const dt = lastFrame ? Math.min((now - lastFrame) / 1000, .05) : 0;
         updateTrackingHold(now);
         updateTargetPose(dt);
-        artifact?.update(dt);
+        if (experience === 'core') artifact?.update(dt);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
         if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
@@ -476,7 +581,7 @@ function changeSection(open) {
 }
 
 function onCanvasPointerDown(event) {
-  if (!found || !artifact || !camera || activePointer) return;
+  if (experience !== 'core' || !found || !artifact || !camera || activePointer) return;
   const node = pickNode(event.clientX, event.clientY);
   const part = node < 0 ? pickPart(event.clientX, event.clientY) : null;
   const onCore = coreHit(event.clientX, event.clientY);
@@ -555,9 +660,10 @@ function onCanvasPointerUp(event) {
 }
 
 if (phoneMode) {
-  session.start();
+  if (experience === 'core') session.start();
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {
+    if (experience !== 'core') return location.reload();
     if (!artifact?.isComplete) return location.reload();
     artifact.reset();
     lastEvent = 'ciclu reluat';
@@ -579,19 +685,21 @@ if (phoneMode) {
   });
   $('section-toggle').addEventListener('click', () => changeSection(!artifact?.isSectionOpen));
 } else {
-  session.start();
+  if (experience === 'core') session.start();
   $('focus-target').addEventListener('click', () => document.body.classList.add('target-focus'));
   $('exit-focus').addEventListener('click', () => document.body.classList.remove('target-focus'));
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') document.body.classList.remove('target-focus');
   });
   $('copy-link').addEventListener('click', async () => {
-    if (!session.code) {
+    if (experience === 'core' && !session.code) {
       $('copy-status').textContent = 'Conexiunea se pregătește. Încearcă din nou în câteva secunde.';
       return;
     }
-    const url = new URL('./choose.html', location.href);
-    url.search = `?room=${session.code}&v=15`;
+    const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
+    url.search = experience === 'core'
+      ? `?room=${session.code}&v=16`
+      : `?mode=phone&experience=${experience}&v=16`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -601,4 +709,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, sectionOpen: !!artifact?.isSectionOpen, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ experience, found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, sectionOpen: !!artifact?.isSectionOpen, modelName: artifact?.root?.name || experience, modelRotationX: artifact?.root?.rotation.x, modelPositionY: artifact?.root?.position.y, modelPositionZ: artifact?.root?.position.z, riverOffset: artifact?.riverOffset, plasmaTime: artifact?.plasmaTime, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };

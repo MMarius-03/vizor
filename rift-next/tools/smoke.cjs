@@ -4,7 +4,8 @@ const { chromium } = require(process.argv[2] || 'playwright');
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
   try {
-    const page = await browser.newPage({ viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true });
+    const page = await browser.newPage({ viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true,
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1' });
     const cdp = await page.context().newCDPSession(page);
     const touchDrag = async (startX, startY, endX, endY) => {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: startY, id: 1 }] });
@@ -251,6 +252,56 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await expired.locator('#start-ar').isDisabled(), true);
     await page.locator('.live-brand').click();
     await page.getByRole('heading', { name: 'Alege un obiect.' }).waitFor();
+    assert.match(await page.locator('#choose-atlas').getAttribute('href'), /mode=phone&experience=atlas/);
+    await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=atlas&debug=1');
+    assert.equal(await page.locator('body').getAttribute('data-experience'), 'atlas');
+    assert.equal(await page.locator('#phone-sync').textContent(), 'ATLAS · AR SOLO');
+    assert.equal(await page.locator('#node-controls').isHidden(), true);
+    assert.equal(await page.locator('#section-toggle').isHidden(), true);
+    await page.locator('#start-ar').click();
+    await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+      scaledWidth: .75, scaledHeight: 1,
+    }));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
+    const atlasLive = await page.evaluate(() => ({
+      state: window.__RIFT_NEXT__.getState(),
+      riverVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-river')?.visible,
+      noCoreControls: document.querySelector('#section-toggle').hidden && document.querySelector('#node-controls').hidden,
+      vertical: new window.THREE.Vector3(0, 0, 1).applyQuaternion(
+        window.__fakeAR.scene.scene.getObjectByName('atlas-river').parent.quaternion).y,
+    }));
+    assert.ok(Math.abs(atlasLive.state.modelRotationX + Math.PI / 2) < .001,
+      'ATLAS base should lie horizontally above the keyboard');
+    assert.ok(atlasLive.vertical > .99, 'ATLAS building height should point upward');
+    assert.ok(atlasLive.state.modelPositionZ > .25, 'ATLAS should float in front of the display plane');
+    assert.equal(atlasLive.riverVisible, true);
+    assert.equal(atlasLive.noCoreControls, true);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).riverOffset, 0,
+      'live beta ATLAS river is static until its animation phase');
+
+    await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=orbit&debug=1');
+    assert.equal(await page.locator('body').getAttribute('data-experience'), 'orbit');
+    await page.locator('#start-ar').click();
+    await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
+      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+      scaledWidth: .75, scaledHeight: 1,
+    }));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'ORBIT ANCORAT');
+    const orbitLive = await page.evaluate(() => ({
+      state: window.__RIFT_NEXT__.getState(),
+      plasma: window.__fakeAR.scene.scene.getObjectByName('orbit-plasma'),
+      noCoreControls: document.querySelector('#section-toggle').hidden && document.querySelector('#node-controls').hidden,
+    }));
+    assert.ok(orbitLive.plasma, 'ORBIT plasma should be present in the live scene');
+    assert.ok(orbitLive.state.progress > .99, 'ORBIT should appear fully assembled');
+    assert.equal(orbitLive.state.plasmaTime, 0, 'live beta ORBIT should remain static until its animation phase');
+    assert.equal(orbitLive.noCoreControls, true);
     console.log('RIFT NEXT mock camera flow: OK');
   } finally {
     await browser.close();

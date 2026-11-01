@@ -1,6 +1,6 @@
 # RIFT — trei obiecte de explorat
 
-Pagina de intrare oferă trei alegeri: CORE este experiența AR ancorată de imaginea statică de pe laptop; ATLAS și ORBIT sunt încă machete 3D fără cameră. Fiecare folosește propria temă vizuală. Folderul este separat de versiunea [`../rift/`](../rift/).
+Pagina de intrare oferă trei experiențe ancorate de aceeași imagine de pe laptop. CORE are interacțiunile și sincronizarea sa; ATLAS și ORBIT sunt acum disponibile în camera iPhone-ului ca modele statice beta, cu temele lor. Folderul este separat de versiunea [`../rift/`](../rift/).
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
 
@@ -12,9 +12,9 @@ Pagina de intrare oferă trei alegeri: CORE este experiența AR ancorată de ima
 
 ## Încearcă experiența
 
-1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop. Alege **CORE**. Așteaptă codul sesiunii, copiază linkul generat pentru iPhone și apasă **Mărește ținta**. Ține imaginea întreagă pe ecran, cu luminozitate suficientă și fără reflexii puternice.
-2. Deschide linkul copiat pe iPhone în Safari, alege **CORE**, pornește camera și permite accesul la camera din spate. Codul se păstrează dacă revii la alegere; o adresă fără cod pornește modul solo.
-3. Încadrează imaginea RIFT. Mișcă telefonul lateral ca să vezi adâncimea artefactului.
+1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege obiectul. Pentru ATLAS sau ORBIT, laptopul arată imaginea-țintă și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
+2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta ATLAS sau ORBIT de acolo.
+3. Încadrează imaginea RIFT de pe laptop. Obiectul apare numai după recunoașterea țintei. ATLAS este orientat cu baza deasupra tastaturii; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub oraș.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
 6. Atinge carcasa, inelul, rotorul, colierul sau camera reactorului pentru a le identifica. Piesa atinsă este marcată scurt. Atingerea cristalului după 3/3 trimite un impuls.
@@ -23,7 +23,7 @@ Pagina de intrare oferă trei alegeri: CORE este experiența AR ancorată de ima
 
 [Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.
 
-Din pagina de alegere poți deschide și **ATLAS** sau **ORBIT** pe laptop ori iPhone. Sunt machete 3D beta cu control prin atingere, cursor și tragere. Nu folosesc încă aparatul foto și nu transmit progresul prin sesiunea online.
+ATLAS și ORBIT nu folosesc încă sincronizarea de stare prin server și nu au interacțiunile/etapele lor de animație. În această versiune apar complet asamblate în cameră; interacțiunile și animațiile dedicate se adaugă în etapele următoare.
 
 ## Tracking și limite
 

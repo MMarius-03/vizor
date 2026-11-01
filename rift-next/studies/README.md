@@ -1,6 +1,6 @@
 # Studii 3D — ATLAS și ORBIT
 
-Acestea sunt machete de obiecte, separate de fluxul AR existent. `index.html` permite compararea volumelor, culorilor, perspectivei și a vederii tehnice. Fiecare studiu are posterul propriu; modelele cresc pe axa +Z, către cameră, la fel ca Nucleul. Posterul scanat de CORE rămâne neschimbat, deoarece datele de tracking sunt generate pentru pixelii lui.
+Aceste pagini sunt previzualizări vizuale pentru ATLAS și ORBIT. `index.html` permite compararea volumelor, culorilor, perspectivei și a vederii tehnice. `models.js` este folosit și de pagina AR live; acolo ATLAS primește o orientare orizontală deasupra tastaturii, iar ambele modele pornesc asamblate și statice. Posterele de aici sunt doar pentru studiu. Imaginea RIFT scanată în AR rămâne neschimbată, fiindcă datele de urmărire sunt generate pentru pixelii ei.
 
 ## Direcție
 
