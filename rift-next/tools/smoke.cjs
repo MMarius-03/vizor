@@ -269,10 +269,10 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
     const atlasLive = await page.evaluate(() => ({
       state: window.__RIFT_NEXT__.getState(),
-      campusVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-green')?.visible,
+      campusVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-plan')?.visible,
       noCoreControls: document.querySelector('#section-toggle').hidden && document.querySelector('#node-controls').hidden,
       vertical: new window.THREE.Vector3(0, 0, 1).applyQuaternion(
-        window.__fakeAR.scene.scene.getObjectByName('atlas-green').parent.quaternion).y,
+        window.__fakeAR.scene.scene.getObjectByName('atlas-plan').parent.quaternion).y,
     }));
     assert.ok(Math.abs(atlasLive.state.modelRotationX + Math.PI / 2) < .001,
       'ATLAS base should lie horizontally above the keyboard');

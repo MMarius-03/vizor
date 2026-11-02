@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = ROOT / "target-data"
 W, H = 960, 1280
+LAYOUT = json.loads((ROOT / "studies" / "campus-layout.json").read_text(encoding="utf-8"))
 
 
 def font(size, bold=False, mono=False):
@@ -37,56 +38,48 @@ def frame(draw, bg, ink, accent):
 
 
 def atlas():
-    paper, ink, blue, green, orange = (244, 244, 237), (24, 39, 50), (16, 85, 144), (170, 207, 69), (239, 153, 37)
-    image = Image.new('RGB', (W, H), paper)
+    paper, ink, blue, grass = (248, 248, 243), (24, 42, 57), (36, 111, 179), (216, 237, 139)
+    image = Image.new('RGB',(W,H),paper)
     draw = ImageDraw.Draw(image)
-    frame(draw, paper, ink, blue)
-    draw.text((190, 75), 'ATLAS', font=font(84, True), fill=ink)
-    draw.text((195, 165), 'CAMPUS / 02', font=font(26, True, True), fill=blue)
-    draw.text((715, 104), 'USV', font=font(30, True, True), fill=blue)
-    draw.rectangle((112, 236, 850, 252), fill=ink)
-    draw.rectangle((112, 252, 378, 268), fill=green)
-    draw.text((118, 307), 'PLANUL CAMPUSULUI', font=font(26, True, True), fill=ink)
-
-    # The 3D model uses the same relative footprint positions as this plan.
-    x0, y0, sx, sy = 480, 697, 222, 294
-    def point(x, y):
-        return (int(x0 + x * sx), int(y0 - y * sy))
-    draw.rectangle((112, 346, 850, 1072), fill=(210, 224, 177), outline=ink, width=4)
-    for x, y, w, h in ((1.13, .71, .62, .56), (-1.15, .68, .66, .54), (.24, -.85, .63, .36), (-.94, -.87, .6, .31)):
-        cx, cy = point(x, y)
-        draw.rectangle((int(cx-w*sx/2), int(cy-h*sy/2), int(cx+w*sx/2), int(cy+h*sy/2)), fill=(174, 208, 83))
-    for x in (-.59, -.02, .63):
-        px, _ = point(x, 0)
-        draw.line((px, 366, px, 1050), fill=paper, width=22)
-        draw.line((px, 366, px, 1050), fill=(185, 190, 180), width=2)
-    for y in (.31, -.38):
-        _, py = point(0, y)
-        draw.line((127, py, 836, py), fill=paper, width=25)
-        draw.line((127, py, 836, py), fill=(185, 190, 180), width=2)
-    cx, cy = point(.3, -.1)
-    draw.ellipse((cx-38, cy-38, cx+38, cy+38), fill=paper, outline=(176, 184, 176), width=3)
-    blocks = [
-        ('A', .25, .47, .71, .34), ('B', -1.05, -.73, .66, .28),
-        ('C', -1.17, -.26, .51, .24), ('D', -.87, .56, .39, .49),
-        ('E', 1.09, -.12, .49, .55), ('F', -.46, .84, .25, .29),
-        ('G', -.99, 1.0, .27, .17), ('H', .87, .94, .28, .2),
-        ('J', -1.42, .96, .17, .19), ('L', -.25, -.09, .36, .34),
-        ('M', 1.43, .66, .21, .19),
-    ]
-    for letter, x, y, w, h in blocks:
-        cx, cy = point(x, y)
-        box = (int(cx-w*sx/2), int(cy-h*sy/2), int(cx+w*sx/2), int(cy+h*sy/2))
-        draw.rectangle(box, fill=blue, outline=(6, 49, 88), width=5)
-        draw.line((box[0]+7, box[1]+7, box[2]-7, box[1]+7), fill=(113, 179, 219), width=4)
-        draw.text((cx, cy), letter, anchor='mm', font=font(31 if w > .3 else 22, True), fill=paper)
-    for number, x, y in ((1, -.45, .41), (2, .91, -.58), (3, -.98, -.54), (4, .46, .79), (5, -.72, .86)):
-        cx, cy = point(x, y)
-        draw.ellipse((cx-16, cy-16, cx+16, cy+16), fill=orange, outline=ink, width=3)
-        draw.text((cx, cy), str(number), anchor='mm', font=font(17, True), fill=ink)
-    draw.text((128, 1102), 'CORPURI  /  ALEI  /  CURTI VERZI', font=font(20, True, True), fill=ink)
-    draw.text((128, 1151), 'RIFT / CAMPUS STUDY', font=font(22, True, True), fill=blue)
-    draw.text((736, 1151), 'SCAN 02', font=font(20, True, True), fill=ink)
+    frame(draw,paper,ink,blue)
+    draw.text((191,76),'ATLAS',font=font(84,True),fill=ink)
+    draw.text((195,166),'CAMPUS USV / 02',font=font(25,True,True),fill=blue)
+    draw.rectangle((112,238,850,254),fill=ink)
+    draw.rectangle((112,254,382,269),fill=grass)
+    draw.text((119,304),'PLANUL CAMPUSULUI',font=font(25,True,True),fill=ink)
+    box=(105,345,855,974)
+    draw.rectangle(box,fill=(250,250,245),outline=ink,width=3)
+    def pt(point):
+        return (int(box[0]+point[0]*(box[2]-box[0])/1000),
+                int(box[1]+point[1]*(box[3]-box[1])/1000))
+    for polygon in LAYOUT['greens']:
+        draw.polygon([pt(p) for p in polygon],fill=grass)
+    for item in LAYOUT['paths']:
+        draw.line([pt(p) for p in item['points']],fill=paper,width=max(5,int(item['width']*.67)),joint='curve')
+    fx1,fy1,fx2,fy2=LAYOUT['sportField']
+    draw.rectangle((*pt((fx1,fy1)),*pt((fx2,fy2))),fill=(198,227,123),outline=(169,197,91),width=3)
+    cx,cy=pt(LAYOUT['park']['center'])
+    radius=int(LAYOUT['park']['radius']*.68)
+    draw.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),fill=paper,outline=grass,width=6)
+    draw.ellipse((cx-8,cy-8,cx+8,cy+8),fill=grass)
+    label_positions={'A':(768,579),'D':(783,370),'E':(560,748),'CĂMIN 1':(475,614),'CĂMIN 2':(457,453)}
+    for building in LAYOUT['buildings']:
+        points=[pt(p) for p in building['points']]
+        draw.polygon(points,fill=(219,222,218) if building.get('neutral') else (170,213,242),
+                     outline=(153,159,159) if building.get('neutral') else (28,104,188),width=5)
+        for hole in building.get('holes',[]):
+            draw.polygon([pt(p) for p in hole],fill=paper,outline=blue,width=3)
+        ident=building['id']
+        if ident in label_positions:
+            pos=label_positions[ident]
+        else:
+            pos=(sum(p[0] for p in building['points'])/len(points),
+                 sum(p[1] for p in building['points'])/len(points))
+        if ident in ('A','B','C','D','E','F','G','H','J','N'):
+            draw.text(pt(pos),ident,anchor='mm',font=font(30,True),fill=(25,60,113))
+    draw.text((119,1002),'CORPURI / CĂMINE / PARC',font=font(22,True,True),fill=ink)
+    draw.text((120,1150),'RIFT / CAMPUS STUDY',font=font(22,True,True),fill=blue)
+    draw.text((743,1150),'SCAN 02',font=font(20,True,True),fill=ink)
     return image
 
 
@@ -162,6 +155,9 @@ def write_target(name, poster):
     json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+(ROOT / "studies" / "campus-layout.js").write_text(
+    "export const campusLayout = " + json.dumps(LAYOUT, ensure_ascii=False, separators=(',',':')) + ";\n",
+    encoding="utf-8")
 write_target("atlas-screen", atlas())
 write_target("orbit-screen", orbit())
 print("Generated ATLAS and ORBIT image targets.")

@@ -1,164 +1,151 @@
-// Schematic USV campus, composed for a small image-anchored AR model.
-// XY is the campus plan; positive Z is building height.
+import { campusLayout } from './campus-layout.js?v=2';
+
+// Coordinates and proportions share one source with the printed image target.
 export function createAtlas(THREE) {
   const root = new THREE.Group();
   root.name = 'atlas-campus';
   const solids = [];
   const outlines = [];
   const buildings = [];
-  const paths = [];
-  const lawn = new THREE.MeshStandardMaterial({ color: 0xa4c853, roughness: .95 });
-  const lawnShade = new THREE.MeshStandardMaterial({ color: 0x83aa40, roughness: 1 });
-  const stone = new THREE.MeshStandardMaterial({ color: 0xd8d7ca, roughness: .92 });
-  const paving = new THREE.MeshStandardMaterial({ color: 0xf0eee3, roughness: .95 });
-  const campusBlue = new THREE.MeshStandardMaterial({ color: 0x13508a, roughness: .62 });
-  const roofBlue = new THREE.MeshStandardMaterial({ color: 0x1168a4, roughness: .58 });
-  const roofDark = new THREE.MeshStandardMaterial({ color: 0x173e68, roughness: .72 });
-  const windowMaterial = new THREE.MeshBasicMaterial({ color: 0xa5d9e1 });
-  const orange = new THREE.MeshBasicMaterial({ color: 0xf09d30 });
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xf7f1d9, transparent: true, opacity: .88 });
-  const add = (geometry, material, parent = root, technical = true) => {
+  const labels = [];
+  const materials = {
+    ground: new THREE.MeshStandardMaterial({ color: 0xd9ddd3, roughness: .94 }),
+    plan: new THREE.MeshBasicMaterial({ color: 0xf0efe5 }),
+    grass: new THREE.MeshBasicMaterial({ color: 0xaad25f }),
+    path: new THREE.MeshBasicMaterial({ color: 0xf7f5ec }),
+    wall: new THREE.MeshStandardMaterial({ color: 0x23679e, roughness: .75 }),
+    roof: new THREE.MeshBasicMaterial({ color: 0x79b5e2 }),
+    neutralWall: new THREE.MeshStandardMaterial({ color: 0x9ca5a4, roughness: .88 }),
+    neutralRoof: new THREE.MeshStandardMaterial({ color: 0xd6d9d5, roughness: .9 }),
+    window: new THREE.MeshBasicMaterial({ color: 0xe2f3f6 }),
+    accent: new THREE.MeshBasicMaterial({ color: 0xeaa43e }),
+  };
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x135a9e, transparent: true, opacity: .8 });
+  const xy = ([u, v]) => new THREE.Vector2((u / 1000 - .5) * 3.28, (.5 - v / 1000) * 2.44);
+  const polygon = points => {
+    const vectors = points.map(xy);
+    const shape = new THREE.Shape();
+    vectors.forEach((p, i) => i ? shape.lineTo(p.x, p.y) : shape.moveTo(p.x, p.y));
+    shape.closePath();
+    return shape;
+  };
+  const add = (geometry, material, name = '', edges = false) => {
     const mesh = new THREE.Mesh(geometry, material);
-    parent.add(mesh);
+    mesh.name = name;
+    root.add(mesh);
     solids.push(mesh);
-    if (technical) {
-      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 18), edgeMaterial);
-      parent.add(edge);
-      outlines.push({ mesh, edge });
+    if (edges) {
+      const line = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 20), edgeMaterial);
+      root.add(line);
+      outlines.push({ mesh, line });
     }
     return mesh;
   };
-
-  const base = add(new THREE.BoxGeometry(3.38, 2.48, .13), stone, root, false);
+  const base = add(new THREE.BoxGeometry(3.4, 2.56, .11), materials.ground, 'atlas-campus-base');
   base.position.z = -.07;
-  base.name = 'atlas-campus-base';
-  const green = add(new THREE.BoxGeometry(3.23, 2.32, .014), lawn, root, false);
-  green.position.z = .008;
-  green.name = 'atlas-green';
+  const turf = add(new THREE.BoxGeometry(3.28, 2.44, .012), materials.plan, 'atlas-plan');
+  turf.position.z = .002;
+  campusLayout.greens.forEach((points, i) => {
+    const patch = add(new THREE.ShapeGeometry(polygon(points)), materials.grass, `atlas-lawn-${i}`);
+    patch.position.z = .017;
+  });
+  campusLayout.paths.forEach(({ points, width }, i) => {
+    for (let j = 1; j < points.length; j += 1) {
+      const a = xy(points[j - 1]), b = xy(points[j]);
+      const length = a.distanceTo(b);
+      const path = add(new THREE.BoxGeometry(length, width * .003, .012), materials.path, `atlas-path-${i}-${j}`);
+      path.position.set((a.x+b.x)/2, (a.y+b.y)/2, .029);
+      path.rotation.z = Math.atan2(b.y-a.y, b.x-a.x);
+    }
+  });
+  const [x1,y1,x2,y2] = campusLayout.sportField;
+  const fieldCenter = xy([(x1+x2)/2,(y1+y2)/2]);
+  const field = add(new THREE.BoxGeometry((x2-x1)*.00328,(y2-y1)*.00244,.014),
+    new THREE.MeshStandardMaterial({ color: 0xcce78e, roughness: 1 }), 'atlas-sport-field');
+  field.position.set(fieldCenter.x, fieldCenter.y, .03);
+  const parkCenter = xy(campusLayout.park.center);
+  const park = add(new THREE.TorusGeometry(campusLayout.park.radius*.0029, .012, 6, 36),
+    materials.path, 'atlas-park-ring');
+  park.position.set(parkCenter.x,parkCenter.y,.035);
+  const parkDot = add(new THREE.CylinderGeometry(.035,.035,.025,20), materials.grass, 'atlas-park-centre');
+  parkDot.rotation.x = Math.PI/2;
+  parkDot.position.set(parkCenter.x,parkCenter.y,.046);
 
-  const patch = (x, y, w, d, dark = false) => {
-    const mesh = add(new THREE.BoxGeometry(w, d, .017), dark ? lawnShade : lawn, root, false);
-    mesh.position.set(x, y, .027);
-    return mesh;
-  };
-  patch(1.12, .72, .59, .55, true);
-  patch(-1.17, .69, .65, .48, true);
-  patch(.25, -.85, .62, .35, true);
-  patch(-.95, -.86, .58, .29);
-
-  // Paths form a legible cross on the phone and leave green courtyards between blocks.
-  const path = (x, y, w, d, angle = 0) => {
-    const mesh = add(new THREE.BoxGeometry(w, d, .018), paving, root, false);
-    mesh.position.set(x, y, .039);
-    mesh.rotation.z = angle;
-    paths.push(mesh);
-  };
-  path(-.02, -.02, .12, 2.21);
-  path(-.59, -.12, .11, 2.05);
-  path(.63, -.04, .11, 2.14);
-  path(0, .31, 3.1, .105);
-  path(0, -.38, 3.1, .115);
-  path(.95, -.76, .83, .09, -.43);
-  path(-1.11, .04, .65, .09, .35);
-  const plaza = add(new THREE.CylinderGeometry(.16, .16, .022, 36), paving, root, false);
-  plaza.rotation.x = Math.PI / 2;
-  plaza.position.set(.3, -.1, .043);
-  paths.push(plaza);
-
-  const labelTexture = letter => {
+  const labelTexture = text => {
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
+    canvas.width = 512; canvas.height = 256;
     const context = canvas.getContext('2d');
-    context.clearRect(0, 0, 128, 128);
-    context.fillStyle = '#f7f5e9';
-    context.font = 'bold 88px Arial, sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(letter, 64, 70);
+    context.fillStyle = '#163f6d';
+    context.font = `bold ${text.length > 3 ? 50 : 150}px Arial, sans-serif`;
+    context.textAlign = 'center'; context.textBaseline = 'middle';
+    context.fillText(text, 256, 135);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   };
-
-  // Relative footprints follow the reference: A in the centre, E to the east,
-  // B/C to the south-west, and the smaller F–J buildings across the north.
-  const blocks = [
-    ['A', .25, .47, .71, .34, .29, [[-.38, -.25, .22, .22], [.4, .09, .18, .25]]],
-    ['B', -1.05, -.73, .66, .28, .25, [[.34, .1, .18, .19]]],
-    ['C', -1.17, -.26, .51, .24, .25, [[-.3, .08, .16, .2]]],
-    ['D', -.87, .56, .39, .49, .27, [[.19, -.27, .22, .18]]],
-    ['E', 1.09, -.12, .49, .55, .32, [[-.3, -.19, .2, .22]]],
-    ['F', -.46, .84, .25, .29, .22, []],
-    ['G', -.99, 1.0, .27, .17, .19, []],
-    ['H', .87, .94, .28, .2, .21, []],
-    ['J', -1.42, .96, .17, .19, .16, []],
-    ['L', -.25, -.09, .36, .34, .24, [[-.2, -.18, .16, .19]]],
-    ['M', 1.43, .66, .21, .19, .16, []],
-  ];
-  blocks.forEach(([letter, x, y, w, d, h, wings], index) => {
+  const labelPositions = { A:[768,579], D:[783,370], E:[560,748], 'CĂMIN 1':[475,614], 'CĂMIN 2':[457,453] };
+  campusLayout.buildings.forEach((block, index) => {
+    const shape = polygon(block.points);
+    for (const holePoints of block.holes || []) {
+      const hole = new THREE.Path();
+      holePoints.map(xy).reverse().forEach((p,i) => i ? hole.lineTo(p.x,p.y) : hole.moveTo(p.x,p.y));
+      hole.closePath();
+      shape.holes.push(hole);
+    }
     const holder = new THREE.Group();
-    holder.name = `atlas-building-${letter}`;
-    holder.position.set(x, y, .049);
+    holder.name = `atlas-building-${block.id}`;
     root.add(holder);
-    const parts = [[0, 0, w, d], ...wings];
-    parts.forEach(([px, py, pw, pd], part) => {
-      const body = add(new THREE.BoxGeometry(pw, pd, h), campusBlue, holder);
-      body.position.set(px, py, h / 2);
-      const roof = add(new THREE.BoxGeometry(pw * 1.03, pd * 1.03, .018), part ? roofDark : roofBlue, holder, false);
-      roof.position.set(px, py, h + .009);
-      if (pw > .3 && pd > .2) {
-        for (const offset of [-.25, .25]) {
-          const pane = add(new THREE.BoxGeometry(pw * .14, .008, h * .32), windowMaterial, holder, false);
-          pane.position.set(px + pw * offset, py - pd / 2 - .005, h * .52);
-        }
-      }
-    });
-    const labelSize = Math.min(w, d, .35) * .7;
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(labelSize, labelSize),
-      new THREE.MeshBasicMaterial({ map: labelTexture(letter), transparent: true, depthWrite: false }));
-    label.position.z = h + .021;
-    holder.add(label);
-    buildings.push({ holder, start: .15 + index * .027, end: .42 + index * .033 });
+    const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth:block.height, bevelEnabled:false, steps:1 }),
+      block.neutral ? materials.neutralWall : materials.wall);
+    body.position.z = .038;
+    body.name = `${holder.name}-volume`;
+    holder.add(body);
+    solids.push(body);
+    const roof = new THREE.Mesh(new THREE.ShapeGeometry(shape), block.neutral ? materials.neutralRoof : materials.roof);
+    roof.position.z = .039 + block.height;
+    holder.add(roof); solids.push(roof);
+    const border = new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry, 20), edgeMaterial);
+    holder.add(border);
+    outlines.push({ mesh:body, line:border });
+    if (!block.neutral) {
+    const labelPoint = labelPositions[block.id] || [
+      block.points.reduce((sum,p)=>sum+p[0],0)/block.points.length,
+      block.points.reduce((sum,p)=>sum+p[1],0)/block.points.length,
+    ];
+    const loc = xy(labelPoint);
+    const label = new THREE.Mesh(new THREE.PlaneGeometry(block.id.length > 3 ? .23 : .17, .11),
+      new THREE.MeshBasicMaterial({ map:labelTexture(block.id), transparent:true, depthWrite:false }));
+    label.position.set(loc.x,loc.y,.043+block.height);
+    holder.add(label); labels.push(label);
+    }
+    buildings.push({ holder, start:.12+index*.022, end:.48+index*.023 });
   });
-
-  const pin = new THREE.Group();
-  pin.name = 'atlas-campus-pin';
-  const stem = add(new THREE.CylinderGeometry(.012, .012, .21, 10), orange, pin, false);
-  stem.rotation.x = Math.PI / 2;
-  stem.position.z = .18;
-  const head = add(new THREE.SphereGeometry(.052, 12, 10), orange, pin, false);
-  head.position.z = .3;
-  pin.position.set(.34, .47, .36);
-  root.add(pin);
-
+  const marker = add(new THREE.SphereGeometry(.046,10,8), materials.accent, 'atlas-campus-marker');
+  const markerPoint = xy([612,556]);
+  marker.position.set(markerPoint.x,markerPoint.y,.35);
   root.rotation.x = -1.18;
-  let target = .9;
-  let progress = .9;
-  let effect = .65;
-  let technical = false;
+  let target = .9, progress = .9, effect = .65, technical = false;
   return {
     root,
-    setProgress(value) { target = THREE.MathUtils.clamp(value, 0, 1); },
-    setEffect(value) { effect = THREE.MathUtils.clamp(value, 0, 1); },
+    setProgress(value) { target = THREE.MathUtils.clamp(value,0,1); },
+    setEffect(value) { effect = THREE.MathUtils.clamp(value,0,1); },
     setTechnical(value) {
       technical = !!value;
       solids.forEach(mesh => { mesh.visible = !technical; });
-      outlines.forEach(({ edge }) => { edge.visible = technical; });
-      paths.forEach(mesh => { mesh.visible = !technical; });
+      outlines.forEach(({ line }) => { line.visible = technical; });
+      labels.forEach(label => { label.visible = !technical; });
     },
     update(dt) {
-      progress = THREE.MathUtils.damp(progress, target, 7, Math.min(dt, .05));
-      outlines.forEach(({ mesh, edge }) => {
-        edge.position.copy(mesh.position);
-        edge.quaternion.copy(mesh.quaternion);
-        edge.scale.copy(mesh.scale);
+      progress = THREE.MathUtils.damp(progress,target,7,Math.min(dt,.05));
+      outlines.forEach(({ mesh,line }) => {
+        line.position.copy(mesh.position); line.quaternion.copy(mesh.quaternion); line.scale.copy(mesh.scale);
       });
-      buildings.forEach(({ holder, start, end }) => {
+      buildings.forEach(({ holder,start,end }) => {
         holder.visible = progress > start;
-        holder.scale.z = Math.max(.003, THREE.MathUtils.smoothstep(progress, start, end));
+        holder.scale.z = Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
       });
-      pin.visible = !technical && progress > .6;
-      head.scale.setScalar(.8 + effect * .4);
+      marker.visible = !technical && progress > .75;
+      marker.scale.setScalar(.7+effect*.5);
     },
     get progress() { return progress; },
     get effect() { return effect; },

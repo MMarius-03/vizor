@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=5';
+import { createAtlas, createOrbit } from './models.js?v=6';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -27,7 +27,7 @@ const makePoster = file => {
   scene.add(mesh);
   return mesh;
 };
-const posterAtlas = makePoster('../target-data/atlas-screen_original.png?v=2');
+const posterAtlas = makePoster('../target-data/atlas-screen_original.png?v=3');
 const posterOrbit = makePoster('./poster-orbit.svg');
 const ambient = new THREE.HemisphereLight(0xfff4e0,0x343c45,2.3);
 scene.add(ambient);

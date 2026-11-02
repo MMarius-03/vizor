@@ -8,6 +8,6 @@ Aceste pagini sunt previzualizări vizuale pentru ATLAS și ORBIT. `index.html` 
 - **ORBIT:** instrument cu postament, ax, trei brațe, inele pe planuri înclinate și plasmă în centru. Brațele apar pe rând; la capătul calibrării, liniile converg și apare un impuls luminos. Al doilea cursor controlează viteza și intensitatea plasmei, inclusiv pauza.
 - Vederea tehnică este o variantă de explorare, nu o suprapunere permanentă peste camera telefonului.
 
-ATLAS folosește acum hărțile campusului furnizate de utilizator drept referință pentru pozițiile relative ale corpurilor și aleilor. Proporțiile sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral.
+ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](https://usv.ro/resurse/harta-interactiva-usv/) drept referință pentru contururile și pozițiile relative ale corpurilor, aleilor și parcului. `campus-layout.json` este sursa comună; `tools/make-study-targets.py` generează `campus-layout.js` pentru modelul 3D și posterul pentru tracking. Proporțiile și unele detalii sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral.
 
 **Următorul pas:** animații spațiale mai elaborate și materialele finale, apoi test fizic al celor două obiecte ancorate în camera iPhone-ului. Pagina neutră de alegere și temele beta sunt disponibile; controalele finale AR vin după validarea obiectelor.

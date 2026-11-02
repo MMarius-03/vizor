@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=5';
+import { createAtlas, createOrbit } from './studies/models.js?v=6';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -107,8 +107,8 @@ const experienceCopy = {
     label: 'ATLAS',
     laptopEyebrow: 'ATLAS / AR LIVE · BETA',
     laptopTitle: 'Campusul<br><em>prinde formă.</em>',
-    target: './target-data/atlas-screen_original.png?v=2',
-    targetData: './target-data/atlas-screen.json?v=2',
+    target: './target-data/atlas-screen_original.png?v=3',
+    targetData: './target-data/atlas-screen.json?v=3',
     targetLabel: 'ATLAS / IMAGE TARGET',
     targetAlt: 'Planul campusului ATLAS cu clădiri, alei și spații verzi.',
     targetPrompt: 'posterul ATLAS',
@@ -440,7 +440,7 @@ async function startAR() {
     if (!response.ok) throw new Error('Datele imaginii țintă nu s-au încărcat.');
     const target = await response.json();
     target.imagePath = new URL(target.imagePath, location.href).href;
-    if (experience === 'atlas') target.imagePath += '?v=2';
+    if (experience === 'atlas') target.imagePath += '?v=3';
     targetName = target.name;
     setStatus('ȚINTĂ PREGĂTITĂ', 'loading', 'Se încarcă motorul AR.');
     three = await import('three');
@@ -716,8 +716,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=18`
-      : `?mode=phone&experience=${experience}&v=18`;
+      ? `?room=${session.code}&v=19`
+      : `?mode=phone&experience=${experience}&v=19`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
