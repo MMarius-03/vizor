@@ -282,6 +282,12 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(atlasLive.noCoreControls, true);
     await page.evaluate(() => window.__fakeAR.tick());
     assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'atlas-screen' }));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CAMPUS FIXAT');
+    await page.waitForTimeout(1300);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true,
+      'ATLAS should remain anchored while the phone looks down at the keyboard');
 
     await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=orbit&debug=1');
     assert.equal(await page.locator('body').getAttribute('data-experience'), 'orbit');

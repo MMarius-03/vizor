@@ -15,7 +15,9 @@ const viewport = document.querySelector('meta[name="viewport"]');
 const normalViewport = viewport.content;
 const debug = query.has('debug');
 const trackingMode = query.get('tracking') === 'image' ? 'image' : 'hybrid';
-const lossGraceMs = trackingMode === 'hybrid' ? 1100 : 350;
+// With world tracking active, keep the campus in place while the phone looks
+// down at the keyboard and the laptop poster leaves the camera view.
+const lossGraceMs = trackingMode === 'hybrid' ? (experience === 'atlas' ? 18000 : 1100) : 350;
 
 let xr = null;
 let targetRoot = null;
@@ -389,7 +391,11 @@ function markLost() {
   lossStartedAt = performance.now();
   lostCount += 1;
   lastEvent = 'imagine pierdută';
-  setStatus('RECONECTARE', 'grace', 'Ține imaginea în cadru. Refixăm obiectul.');
+  if (experience === 'atlas' && trackingMode === 'hybrid') {
+    setStatus('CAMPUS FIXAT', 'grace', 'Privește macheta de aproape. Reîncadrează posterul ATLAS pentru a reîmprospăta poziția.');
+  } else {
+    setStatus('RECONECTARE', 'grace', 'Ține imaginea în cadru. Refixăm obiectul.');
+  }
 }
 
 function updateTrackingHold(now) {
@@ -398,7 +404,9 @@ function updateTrackingHold(now) {
   if (elapsed >= lossGraceMs) {
     targetRoot.visible = false;
     lossStartedAt = 0;
-    setStatus('IMAGINE PIERDUTĂ', 'lost', 'Încadrează din nou imaginea întreagă de pe laptop.');
+    setStatus('IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
+      ? 'Încadrează din nou posterul ATLAS de pe laptop pentru a fixa campusul.'
+      : 'Încadrează din nou imaginea întreagă de pe laptop.');
     return;
   }
   const opacity = Math.max(0.25, 1 - (elapsed / lossGraceMs) * 0.65);
@@ -716,8 +724,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=19`
-      : `?mode=phone&experience=${experience}&v=19`;
+      ? `?room=${session.code}&v=20`
+      : `?mode=phone&experience=${experience}&v=20`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
