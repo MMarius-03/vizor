@@ -39,9 +39,9 @@
       </section>
 
       <section id="sync-stage" class="target-stage" aria-label="Imaginea care trebuie scanată">
-        <div class="target-top"><span>RIFT / IMAGE TARGET</span><button id="exit-focus" type="button">ÎNAPOI ×</button></div>
+        <div class="target-top"><span id="target-label">RIFT / IMAGE TARGET</span><button id="exit-focus" type="button">ÎNAPOI ×</button></div>
         <img id="target-image" src="./target-source.png" width="960" height="1280" alt="Imagine RIFT cu forme negre asimetrice, destinată urmăririi AR">
-        <div class="target-bottom"><span>ȚINTĂ STATICĂ / 960 × 1280</span><span>SCAN 01</span></div>
+        <div class="target-bottom"><span id="target-dimensions">ȚINTĂ STATICĂ / 960 × 1280</span><span>SCAN 01</span></div>
         <div class="sync-visual" id="sync-visual" aria-live="polite"><span id="sync-action">AȘTEPTARE</span><div class="sync-nodes"><i id="sync-node-0"></i><i id="sync-node-1"></i><i id="sync-node-2"></i></div><strong id="sync-progress">0 / 3</strong></div>
       </section>
     </div>
@@ -64,6 +64,6 @@
     <section id="error" class="error" hidden><div class="intro-head"><span class="phone-brand">RIFT / CORE</span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=16"></script>
+  <script type="module" src="./app.js?v=17"></script>
 </body>
 </html>

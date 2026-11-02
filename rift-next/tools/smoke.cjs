@@ -260,8 +260,9 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#section-toggle').isHidden(), true);
     await page.locator('#start-ar').click();
     await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
+    assert.equal((await page.evaluate(() => window.__fakeAR.configuration)).imageTargetData[0].name, 'atlas-screen');
     await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
-      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      name: 'atlas-screen', position: { x: 0, y: 0, z: -1 },
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
       scaledWidth: .75, scaledHeight: 1,
     }));
@@ -287,8 +288,9 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('body').getAttribute('data-experience'), 'orbit');
     await page.locator('#start-ar').click();
     await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
+    assert.equal((await page.evaluate(() => window.__fakeAR.configuration)).imageTargetData[0].name, 'orbit-screen');
     await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
-      name: 'rift-screen', position: { x: 0, y: 0, z: -1 },
+      name: 'orbit-screen', position: { x: 0, y: 0, z: -1 },
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
       scaledWidth: .75, scaledHeight: 1,
     }));

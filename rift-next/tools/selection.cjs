@@ -29,7 +29,7 @@ fs.mkdirSync(output, { recursive: true });
     }));
     await desktop.locator('#copy-link').click();
     await desktop.waitForFunction(() => !!window.__copiedLiveLink);
-    assert.match(await desktop.evaluate(() => window.__copiedLiveLink), /mode=phone&experience=atlas&v=16/);
+    assert.match(await desktop.evaluate(() => window.__copiedLiveLink), /mode=phone&experience=atlas&v=17/);
     await desktop.screenshot({ path: path.join(output, 'atlas-desktop.png') });
     await desktop.locator('.header-back').click();
     await desktop.getByRole('heading', { name: 'Alege un obiect.' }).waitFor();

@@ -1,0 +1,23 @@
+{
+  "imagePath": "./target-data/atlas-screen_luminance.png",
+  "metadata": null,
+  "name": "atlas-screen",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 0,
+    "width": 960,
+    "height": 1280,
+    "isRotated": false,
+    "originalWidth": 960,
+    "originalHeight": 1280
+  },
+  "resources": {
+    "originalImage": "atlas-screen_original.png",
+    "croppedImage": "atlas-screen_cropped.png",
+    "thumbnailImage": "atlas-screen_thumbnail.png",
+    "luminanceImage": "atlas-screen_luminance.png"
+  },
+  "created": 1793637352236,
+  "updated": 1793637352236
+}

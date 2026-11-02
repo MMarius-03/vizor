@@ -40,11 +40,11 @@
     const core = document.getElementById('choose-core');
     core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}`;
     for (const name of ['atlas', 'orbit']) {
-      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=16`;
+      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=17`;
     }
     if (onPhone) {
       document.querySelector('footer span').textContent = 'ALEGE UN OBIECT ȘI PORNEȘTE CAMERA DIN SPATE';
-      document.querySelector('footer span:last-child').textContent = 'ȚINE IMAGINEA RIFT DE PE LAPTOP ÎN CADRU';
+      document.querySelector('footer span:last-child').textContent = 'ȚINE POSTERUL OBIECTULUI ALES ÎN CADRU';
     }
   </script>
 </body>

@@ -107,22 +107,32 @@ const experienceCopy = {
     label: 'ATLAS',
     laptopEyebrow: 'ATLAS / AR LIVE · BETA',
     laptopTitle: 'Un oraș<br><em>plutește.</em>',
-    laptopDescription: 'Lasă această imagine deschisă pe laptop. Pe iPhone alege ATLAS și pornește camera: orașul se așază deasupra tastaturii, cu baza ridicată cât să vezi dedesubt.',
-    laptopStep: 'Pe iPhone alege ATLAS. Ține imaginea în cadru și privește orașul ridicându-se de la marginea ecranului.',
+    target: './target-data/atlas-screen_original.png',
+    targetData: './target-data/atlas-screen.json',
+    targetLabel: 'ATLAS / IMAGE TARGET',
+    targetAlt: 'Imagine-țintă ATLAS cu o insulă urbană și un râu, în tonuri de piatră și teracotă.',
+    targetPrompt: 'posterul ATLAS',
+    laptopDescription: 'Lasă posterul ATLAS deschis pe laptop. Pe iPhone alege ATLAS și pornește camera: orașul se așază deasupra tastaturii, cu baza ridicată cât să vezi dedesubt.',
+    laptopStep: 'Pe iPhone alege ATLAS. Ține posterul ATLAS întreg în cadru și privește orașul ridicându-se de la marginea ecranului.',
     phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
     phoneTitle: 'Un oraș<br><em>plutește.</em>',
-    phoneDescription: 'Încadrează imaginea RIFT de pe laptop. Orașul se ridică drept de la marginea ecranului și plutește deasupra tastaturii.',
+    phoneDescription: 'Încadrează posterul ATLAS de pe laptop. Orașul se ridică drept de la marginea ecranului și plutește deasupra tastaturii.',
     found: 'Orașul este ancorat de laptop. Mișcă telefonul lateral ca să vezi spațiul de sub insulă.',
   },
   orbit: {
     label: 'ORBIT',
     laptopEyebrow: 'ORBIT / AR LIVE · BETA',
     laptopTitle: 'Mecanism în<br><em>orbită.</em>',
-    laptopDescription: 'Lasă această imagine deschisă pe laptop. Pe iPhone alege ORBIT și pornește camera pentru a vedea instrumentul cinetic ancorat de ecran.',
-    laptopStep: 'Pe iPhone alege ORBIT și ține imaginea întreagă în cadru. Mecanismul va apărea în fața ecranului.',
+    target: './target-data/orbit-screen_original.png',
+    targetData: './target-data/orbit-screen.json',
+    targetLabel: 'ORBIT / IMAGE TARGET',
+    targetAlt: 'Imagine-țintă ORBIT în bleumarin și cobalt, cu axe și inele concentrice argintii.',
+    targetPrompt: 'posterul ORBIT',
+    laptopDescription: 'Lasă posterul ORBIT deschis pe laptop. Pe iPhone alege ORBIT și pornește camera pentru a vedea instrumentul cinetic ancorat de ecran.',
+    laptopStep: 'Pe iPhone alege ORBIT și ține posterul ORBIT întreg în cadru. Mecanismul va apărea în fața ecranului.',
     phoneEyebrow: 'ORBIT · AR PRIN IMAGINE',
     phoneTitle: 'Privește<br><em>mecanismul.</em>',
-    phoneDescription: 'Încadrează imaginea RIFT de pe laptop. Instrumentul ORBIT va apărea în fața ecranului, ancorat de imagine.',
+    phoneDescription: 'Încadrează posterul ORBIT de pe laptop. Instrumentul ORBIT va apărea în fața ecranului, ancorat de imagine.',
     found: 'ORBIT este ancorat de imaginea laptopului. Mișcă telefonul lateral ca să privești inelele din unghiuri diferite.',
   },
 };
@@ -155,6 +165,10 @@ function configureExperience() {
   $('phone-eyebrow').innerHTML = `<span class="led"></span> ${copy.phoneEyebrow}`;
   $('phone-title').innerHTML = copy.phoneTitle;
   $('phone-description').textContent = copy.phoneDescription;
+  $('target-image').src = copy.target;
+  $('target-image').alt = copy.targetAlt;
+  $('target-label').textContent = copy.targetLabel;
+  $('target-dimensions').textContent = 'ȚINTĂ STATICĂ / 960 × 1280';
   $('phone-sync').textContent = `${copy.label} · AR SOLO`;
   $('phone-sync-live').hidden = true;
   $('target-count').textContent = `${copy.label} / ÎN AȘTEPTARE`;
@@ -421,7 +435,8 @@ async function startAR() {
   if (!window.isSecureContext) return showError('Camera necesită HTTPS. Deschide linkul GitHub Pages în Safari.');
 
   try {
-    const response = await fetch('./target-data/rift-screen.json');
+    const targetData = experience === 'core' ? './target-data/rift-screen.json' : experienceCopy[experience].targetData;
+    const response = await fetch(targetData);
     if (!response.ok) throw new Error('Datele imaginii țintă nu s-au încărcat.');
     const target = await response.json();
     target.imagePath = new URL(target.imagePath, location.href).href;
@@ -456,7 +471,7 @@ async function startAR() {
         makeProbe(scene.scene);
         setStatus('CAUTĂ IMAGINEA', 'searching', experience === 'core'
           ? 'Încadrează imaginea RIFT întreagă de pe laptop.'
-          : `Încadrează imaginea RIFT întreagă pentru a ancora ${experienceCopy[experience].label}.`);
+          : `Încadrează ${experienceCopy[experience].targetPrompt} întreg în cadru pentru a ancora ${experienceCopy[experience].label}.`);
       },
       onUpdate: () => {
         const now = performance.now();
@@ -475,7 +490,9 @@ async function startAR() {
         } },
         { event: 'reality.imagescanning', process: () => {
           lastEvent = 'scanare';
-          if (!found && !lossStartedAt) setStatus('CAUTĂ IMAGINEA', 'searching', 'Încadrează imaginea RIFT întreagă de pe laptop.');
+          if (!found && !lossStartedAt) setStatus('CAUTĂ IMAGINEA', 'searching', experience === 'core'
+            ? 'Încadrează imaginea RIFT întreagă de pe laptop.'
+            : `Încadrează ${experienceCopy[experience].targetPrompt} întreg în cadru.`);
         } },
         { event: 'reality.imagefound', process: ({ detail }) => {
           if (detail?.name !== targetName) return;
@@ -698,8 +715,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=16`
-      : `?mode=phone&experience=${experience}&v=16`;
+      ? `?room=${session.code}&v=17`
+      : `?mode=phone&experience=${experience}&v=17`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

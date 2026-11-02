@@ -1,6 +1,6 @@
 # RIFT — trei obiecte de explorat
 
-Pagina de intrare oferă trei experiențe ancorate de aceeași imagine de pe laptop. CORE are interacțiunile și sincronizarea sa; ATLAS și ORBIT sunt acum disponibile în camera iPhone-ului ca modele statice beta, cu temele lor. Folderul este separat de versiunea [`../rift/`](../rift/).
+Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe laptop. CORE păstrează posterul RIFT și interacțiunile sale; ATLAS și ORBIT au câte un poster și o țintă AR potrivită temei lor. Modelele ATLAS și ORBIT sunt încă statice, în beta. Folderul este separat de versiunea [`../rift/`](../rift/).
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
 
@@ -14,7 +14,7 @@ Pagina de intrare oferă trei experiențe ancorate de aceeași imagine de pe lap
 
 1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege obiectul. Pentru ATLAS sau ORBIT, laptopul arată imaginea-țintă și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
 2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta ATLAS sau ORBIT de acolo.
-3. Încadrează imaginea RIFT de pe laptop. Obiectul apare numai după recunoașterea țintei. ATLAS este orientat cu baza deasupra tastaturii; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub oraș.
+3. Încadrează posterul experienței alese de pe laptop. Obiectul apare numai după recunoașterea țintei potrivite. ATLAS este orientat cu baza deasupra tastaturii; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub oraș.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
 6. Atinge carcasa, inelul, rotorul, colierul sau camera reactorului pentru a le identifica. Piesa atinsă este marcată scurt. Atingerea cristalului după 3/3 trimite un impuls.
@@ -33,8 +33,9 @@ Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualiza
 
 ## Implementare
 
-- `target-source.png` este imaginea statică afișată pe laptop; `tools/make-target.py` o regenerează cu Pillow.
-- `target-data/rift-screen.json` și imaginile derivate au fost generate cu [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
+- `target-source.png` este posterul CORE. `target-data/atlas-screen_original.png` și `target-data/orbit-screen_original.png` sunt posterele ATLAS și ORBIT.
+- `tools/make-target.py` regenerează posterul CORE. `tools/make-study-targets.py` regenerează posterele ATLAS/ORBIT și țintele lor în `target-data/`.
+- Definițiile din `target-data/*-screen.json` indică imaginea de recunoaștere grayscale de 480 × 640; CORE folosește ținta procesată de [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
 - `artifact.js` construiește obiectul din geometrii Three.js: carbon procedural pe carcasa antracit, metal periat pe inele, fațete cyan cu un centru luminos, un vas tăiat cu clipping și un mecanism intern. Marcajele asimetrice fac rotația inelelor vizibilă. Zonele tactile au identificatori de piesă și sunt mai largi decât detaliile vizibile. Traseele de lumină apar doar la activarea nodurilor.
 - `app.js` folosește [8th Wall Engine Binary](https://8thwall.org/docs/open-source), [configurarea țintelor](https://8thwall.org/docs/api/engine/xrcontroller/configure) și [evenimentele de tracking](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule). `sync.js` transmite starea prin backendul online RIFT. Vezi [NOTICE.md](./NOTICE.md) pentru credite.
 

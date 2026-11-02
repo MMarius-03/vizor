@@ -1,0 +1,23 @@
+{
+  "imagePath": "./target-data/orbit-screen_luminance.png",
+  "metadata": null,
+  "name": "orbit-screen",
+  "type": "PLANAR",
+  "properties": {
+    "left": 0,
+    "top": 0,
+    "width": 960,
+    "height": 1280,
+    "isRotated": false,
+    "originalWidth": 960,
+    "originalHeight": 1280
+  },
+  "resources": {
+    "originalImage": "orbit-screen_original.png",
+    "croppedImage": "orbit-screen_cropped.png",
+    "thumbnailImage": "orbit-screen_thumbnail.png",
+    "luminanceImage": "orbit-screen_luminance.png"
+  },
+  "created": 1793637352537,
+  "updated": 1793637352537
+}
