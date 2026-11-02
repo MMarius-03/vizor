@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=4';
+import { createAtlas, createOrbit } from './studies/models.js?v=5';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -106,18 +106,18 @@ const experienceCopy = {
   atlas: {
     label: 'ATLAS',
     laptopEyebrow: 'ATLAS / AR LIVE · BETA',
-    laptopTitle: 'Un oraș<br><em>plutește.</em>',
-    target: './target-data/atlas-screen_original.png',
-    targetData: './target-data/atlas-screen.json',
+    laptopTitle: 'Campusul<br><em>prinde formă.</em>',
+    target: './target-data/atlas-screen_original.png?v=2',
+    targetData: './target-data/atlas-screen.json?v=2',
     targetLabel: 'ATLAS / IMAGE TARGET',
-    targetAlt: 'Imagine-țintă ATLAS cu o insulă urbană și un râu, în tonuri de piatră și teracotă.',
+    targetAlt: 'Planul campusului ATLAS cu clădiri, alei și spații verzi.',
     targetPrompt: 'posterul ATLAS',
-    laptopDescription: 'Lasă posterul ATLAS deschis pe laptop. Pe iPhone alege ATLAS și pornește camera: orașul se așază deasupra tastaturii, cu baza ridicată cât să vezi dedesubt.',
-    laptopStep: 'Pe iPhone alege ATLAS. Ține posterul ATLAS întreg în cadru și privește orașul ridicându-se de la marginea ecranului.',
+    laptopDescription: 'Lasă harta campusului deschisă pe laptop. Pe iPhone alege ATLAS și pornește camera: clădirile apar deasupra tastaturii, cu alei și curți verzi între ele.',
+    laptopStep: 'Ține harta ATLAS întreagă în cadru și mișcă telefonul lateral ca să vezi macheta campusului din mai multe unghiuri.',
     phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
-    phoneTitle: 'Un oraș<br><em>plutește.</em>',
-    phoneDescription: 'Încadrează posterul ATLAS de pe laptop. Orașul se ridică drept de la marginea ecranului și plutește deasupra tastaturii.',
-    found: 'Orașul este ancorat de laptop. Mișcă telefonul lateral ca să vezi spațiul de sub insulă.',
+    phoneTitle: 'Explorează<br><em>campusul.</em>',
+    phoneDescription: 'Încadrează harta ATLAS de pe laptop. Macheta campusului apare deasupra tastaturii; privește clădirile și aleile din lateral.',
+    found: 'Campusul este ancorat de laptop. Mișcă telefonul lateral ca să vezi clădirile și spațiul de sub machetă.',
   },
   orbit: {
     label: 'ORBIT',
@@ -440,6 +440,7 @@ async function startAR() {
     if (!response.ok) throw new Error('Datele imaginii țintă nu s-au încărcat.');
     const target = await response.json();
     target.imagePath = new URL(target.imagePath, location.href).href;
+    if (experience === 'atlas') target.imagePath += '?v=2';
     targetName = target.name;
     setStatus('ȚINTĂ PREGĂTITĂ', 'loading', 'Se încarcă motorul AR.');
     three = await import('three');
@@ -715,8 +716,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=17`
-      : `?mode=phone&experience=${experience}&v=17`;
+      ? `?room=${session.code}&v=18`
+      : `?mode=phone&experience=${experience}&v=18`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

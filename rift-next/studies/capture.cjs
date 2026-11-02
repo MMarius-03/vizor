@@ -23,39 +23,27 @@ fs.mkdirSync(output, { recursive: true });
       `ATLAS poster failed to decode at full resolution: ${JSON.stringify(posterImage)}`);
     await page.screenshot({ path: path.join(output, 'atlas.png') });
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-river')));
-    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-river-front')), undefined,
-      'ATLAS should render a single river');
-    const riverBefore = await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset);
-    await page.waitForTimeout(300);
-    assert.ok(await page.evaluate(before => window.__RIFT_STUDY__.atlas.riverOffset > before,
-      riverBefore), 'ATLAS river should flow continuously');
-    await page.locator('#effect').fill('0');
-    const frozenRiver = await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset);
-    await page.waitForTimeout(200);
-    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.riverOffset), frozenRiver);
-    await page.locator('#effect').fill('65');
+      .getObjectByName('atlas-green')));
+    assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-building-A')));
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), true);
     await page.locator('#progress').fill('0');
     await page.waitForTimeout(550);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-building-0').visible), false);
-    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-river').visible), false);
-    await page.screenshot({ path: path.join(output, 'atlas-topography.png') });
+      .getObjectByName('atlas-building-A').visible), false);
+    await page.screenshot({ path: path.join(output, 'atlas-terrain.png') });
     await page.locator('#progress').fill('24');
     await page.waitForTimeout(550);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-foundation-0').visible), true);
-    await page.screenshot({ path: path.join(output, 'atlas-foundations.png') });
+      .getObjectByName('atlas-green').visible), true);
+    await page.screenshot({ path: path.join(output, 'atlas-paths.png') });
     await page.locator('#progress').fill('90');
     await page.waitForTimeout(550);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-river').visible), true);
+      .getObjectByName('atlas-building-A').visible), true);
     await page.locator('#technical').click();
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
-      .getObjectByName('atlas-river').visible), false);
+      .getObjectByName('atlas-green').visible), false);
     await page.screenshot({ path: path.join(output, 'atlas-technical.png') });
     await page.locator('#orbit').click();
     await page.waitForTimeout(700);

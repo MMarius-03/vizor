@@ -14,7 +14,7 @@ Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe lap
 
 1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege obiectul. Pentru ATLAS sau ORBIT, laptopul arată imaginea-țintă și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
 2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta ATLAS sau ORBIT de acolo.
-3. Încadrează posterul experienței alese de pe laptop. Obiectul apare numai după recunoașterea țintei potrivite. ATLAS este orientat cu baza deasupra tastaturii; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub oraș.
+3. Încadrează posterul experienței alese de pe laptop. Obiectul apare numai după recunoașterea țintei potrivite. ATLAS arată o machetă schematică a campusului USV, cu clădiri joase, alei și spații verzi; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub machetă.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
 6. Atinge carcasa, inelul, rotorul, colierul sau camera reactorului pentru a le identifica. Piesa atinsă este marcată scurt. Atingerea cristalului după 3/3 trimite un impuls.

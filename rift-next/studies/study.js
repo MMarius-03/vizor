@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=4';
+import { createAtlas, createOrbit } from './models.js?v=5';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -27,7 +27,7 @@ const makePoster = file => {
   scene.add(mesh);
   return mesh;
 };
-const posterAtlas = makePoster('./poster-atlas.svg');
+const posterAtlas = makePoster('../target-data/atlas-screen_original.png?v=2');
 const posterOrbit = makePoster('./poster-orbit.svg');
 const ambient = new THREE.HemisphereLight(0xfff4e0,0x343c45,2.3);
 scene.add(ambient);
@@ -45,7 +45,7 @@ let pointer=null;
 let previous=0;
 const renderPhase=value=>{
   $('phase').textContent=active==='atlas'
-    ? value<.18?'01 / TOPOGRAFIE':value<.43?'02 / FUNDAȚII':value<.8?'03 / ORAȘUL SE RIDICĂ':'04 / ORAȘ COMPLET'
+    ? value<.18?'01 / TEREN':value<.43?'02 / ALEI':value<.8?'03 / CLĂDIRI':'04 / CAMPUS COMPLET'
     : value<.25?'01 / REPAUS':value<.55?'02 / BRAȚELE SE DESCHID':value<.94?'03 / CALIBRARE':'04 / CONVERGENȚĂ';
 };
 const updateCamera=()=>{
@@ -70,17 +70,17 @@ const setActive=name=>{
   $('atlas').setAttribute('aria-pressed',String(isAtlas));
   $('orbit').setAttribute('aria-pressed',String(!isAtlas));
   $('technical').setAttribute('aria-pressed',String(isAtlas?atlas.technical:orbit.technical));
-  $('name').textContent=isAtlas?'ATLAS — oraș în miniatură':'ORBIT — instrument cinetic';
+  $('name').textContent=isAtlas?'ATLAS — campus în miniatură':'ORBIT — instrument cinetic';
   $('description').textContent=isAtlas
-    ? 'O insulă construită în straturi, ridicată din planul ecranului.'
+    ? 'Corpurile campusului se ridică între alei și curți verzi.'
     : 'Brațe și inele pe axe diferite, cu aliniere controlată.';
   $('range-name').textContent=isAtlas?'CONSTRUIEȘTE':'CALIBREAZĂ AXELE';
   $('progress').value=isAtlas?90:84;
   $('value').textContent=isAtlas?'90%':'302°';
-  $('effect-name').textContent=isAtlas?'DEBITUL RÂULUI':'ENERGIA PLASMEI';
+  $('effect-name').textContent=isAtlas?'ACCENTUL PINULUI':'ENERGIA PLASMEI';
   $('effect').value=Math.round((isAtlas?atlas.effect:orbit.effect)*100);
   $('effect-value').textContent=`${$('effect').value}%`;
-  document.documentElement.style.setProperty('--accent',isAtlas?'#c86a4a':'#638bc6');
+  document.documentElement.style.setProperty('--accent',isAtlas?'#4f9ed1':'#638bc6');
   const query = new URLSearchParams({object:name});
   if (room) query.set('room',room);
   history.replaceState(null,'',`?${query}`);

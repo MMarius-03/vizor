@@ -1,6 +1,6 @@
 # Etapa 6 — trei experiențe AR la alegere
 
-**Stare:** ATLAS și ORBIT sunt integrate în fluxul AR pe iPhone, fiecare cu propriul poster tematic și țintă de recunoaștere. Apar complet asamblate și fără secvențele lor de animație; acestea rămân pentru etapele următoare. ATLAS este rotit cu baza aproape orizontală, așezată deasupra tastaturii, cu spațiu vizibil sub oraș. Laptopul afișează posterul ales și linkul pentru iPhone.
+**Stare:** ATLAS și ORBIT sunt integrate în fluxul AR pe iPhone, fiecare cu propriul poster tematic și țintă de recunoaștere. Apar complet asamblate și fără secvențele lor de animație; acestea rămân pentru etapele următoare. ATLAS este o machetă schematică a campusului USV, orientată aproape orizontal deasupra tastaturii. Laptopul afișează posterul ales și linkul pentru iPhone.
 
 Utilizatorul alege **una dintre trei experiențe** înainte de pornirea camerei. Alegerea este un ecran tipografic simplu. CORE folosește sesiunea online; ATLAS și ORBIT pornesc solo și nu transmit încă stare între dispozitive.
 
@@ -15,7 +15,7 @@ Interfața de alegere folosește trei rânduri tipografice aerisite, nu carduri 
 
 ## Cele două propuneri
 
-1. **ATLAS — miniatură arhitecturală.** Un mic oraș se ridică în etape din imaginea de pe laptop. Glisarea controlează momentul construirii, iar atingerea unor clădiri aprinde cartierele; finalul produce o undă de lumină prin întregul oraș. Camera laterală arată clar adâncimea și relația cu ecranul real. Este o scenă spațială, diferită de mecanismul Nucleului.
+1. **ATLAS — miniatură de campus.** Corpurile clădirilor, aleile și curțile verzi urmează o schemă simplificată din hărțile de referință. Versiunea live este statică; interacțiunile de explorare și construcție rămân pentru etapa următoare.
 2. **ORBIT — giroscop suspendat.** Inele pe planuri diferite se rotesc în jurul unui centru, cu parallax clar când telefonul se mișcă lateral. Glisarea schimbă axa și ritmul, atingerea fixează sau eliberează un inel, iar un gest final aliniază orbitele. Este diferit de Nucleu prin controlul continuu al mișcării și al adâncimii.
 
 ## Reguli pentru implementare

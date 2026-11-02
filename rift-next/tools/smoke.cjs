@@ -269,20 +269,19 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
     const atlasLive = await page.evaluate(() => ({
       state: window.__RIFT_NEXT__.getState(),
-      riverVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-river')?.visible,
+      campusVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-green')?.visible,
       noCoreControls: document.querySelector('#section-toggle').hidden && document.querySelector('#node-controls').hidden,
       vertical: new window.THREE.Vector3(0, 0, 1).applyQuaternion(
-        window.__fakeAR.scene.scene.getObjectByName('atlas-river').parent.quaternion).y,
+        window.__fakeAR.scene.scene.getObjectByName('atlas-green').parent.quaternion).y,
     }));
     assert.ok(Math.abs(atlasLive.state.modelRotationX + Math.PI / 2) < .001,
       'ATLAS base should lie horizontally above the keyboard');
     assert.ok(atlasLive.vertical > .99, 'ATLAS building height should point upward');
     assert.ok(atlasLive.state.modelPositionZ > .25, 'ATLAS should float in front of the display plane');
-    assert.equal(atlasLive.riverVisible, true);
+    assert.equal(atlasLive.campusVisible, true);
     assert.equal(atlasLive.noCoreControls, true);
     await page.evaluate(() => window.__fakeAR.tick());
-    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).riverOffset, 0,
-      'live beta ATLAS river is static until its animation phase');
+    assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
 
     await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=orbit&debug=1');
     assert.equal(await page.locator('body').getAttribute('data-experience'), 'orbit');

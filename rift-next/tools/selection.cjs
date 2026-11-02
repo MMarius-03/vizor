@@ -18,7 +18,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.match(await desktop.locator('#choose-atlas').getAttribute('href'), /mode=laptop&experience=atlas/);
     await desktop.screenshot({ path: path.join(output, 'choose-desktop.png') });
     await desktop.locator('#choose-atlas').click();
-    await desktop.getByRole('heading', { name: 'Un oraș plutește.' }).waitFor();
+    await desktop.getByRole('heading', { name: 'Campusul prinde formă.' }).waitFor();
     assert.equal(await desktop.locator('body').getAttribute('data-experience'), 'atlas');
     assert.equal(await desktop.locator('#sync-visual').isHidden(), true);
     assert.equal(await desktop.locator('#ar-canvas').isVisible(), false,
@@ -29,7 +29,7 @@ fs.mkdirSync(output, { recursive: true });
     }));
     await desktop.locator('#copy-link').click();
     await desktop.waitForFunction(() => !!window.__copiedLiveLink);
-    assert.match(await desktop.evaluate(() => window.__copiedLiveLink), /mode=phone&experience=atlas&v=17/);
+    assert.match(await desktop.evaluate(() => window.__copiedLiveLink), /mode=phone&experience=atlas&v=18/);
     await desktop.screenshot({ path: path.join(output, 'atlas-desktop.png') });
     await desktop.locator('.header-back').click();
     await desktop.getByRole('heading', { name: 'Alege un obiect.' }).waitFor();
