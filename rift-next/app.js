@@ -340,7 +340,8 @@ function applyTarget(detail) {
     } else if (experience === 'atlas') {
       artifact.root.scale.setScalar(Math.min(.34, Math.max(.08, width * .24)));
       artifact.root.rotation.set(-Math.PI / 2, 0, 0);
-      artifact.root.position.set(0, -height * .43, width * .36);
+      // Keep the campus slightly higher so close-up viewing needs less downward tilt.
+      artifact.root.position.set(0, -height * .38, width * .36);
     } else {
       artifact.root.scale.setScalar(Math.min(.42, Math.max(.09, width * .28)));
       artifact.root.rotation.set(0, 0, 0);
@@ -724,8 +725,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=20`
-      : `?mode=phone&experience=${experience}&v=20`;
+      ? `?room=${session.code}&v=21`
+      : `?mode=phone&experience=${experience}&v=21`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
