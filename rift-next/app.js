@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=7';
+import { createAtlas, createOrbit } from './studies/models.js?v=8';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -291,7 +291,7 @@ function makeProbe(scene) {
     artifact.setEffect(0);
     // Settle the model once, then leave it still for this live beta.
     for (let frame = 0; frame < 120; frame += 1) artifact.update(.05);
-    if (experience === 'atlas') artifact.root.rotation.set(-Math.PI / 2, 0, 0);
+    if (experience === 'atlas') orientAtlasFromNorth();
     artifact.root.position.z = experience === 'atlas' ? .18 : .12;
   }
   targetRoot.add(artifact.root);
@@ -302,6 +302,12 @@ function makeProbe(scene) {
   const rim = new three.DirectionalLight(0x81d8d3, 1.25);
   rim.position.set(-2, -1, 1);
   scene.add(rim);
+}
+
+function orientAtlasFromNorth() {
+  // The N block is on the right edge of the printed map. Turn that edge
+  // toward the viewer while keeping the campus plane horizontal.
+  artifact.setViewFromNorth();
 }
 
 function applyTarget(detail) {
@@ -339,7 +345,7 @@ function applyTarget(detail) {
       artifact.root.position.y = -height * .075;
     } else if (experience === 'atlas') {
       artifact.root.scale.setScalar(Math.min(.34, Math.max(.08, width * .24)));
-      artifact.root.rotation.set(-Math.PI / 2, 0, 0);
+      orientAtlasFromNorth();
       // Keep the campus slightly higher so close-up viewing needs less downward tilt.
       artifact.root.position.set(0, -height * .38, width * .36);
     } else {

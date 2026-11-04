@@ -240,6 +240,10 @@ export function createAtlas(THREE) {
   let target = .9, progress = .9, effect = .65, technical = false;
   return {
     root,
+    setViewFromNorth() {
+      root.rotation.set(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ');
+      labels.forEach(label => { label.rotation.z = Math.PI / 2; });
+    },
     setProgress(value) { target = THREE.MathUtils.clamp(value,0,1); },
     setEffect(value) { effect = THREE.MathUtils.clamp(value,0,1); },
     setTechnical(value) {
