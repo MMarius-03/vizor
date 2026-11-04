@@ -13,7 +13,7 @@ ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](htt
 ## Campus map înainte de lansare
 
 1. **Macheta — în lucru:** acoperișuri cu textură procedurală, finisaje distincte pentru corpuri și cămine, ferestre, alei cu bordură, vegetație și teren de sport lizibil. Curtea corpului A este corectată și posterul ATLAS este regenerat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
-2. **Puncte interactive:** atingerea unui corp sau pin va deschide o fișă compactă cu informații verificate din sursele USV.
+2. **Puncte interactive — implementate în AR:** nouă pinuri pentru locurile din harta oficială USV se proiectează peste machetă. Atingerea unui pin sau a unei clădiri deschide o fișă compactă și linkul către sursă. Poziția, lizibilitatea și gesturile trebuie validate pe iPhone.
 3. **Poziția vizitatorului:** localizarea opțională va plasa un pin pe hartă după calibrarea coordonatelor geografice; numele corpului va fi afișat ca sigur doar când precizia permite.
 
 ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după validarea machetei în AR.

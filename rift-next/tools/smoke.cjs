@@ -282,6 +282,33 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(atlasLive.noCoreControls, true);
     await page.evaluate(() => window.__fakeAR.tick());
     assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
+    const visibleAtlasPins = await page.locator('#atlas-pins .atlas-pin:not([hidden])').count();
+    assert.ok(visibleAtlasPins > 0, 'ATLAS should show projected campus pins after tracking');
+    if (process.env.ATLAS_SCREENSHOT) {
+      await page.locator('#debug-panel').evaluate(element => { element.hidden = true; });
+      await page.screenshot({ path: process.env.ATLAS_SCREENSHOT.replace(/\.png$/, '-pins.png') });
+    }
+    const firstPin = page.locator('#atlas-pins .atlas-pin:not([hidden])').first();
+    const selectedPlace = await firstPin.getAttribute('aria-label');
+    await firstPin.click();
+    assert.equal(await page.locator('#atlas-info').isVisible(), true);
+    assert.equal(await page.locator('#atlas-info-title').textContent(), selectedPlace.replace('Detalii: ', ''));
+    assert.match(await page.locator('#atlas-info-source').getAttribute('href'), /usv\.ro\/resurse\/harta-interactiva-usv/);
+    if (process.env.ATLAS_SCREENSHOT) await page.screenshot({ path: process.env.ATLAS_SCREENSHOT });
+    await page.locator('#atlas-info-close').click();
+    assert.equal(await page.locator('#atlas-info').isHidden(), true);
+    const tapPoint = await firstPin.boundingBox();
+    await page.evaluate(({ x, y }) => {
+      const pins = document.getElementById('atlas-pins');
+      pins.hidden = true;
+      const canvas = document.getElementById('ar-canvas');
+      const options = { bubbles: true, pointerId: 42, clientX: x, clientY: y };
+      canvas.dispatchEvent(new PointerEvent('pointerdown', options));
+      canvas.dispatchEvent(new PointerEvent('pointerup', options));
+    }, { x: tapPoint.x + 22, y: tapPoint.y + 22 });
+    assert.equal(await page.locator('#atlas-info').isVisible(), true,
+      'tapping a campus building should open its details');
+    await page.locator('#atlas-info-close').click();
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'atlas-screen' }));
     assert.equal(await page.locator('#tracking-state').textContent(), 'CAMPUS FIXAT');
     await page.waitForTimeout(1300);

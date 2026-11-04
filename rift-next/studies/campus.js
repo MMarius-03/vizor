@@ -7,7 +7,9 @@ export function createAtlas(THREE) {
   const solids = [];
   const outlines = [];
   const buildings = [];
+  const buildingTargets = [];
   const labels = [];
+  const buildingHeights = new Map(campusLayout.buildings.map(block => [block.id, block.height]));
   // One small, shared texture keeps the campus detailed without adding image downloads.
   const surfaceTexture = (kind) => {
     const canvas = document.createElement('canvas');
@@ -176,8 +178,9 @@ export function createAtlas(THREE) {
       block.neutral ? materials.neutralWall : dorm ? materials.dormWall : materials.wall);
     body.position.z = .038;
     body.name = `${holder.name}-volume`;
+    body.userData.atlasBuildingId = block.id;
     holder.add(body);
-    solids.push(body);
+    solids.push(body); buildingTargets.push(body);
     if (!block.neutral && block.id !== 'OBSERVATOR') {
       const windows = [];
       for (let edge = 0; edge < block.points.length; edge += 1) {
@@ -212,7 +215,8 @@ export function createAtlas(THREE) {
       block.neutral ? materials.neutralRoof : dorm ? materials.dormRoof
         : amenity ? materials.amenityRoof : materials.roof);
     roof.position.z = .039 + block.height;
-    holder.add(roof); solids.push(roof);
+    roof.userData.atlasBuildingId = block.id;
+    holder.add(roof); solids.push(roof); buildingTargets.push(roof);
     const roofEdge = new THREE.LineSegments(new THREE.EdgesGeometry(roof.geometry), roofRimMaterial);
     roofEdge.position.z = roof.position.z + .002;
     holder.add(roofEdge);
@@ -240,6 +244,12 @@ export function createAtlas(THREE) {
   let target = .9, progress = .9, effect = .65, technical = false;
   return {
     root,
+    buildingTargets,
+    getPlaceWorldPosition(place, target) {
+      const point = xy(place.point);
+      target.set(point.x, point.y, .10 + (buildingHeights.get(place.building) || 0));
+      return root.localToWorld(target);
+    },
     setViewFromNorth() {
       root.rotation.set(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ');
       labels.forEach(label => { label.rotation.z = Math.PI / 2; });

@@ -1,6 +1,7 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=8';
+import { createAtlas, createOrbit } from './studies/models.js?v=9';
+import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -43,6 +44,11 @@ let desiredRotation = null;
 let desiredScale = 1;
 let anchorSized = false;
 let activePointer = null;
+let atlasPointer = null;
+let selectedAtlasPlace = null;
+let lastPinUpdate = 0;
+const atlasPinButtons = [];
+let atlasPoint = null;
 let restoredCoreState = null;
 let lastLaptopPulseCount = null;
 let lastLaptopComplete = null;
@@ -118,8 +124,8 @@ const experienceCopy = {
     laptopStep: 'Ține harta ATLAS întreagă în cadru și mișcă telefonul lateral ca să vezi macheta campusului din mai multe unghiuri.',
     phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
     phoneTitle: 'Explorează<br><em>campusul.</em>',
-    phoneDescription: 'Încadrează harta ATLAS de pe laptop. Macheta campusului apare deasupra tastaturii; privește clădirile și aleile din lateral.',
-    found: 'Campusul este ancorat de laptop. Mișcă telefonul lateral ca să vezi clădirile și spațiul de sub machetă.',
+    phoneDescription: 'Încadrează harta ATLAS de pe laptop. Privește campusul deasupra tastaturii, apoi atinge un pin sau o clădire.',
+    found: 'Campus ancorat. Atinge un pin albastru sau o clădire pentru detalii; mișcă telefonul ca să explorezi.',
   },
   orbit: {
     label: 'ORBIT',
@@ -178,6 +184,75 @@ function configureExperience() {
   $('section-toggle').hidden = true;
 }
 configureExperience();
+
+function closeAtlasInfo() {
+  selectedAtlasPlace = null;
+  $('atlas-info').hidden = true;
+  $('live').dataset.atlasInfo = 'false';
+  $('atlas-pins').querySelectorAll('.atlas-pin').forEach(button => button.classList.remove('is-selected'));
+}
+
+function openAtlasInfo(place) {
+  selectedAtlasPlace = place.id;
+  $('atlas-info-type').textContent = place.type;
+  $('atlas-info-title').textContent = place.title;
+  $('atlas-info-description').textContent = place.description;
+  $('atlas-info-source').href = atlasSourceUrl;
+  $('atlas-info').hidden = false;
+  $('live').dataset.atlasInfo = 'true';
+  $('atlas-pins').querySelectorAll('.atlas-pin').forEach(button => {
+    button.classList.toggle('is-selected', button.dataset.place === place.id);
+  });
+}
+
+function setupAtlasPins() {
+  const container = $('atlas-pins');
+  for (const place of atlasPlaces) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'atlas-pin';
+    button.dataset.place = place.id;
+    button.setAttribute('aria-label', `Detalii: ${place.title}`);
+    button.innerHTML = '<span aria-hidden="true"></span>';
+    button.addEventListener('click', () => openAtlasInfo(place));
+    container.append(button);
+    atlasPinButtons.push({ place, button });
+  }
+  $('atlas-info-close').addEventListener('click', closeAtlasInfo);
+}
+
+function updateAtlasPins(now) {
+  if (experience !== 'atlas' || !phoneMode || !artifact || !camera) return;
+  const container = $('atlas-pins');
+  if (!targetRoot?.visible) {
+    container.hidden = true;
+    closeAtlasInfo();
+    return;
+  }
+  if (now - lastPinUpdate < 33) return;
+  lastPinUpdate = now;
+  container.hidden = false;
+  preparePicking();
+  const rect = canvas.getBoundingClientRect();
+  const occupied = [];
+  const pins = selectedAtlasPlace
+    ? [...atlasPinButtons].sort((a, b) => (b.place.id === selectedAtlasPlace) - (a.place.id === selectedAtlasPlace))
+    : atlasPinButtons;
+  const point = atlasPoint;
+  for (const { place, button } of pins) {
+    artifact.getPlaceWorldPosition(place, point).project(camera);
+    const x = rect.left + (point.x + 1) * rect.width / 2;
+    const y = rect.top + (1 - point.y) * rect.height / 2;
+    const visible = point.z >= -1 && point.z <= 1 && x >= 22 && x <= innerWidth - 22 &&
+      y >= 100 + (window.visualViewport?.offsetTop || 0) && y <= innerHeight - 160 &&
+      occupied.every(([px, py]) => Math.hypot(px - x, py - y) > 34);
+    button.hidden = !visible;
+    if (visible) {
+      button.style.transform = `translate3d(${Math.round(x - 22)}px, ${Math.round(y - 22)}px, 0)`;
+      occupied.push([x, y]);
+    }
+  }
+}
 
 function publishCore(action) {
   if (artifact) session.publish(artifact.getSyncState(), action);
@@ -286,6 +361,7 @@ function makeProbe(scene) {
     artifact.root.position.y = -.075;
   } else {
     artifact = experience === 'atlas' ? createAtlas(three) : createOrbit(three);
+    if (experience === 'atlas') atlasPoint = new three.Vector3();
     artifact.root.scale.setScalar(.12);
     artifact.setProgress(1);
     artifact.setEffect(0);
@@ -393,6 +469,7 @@ function markLost() {
   if (experience === 'core' && activePointer?.axis === 'section') artifact?.setSection(artifact.isSectionOpen);
   found = false;
   activePointer = null;
+  atlasPointer = null;
   $('node-controls').hidden = true;
   $('section-toggle').hidden = true;
   lossStartedAt = performance.now();
@@ -410,6 +487,7 @@ function updateTrackingHold(now) {
   const elapsed = now - lossStartedAt;
   if (elapsed >= lossGraceMs) {
     targetRoot.visible = false;
+    if (experience === 'atlas') updateAtlasPins(now);
     lossStartedAt = 0;
     setStatus('IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
       ? 'Încadrează din nou posterul ATLAS de pe laptop pentru a fixa campusul.'
@@ -495,6 +573,7 @@ async function startAR() {
         updateTrackingHold(now);
         updateTargetPose(dt);
         if (experience === 'core') artifact?.update(dt);
+        if (experience === 'atlas') updateAtlasPins(now);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
         if (debug && now - lastDebug > 500) { updateDebug(); lastDebug = now; }
@@ -542,6 +621,40 @@ async function startAR() {
 function preparePicking() {
   targetRoot.updateWorldMatrix(true, true);
   camera.updateMatrixWorld();
+}
+
+function pickAtlasBuilding(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new three.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  preparePicking();
+  const ray = new three.Raycaster();
+  ray.setFromCamera(pointer, camera);
+  const hit = ray.intersectObjects(artifact.buildingTargets, false)
+    .find(({ object }) => object.parent.visible);
+  const building = hit?.object.userData.atlasBuildingId;
+  if (!building) {
+    const projected = new three.Vector3();
+    let nearest = null;
+    let distance = 34;
+    for (const place of atlasPlaces) {
+      artifact.getPlaceWorldPosition(place, projected).project(camera);
+      if (projected.z < -1 || projected.z > 1) continue;
+      const x = rect.left + (projected.x + 1) * rect.width / 2;
+      const y = rect.top + (1 - projected.y) * rect.height / 2;
+      const candidate = Math.hypot(clientX - x, clientY - y);
+      if (candidate < distance) { nearest = place; distance = candidate; }
+    }
+    if (nearest) openAtlasInfo(nearest);
+    else closeAtlasInfo();
+    return;
+  }
+  openAtlasInfo(atlasPlaceByBuilding.get(building) || {
+    id: `building-${building}`, type: 'CLĂDIRE', title: `Corpul ${building}`,
+    description: 'Clădire marcată pe planul campusului USV.',
+  });
 }
 
 function coreHit(clientX, clientY) {
@@ -614,6 +727,11 @@ function changeSection(open) {
 }
 
 function onCanvasPointerDown(event) {
+  if (experience === 'atlas') {
+    if (!targetRoot?.visible || !artifact || !camera || atlasPointer) return;
+    atlasPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
+    return;
+  }
   if (experience !== 'core' || !found || !artifact || !camera || activePointer) return;
   const node = pickNode(event.clientX, event.clientY);
   const part = node < 0 ? pickPart(event.clientX, event.clientY) : null;
@@ -658,6 +776,16 @@ function onCanvasPointerMove(event) {
 }
 
 function onCanvasPointerUp(event) {
+  if (experience === 'atlas') {
+    if (!atlasPointer || event.pointerId !== atlasPointer.id) return;
+    const gesture = atlasPointer;
+    atlasPointer = null;
+    if (targetRoot?.visible && performance.now() - gesture.time < 550 &&
+        Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 14) {
+      pickAtlasBuilding(event.clientX, event.clientY);
+    }
+    return;
+  }
   if (!activePointer || event.pointerId !== activePointer.id) return;
   const gesture = activePointer;
   activePointer = null;
@@ -694,6 +822,7 @@ function onCanvasPointerUp(event) {
 
 if (phoneMode) {
   if (experience === 'core') session.start();
+  if (experience === 'atlas') setupAtlasPins();
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {
     if (experience !== 'core') return location.reload();
@@ -711,6 +840,7 @@ if (phoneMode) {
   canvas.addEventListener('pointercancel', () => {
     if (activePointer?.axis === 'section') changeSection(artifact.sectionAmount >= .5);
     activePointer = null;
+    atlasPointer = null;
   });
   $('node-controls').addEventListener('click', (event) => {
     const button = event.target.closest('button[data-node]');
