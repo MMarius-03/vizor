@@ -120,8 +120,8 @@ const experienceCopy = {
     targetLabel: 'ATLAS / IMAGE TARGET',
     targetAlt: 'Planul campusului ATLAS cu clădiri, alei și spații verzi.',
     targetPrompt: 'posterul ATLAS',
-    laptopDescription: 'Lasă harta campusului deschisă pe laptop. Pe iPhone alege ATLAS și pornește camera: clădirile apar deasupra tastaturii, cu alei și curți verzi între ele.',
-    laptopStep: 'Ține harta ATLAS întreagă în cadru și mișcă telefonul lateral ca să vezi macheta campusului din mai multe unghiuri.',
+    laptopDescription: 'Lasă harta campusului deschisă pe laptop. Pe iPhone pornește camera: clădirile apar deasupra tastaturii, iar pinurile deschid detalii despre locuri.',
+    laptopStep: 'Ține harta ATLAS întreagă în cadru. Mișcă telefonul lateral, apoi atinge pinurile albastre sau clădirile pentru detalii.',
     phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
     phoneTitle: 'Explorează<br><em>campusul.</em>',
     phoneDescription: 'Încadrează harta ATLAS de pe laptop. Privește campusul deasupra tastaturii, apoi atinge un pin sau o clădire.',
@@ -225,15 +225,18 @@ function updateAtlasPins(now) {
   if (experience !== 'atlas' || !phoneMode || !artifact || !camera) return;
   const container = $('atlas-pins');
   if (!targetRoot?.visible) {
-    container.hidden = true;
-    closeAtlasInfo();
+    if (!container.hidden) container.hidden = true;
+    if (!$('atlas-info').hidden) closeAtlasInfo();
     return;
   }
   if (now - lastPinUpdate < 33) return;
   lastPinUpdate = now;
-  container.hidden = false;
+  if (container.hidden) container.hidden = false;
   preparePicking();
   const rect = canvas.getBoundingClientRect();
+  const topEdge = document.querySelector('.live-top').getBoundingClientRect().bottom + 6;
+  const bottomEdge = document.querySelector('.live-bottom').getBoundingClientRect().top - 6;
+  const infoRect = $('atlas-info').hidden ? null : $('atlas-info').getBoundingClientRect();
   const occupied = [];
   const pins = selectedAtlasPlace
     ? [...atlasPinButtons].sort((a, b) => (b.place.id === selectedAtlasPlace) - (a.place.id === selectedAtlasPlace))
@@ -243,10 +246,12 @@ function updateAtlasPins(now) {
     artifact.getPlaceWorldPosition(place, point).project(camera);
     const x = rect.left + (point.x + 1) * rect.width / 2;
     const y = rect.top + (1 - point.y) * rect.height / 2;
-    const visible = point.z >= -1 && point.z <= 1 && x >= 22 && x <= innerWidth - 22 &&
-      y >= 100 + (window.visualViewport?.offsetTop || 0) && y <= innerHeight - 160 &&
+    const underInfo = infoRect && x + 18 > infoRect.left && x - 18 < infoRect.right &&
+      y + 18 > infoRect.top && y - 18 < infoRect.bottom;
+    const visible = point.z >= -1 && point.z <= 1 && x >= rect.left + 22 && x <= rect.right - 22 &&
+      y >= Math.max(rect.top + 22, topEdge + 22) && y <= Math.min(rect.bottom - 22, bottomEdge - 22) && !underInfo &&
       occupied.every(([px, py]) => Math.hypot(px - x, py - y) > 34);
-    button.hidden = !visible;
+    if (button.hidden !== !visible) button.hidden = !visible;
     if (visible) {
       button.style.transform = `translate3d(${Math.round(x - 22)}px, ${Math.round(y - 22)}px, 0)`;
       occupied.push([x, y]);
@@ -623,6 +628,17 @@ function preparePicking() {
   camera.updateMatrixWorld();
 }
 
+function atlasBuildingSummary(building) {
+  const dorm = /^CĂMIN (\d+)$/.exec(building);
+  const academic = /^[A-Z]$/.test(building);
+  return {
+    id: `building-${building}`,
+    type: dorm ? 'CAZARE' : academic ? 'CORP UNIVERSITAR' : 'REPER',
+    title: dorm ? `Căminul studențesc nr. ${dorm[1]}` : academic ? `Corpul ${building}` : building,
+    description: 'Loc marcat pe planul schematic al campusului USV.',
+  };
+}
+
 function pickAtlasBuilding(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const pointer = new three.Vector2(
@@ -651,10 +667,7 @@ function pickAtlasBuilding(clientX, clientY) {
     else closeAtlasInfo();
     return;
   }
-  openAtlasInfo(atlasPlaceByBuilding.get(building) || {
-    id: `building-${building}`, type: 'CLĂDIRE', title: `Corpul ${building}`,
-    description: 'Clădire marcată pe planul campusului USV.',
-  });
+  openAtlasInfo(atlasPlaceByBuilding.get(building) || atlasBuildingSummary(building));
 }
 
 function coreHit(clientX, clientY) {
@@ -730,6 +743,7 @@ function onCanvasPointerDown(event) {
   if (experience === 'atlas') {
     if (!targetRoot?.visible || !artifact || !camera || atlasPointer) return;
     atlasPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
+    try { canvas.setPointerCapture(event.pointerId); } catch {}
     return;
   }
   if (experience !== 'core' || !found || !artifact || !camera || activePointer) return;
@@ -861,8 +875,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=21`
-      : `?mode=phone&experience=${experience}&v=21`;
+      ? `?room=${session.code}&v=25`
+      : `?mode=phone&experience=${experience}&v=25`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

@@ -282,6 +282,25 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(atlasLive.noCoreControls, true);
     await page.evaluate(() => window.__fakeAR.tick());
     assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
+    const misplacedPlaces = await page.evaluate(async () => {
+      const { atlasPlaces } = await import('./studies/atlas-places.js?v=1');
+      const layout = await fetch('./studies/campus-layout.json').then(response => response.json());
+      const inside = ([x, y], polygon) => polygon.reduce((hit, [ax, ay], index) => {
+        const [bx, by] = polygon[(index + 1) % polygon.length];
+        return hit !== ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax);
+      }, false);
+      return atlasPlaces.filter(place => {
+        if (!place.building) {
+          const [left, top, right, bottom] = layout.sportField;
+          return place.point[0] < left || place.point[0] > right ||
+            place.point[1] < top || place.point[1] > bottom;
+        }
+        const building = layout.buildings.find(item => item.id === place.building);
+        return !building || !inside(place.point, building.points) ||
+          building.holes?.some(hole => inside(place.point, hole));
+      }).map(place => place.id);
+    });
+    assert.deepEqual(misplacedPlaces, [], 'ATLAS pins must sit on their named locations');
     const visibleAtlasPins = await page.locator('#atlas-pins .atlas-pin:not([hidden])').count();
     assert.ok(visibleAtlasPins > 0, 'ATLAS should show projected campus pins after tracking');
     if (process.env.ATLAS_SCREENSHOT) {
@@ -309,12 +328,59 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#atlas-info').isVisible(), true,
       'tapping a campus building should open its details');
     await page.locator('#atlas-info-close').click();
+    for (const viewport of [{ width: 375, height: 667 }, { width: 932, height: 430 }]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => {
+        const camera = window.__fakeAR.scene.camera;
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        window.__fakeAR.tick();
+        document.querySelector('#atlas-pins .atlas-pin').click();
+      });
+      const layout = await page.evaluate(() => {
+        const card = document.getElementById('atlas-info').getBoundingClientRect();
+        const header = document.querySelector('.live-top').getBoundingClientRect();
+        return { card: { left: card.left, right: card.right, top: card.top, bottom: card.bottom },
+          headerBottom: header.bottom, width: innerWidth, height: innerHeight };
+      });
+      assert.ok(layout.card.left >= 0 && layout.card.right <= layout.width,
+        `ATLAS details overflow horizontally: ${JSON.stringify(layout)}`);
+      assert.ok(layout.card.top > layout.headerBottom && layout.card.bottom <= layout.height,
+        `ATLAS details overlap the header or leave the screen: ${JSON.stringify(layout)}`);
+      if (process.env.ATLAS_SCREENSHOT) await page.screenshot({
+        path: process.env.ATLAS_SCREENSHOT.replace(/\.png$/, `-${viewport.width}.png`),
+      });
+      await page.locator('#atlas-info-close').click();
+    }
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.evaluate(() => {
+      const camera = window.__fakeAR.scene.camera;
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      window.__fakeAR.tick();
+    });
+    await page.clock.install();
     await page.evaluate(() => window.__fakeAR.emit('reality.imagelost', { name: 'atlas-screen' }));
     assert.equal(await page.locator('#tracking-state').textContent(), 'CAMPUS FIXAT');
-    await page.waitForTimeout(1300);
+    await page.clock.fastForward(1300);
     await page.evaluate(() => window.__fakeAR.tick());
     assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true,
       'ATLAS should remain anchored while the phone looks down at the keyboard');
+    await page.clock.fastForward(18000);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, false,
+      'ATLAS should stop showing the campus after tracking grace expires');
+    assert.equal(await page.locator('#atlas-pins').isHidden(), true);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
+      name: 'atlas-screen', position: { x: 0, y: 0, z: -1 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
+      scaledWidth: .75, scaledHeight: 1,
+    }));
+    await page.clock.fastForward(40);
+    await page.evaluate(() => window.__fakeAR.tick());
+    assert.equal((await page.evaluate(() => window.__RIFT_NEXT__.getState())).visible, true,
+      'ATLAS should reappear after reacquiring the poster');
+    assert.equal(await page.locator('#atlas-pins').isVisible(), true);
 
     await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=orbit&debug=1');
     assert.equal(await page.locator('body').getAttribute('data-experience'), 'orbit');
@@ -336,6 +402,17 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.ok(orbitLive.state.progress > .99, 'ORBIT should appear fully assembled');
     assert.equal(orbitLive.state.plasmaTime, 0, 'live beta ORBIT should remain static until its animation phase');
     assert.equal(orbitLive.noCoreControls, true);
+    const laptop = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    laptop.on('pageerror', error => errors.push(error.message));
+    await laptop.goto('http://127.0.0.1:4173/rift-next/?experience=atlas');
+    assert.equal(await laptop.locator('#target-image').isVisible(), true);
+    const laptopWidth = await laptop.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: innerWidth }));
+    assert.ok(laptopWidth.content <= laptopWidth.viewport + 1,
+      `ATLAS laptop page overflows horizontally: ${JSON.stringify(laptopWidth)}`);
+    if (process.env.ATLAS_SCREENSHOT) await laptop.screenshot({
+      path: process.env.ATLAS_SCREENSHOT.replace(/\.png$/, '-laptop.png'),
+    });
+    assert.deepEqual(errors, []);
     console.log('RIFT NEXT mock camera flow: OK');
   } finally {
     await browser.close();
