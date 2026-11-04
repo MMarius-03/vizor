@@ -10,4 +10,10 @@ Aceste pagini sunt previzualizări vizuale pentru ATLAS și ORBIT. `index.html` 
 
 ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](https://usv.ro/resurse/harta-interactiva-usv/) drept referință pentru contururile și pozițiile relative ale corpurilor, aleilor și parcului. `campus-layout.json` este sursa comună; `tools/make-study-targets.py` generează `campus-layout.js` pentru modelul 3D și posterul pentru tracking. Proporțiile și unele detalii sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral.
 
-**Următorul pas:** animații spațiale mai elaborate și materialele finale, apoi test fizic al celor două obiecte ancorate în camera iPhone-ului. Pagina neutră de alegere și temele beta sunt disponibile; controalele finale AR vin după validarea obiectelor.
+## Campus map înainte de lansare
+
+1. **Macheta — în lucru:** acoperișuri cu textură procedurală, finisaje distincte pentru corpuri și cămine, ferestre, alei cu bordură, vegetație și teren de sport lizibil. Curtea corpului A este corectată și posterul ATLAS este regenerat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
+2. **Puncte interactive:** atingerea unui corp sau pin va deschide o fișă compactă cu informații verificate din sursele USV.
+3. **Poziția vizitatorului:** localizarea opțională va plasa un pin pe hartă după calibrarea coordonatelor geografice; numele corpului va fi afișat ca sigur doar când precizia permite.
+
+ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după validarea machetei în AR.
