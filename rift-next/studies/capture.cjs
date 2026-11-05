@@ -28,6 +28,32 @@ fs.mkdirSync(output, { recursive: true });
     }));
     assert.ok(atlasStats.calls < 200 && atlasStats.triangles < 50000,
       `ATLAS exceeded the mobile rendering budget: ${JSON.stringify(atlasStats)}`);
+    console.log('ATLAS render budget:', JSON.stringify(atlasStats));
+    const landscape = await page.evaluate(() => {
+      const root=window.__RIFT_STUDY__.atlas.root;
+      return { trees:root.getObjectByName('atlas-trees').count,
+        trunks:root.getObjectByName('atlas-tree-trunks').count,
+        benches:root.getObjectByName('atlas-bench-seats').count };
+    });
+    assert.ok(landscape.trees >= 10 && landscape.trunks === landscape.trees && landscape.benches >= 2,
+      `landscape details should have valid placements: ${JSON.stringify(landscape)}`);
+    await page.evaluate(() => {
+      const study=window.__RIFT_STUDY__;
+      study.atlas.selectPlace({ id:'biblioteca',building:'E' });
+    });
+    await page.waitForTimeout(80);
+    await page.screenshot({ path:path.join(output,'atlas-selected.png') });
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-place-selection').parent.name),'atlas-building-E');
+    await page.evaluate(() => {
+      const atlas=window.__RIFT_STUDY__.atlas;
+      atlas.selectPlace({ id:'teren-sport' });
+      atlas.setTechnical(true);
+    });
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-place-selection').visible),false);
+    await page.evaluate(() => { window.__RIFT_STUDY__.atlas.selectPlace(null); window.__RIFT_STUDY__.atlas.setTechnical(false); });
+    assert.equal(await page.evaluate(() => !!window.__RIFT_STUDY__.atlas.root.getObjectByName('atlas-place-selection')),false);
     const atlasCanvas = await page.locator('#scene').boundingBox();
     await page.mouse.move(atlasCanvas.x + atlasCanvas.width * .52, atlasCanvas.y + atlasCanvas.height * .48);
     await page.mouse.down();

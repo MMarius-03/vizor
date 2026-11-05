@@ -10,11 +10,31 @@ export function createAtlas(THREE) {
   const buildingTargets = [];
   const labels = [];
   const buildingHeights = new Map(campusLayout.buildings.map(block => [block.id, block.height]));
+  const inside = ([x,y], points) => points.reduce((hit,[ax,ay],i) => {
+    const [bx,by] = points[(i+1)%points.length];
+    return hit !== ((ay>y)!==(by>y) && x < (bx-ax)*(y-ay)/(by-ay)+ax);
+  }, false);
+  // Reserve space around footprints and paths so foliage does not hide entrances.
+  const clearLandscapePoint = point => {
+    const samples = [point,...[[16,0],[-16,0],[0,20],[0,-20]].map(([x,y])=>[point[0]+x,point[1]+y])];
+    if (!samples.every(p => campusLayout.greens.some(g => inside(p,g)))) return false;
+    if (samples.some(p => campusLayout.buildings.some(b => inside(p,b.points)))) return false;
+    const [left,top,right,bottom] = campusLayout.sportField;
+    if (point[0]>left-18 && point[0]<right+18 && point[1]>top-20 && point[1]<bottom+20) return false;
+    return campusLayout.paths.every(path => path.points.slice(1).every((b,i) => {
+      const a=path.points[i], dx=b[0]-a[0], dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((point[0]-a[0])*dx+(point[1]-a[1])*dy)/(dx*dx+dy*dy)));
+      return Math.hypot(point[0]-a[0]-t*dx,point[1]-a[1]-t*dy)>path.width/2+20;
+    }));
+  };
   const treePositions = [
     [246,270],[242,318],[239,379],[206,477],[341,689],[353,740],[374,792],
     [559,546],[566,596],[725,235],[871,244],[901,300],[881,493],
     [733,753],[837,752],[677,815],[904,823],[677,904],[862,918],
-  ];
+    [285,689],[290,738],[365,686],[473,849],[493,902],[587,834],[599,920],
+    [688,752],[712,790],[866,749],[864,810],[691,915],[838,917],[894,899],
+    [739,223],[905,226],[906,474],[862,504],[519,557],[444,562],
+  ].filter(clearLandscapePoint);
   // One small, shared texture keeps the campus detailed without adding image downloads.
   const surfaceTexture = (kind) => {
     const canvas = document.createElement('canvas');
@@ -135,7 +155,7 @@ export function createAtlas(THREE) {
     ctx.fillStyle = 'rgba(20,33,37,.34)';
     campusLayout.buildings.forEach(trace);
     for (const [u,v] of treePositions) {
-      ctx.beginPath(); ctx.arc(u/1000*size,v/1000*size,4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(u/1000*size,v/1000*size,7,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
     ctx.save();
@@ -217,20 +237,49 @@ export function createAtlas(THREE) {
   const parkDot = add(new THREE.CylinderGeometry(.035,.035,.025,20), materials.grass, 'atlas-park-centre');
   parkDot.rotation.x = Math.PI/2;
   parkDot.position.set(parkCenter.x,parkCenter.y,.046);
-  const crownGeometry = new THREE.SphereGeometry(.027, 7, 5);
+  const crownGeometry = new THREE.IcosahedronGeometry(.047, 1);
   const crown = new THREE.InstancedMesh(crownGeometry,
-    new THREE.MeshStandardMaterial({ color: 0x668a61, roughness: 1 }), treePositions.length);
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }), treePositions.length);
   crown.name = 'atlas-trees';
   const treeMatrix = new THREE.Matrix4();
   treePositions.forEach((point, index) => {
     const position = xy(point);
-    const size = .8 + (index % 4) * .09;
-    treeMatrix.compose(new THREE.Vector3(position.x, position.y, .057),
-      new THREE.Quaternion(), new THREE.Vector3(size,size,.8));
+    const size = .85 + (index % 4) * .12;
+    treeMatrix.compose(new THREE.Vector3(position.x, position.y, .11 + size*.014),
+      new THREE.Quaternion(), new THREE.Vector3(size,size,1.2*size));
     crown.setMatrixAt(index, treeMatrix);
+    crown.setColorAt(index,new THREE.Color([0x638050,0x85965d,0x497357,0x728b4c][index%4]));
   });
   crown.instanceMatrix.needsUpdate = true;
   root.add(crown); solids.push(crown);
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.006,.009,.085,6),
+    materials.timber,treePositions.length);
+  trunks.name = 'atlas-tree-trunks';
+  treePositions.forEach((point,index) => {
+    const p=xy(point);
+    treeMatrix.compose(new THREE.Vector3(p.x,p.y,.067),
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2),new THREE.Vector3(1,1,1));
+    trunks.setMatrixAt(index,treeMatrix);
+  });
+  root.add(trunks); solids.push(trunks);
+  // Benches are repeated as instances: seat, back and two feet, four draw calls total.
+  const benches = [[740,790],[800,770],[880,830],[800,930]].filter(clearLandscapePoint);
+  const benchParts = [
+    { name:'seats',size:[.075,.025,.008],offset:[0,0,.052],material:materials.timber },
+    { name:'backs',size:[.075,.006,.025],offset:[0,.012,.067],material:materials.timber },
+    { name:'feet-left',size:[.007,.02,.03],offset:[-.026,0,.033],material:materials.entrance },
+    { name:'feet-right',size:[.007,.02,.03],offset:[.026,0,.033],material:materials.entrance },
+  ];
+  benchParts.forEach(part => {
+    const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(...part.size),part.material,benches.length);
+    mesh.name=`atlas-bench-${part.name}`;
+    benches.forEach((point,index)=>{
+      const p=xy(point);
+      treeMatrix.makeTranslation(p.x+part.offset[0],p.y+part.offset[1],part.offset[2]);
+      mesh.setMatrixAt(index,treeMatrix);
+    });
+    root.add(mesh); solids.push(mesh);
+  });
 
   const labelTexture = text => {
     const canvas = document.createElement('canvas');
@@ -401,9 +450,49 @@ export function createAtlas(THREE) {
   marker.position.set(markerPoint.x,markerPoint.y,.09);
   root.rotation.x = -1.18;
   let target = .9, progress = .9, effect = .65, technical = false;
+  let selection = null;
+  const selectionMaterials = [];
+  const selectionMaterial = new THREE.MeshBasicMaterial({ color:0x51c9ff });
+  const clearSelection = () => {
+    selectionMaterials.splice(0).forEach(({mesh,original,highlight})=>{
+      mesh.material=original; highlight.dispose();
+    });
+    if (selection) {
+      selection.removeFromParent();
+      selection.traverse(object=>object.geometry?.dispose());
+      selection=null;
+    }
+  };
+  const selectPlace = place => {
+    clearSelection();
+    if (!place) return;
+    const block=campusLayout.buildings.find(b=>b.id===place.building);
+    const holder=block ? root.getObjectByName(`atlas-building-${block.id}`) : root;
+    const [left,top,right,bottom]=campusLayout.sportField;
+    const rings=block ? [block.points,...(block.holes||[])] : [[[left,top],[right,top],[right,bottom],[left,bottom]]];
+    if (block) holder.traverse(mesh=>{
+      if (!mesh.isMesh || !mesh.material.isMeshStandardMaterial) return;
+      const original=mesh.material, highlight=original.clone();
+      highlight.color.lerp(new THREE.Color(0x279bd5),.5);
+      highlight.emissive.set(0x135b83); highlight.emissiveIntensity=.5;
+      mesh.material=highlight; selectionMaterials.push({mesh,original,highlight});
+    });
+    selection=new THREE.Group(); selection.name='atlas-place-selection';
+    selection.userData.placeId=place.id;
+    rings.forEach(points=>points.forEach((point,i)=>{
+      const a=xy(point),b=xy(points[(i+1)%points.length]);
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(a.distanceTo(b)+.012,.014,.01),selectionMaterial);
+      rail.position.set((a.x+b.x)/2,(a.y+b.y)/2,block ? .05+block.height : .045);
+      rail.rotation.z=Math.atan2(b.y-a.y,b.x-a.x);
+      selection.add(rail);
+    }));
+    selection.visible=!technical;
+    holder.add(selection);
+  };
   return {
     root,
     buildingTargets,
+    selectPlace,
     getPlaceWorldPosition(place, target) {
       const point = xy(place.point);
       target.set(point.x, point.y, .10 + (buildingHeights.get(place.building) || 0));
@@ -417,6 +506,7 @@ export function createAtlas(THREE) {
     setEffect(value) { effect = THREE.MathUtils.clamp(value,0,1); },
     setTechnical(value) {
       technical = !!value;
+      if (selection) selection.visible=!technical;
       solids.forEach(mesh => { mesh.visible = !technical; });
       outlines.forEach(({ line }) => { line.visible = true; });
       labels.forEach(label => { label.visible = !technical; });

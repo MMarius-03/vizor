@@ -360,12 +360,17 @@ const { chromium } = require(process.argv[2] || 'playwright');
     const firstPin = page.locator('#atlas-pins .atlas-pin:not([hidden])').first();
     const selectedPlace = await firstPin.getAttribute('aria-label');
     await firstPin.click();
+    await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.locator('#atlas-info').isVisible(), true);
+    assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-place-selection')?.userData.placeId),
+      await firstPin.getAttribute('data-place'), '3D highlight should match the opened information card');
     assert.equal(await page.locator('#atlas-info-title').textContent(), selectedPlace.replace('Detalii: ', ''));
     assert.match(await page.locator('#atlas-info-source').getAttribute('href'), /usv\.ro\/resurse\/harta-interactiva-usv/);
     if (process.env.ATLAS_SCREENSHOT) await page.screenshot({ path: process.env.ATLAS_SCREENSHOT });
     await page.locator('#atlas-info-close').click();
     assert.equal(await page.locator('#atlas-info').isHidden(), true);
+    assert.equal(await page.evaluate(() => !!window.__fakeAR.scene.scene.getObjectByName('atlas-place-selection')),false,
+      'closing the information card should clear the 3D highlight');
     const tapPoint = await firstPin.boundingBox();
     await page.evaluate(({ x, y }) => {
       const pins = document.getElementById('atlas-pins');

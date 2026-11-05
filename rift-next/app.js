@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=10';
+import { createAtlas, createOrbit } from './studies/models.js?v=11';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 import { smoothAtlasPose } from './atlas-pose.js?v=1';
 
@@ -188,6 +188,7 @@ configureExperience();
 
 function closeAtlasInfo() {
   selectedAtlasPlace = null;
+  artifact?.selectPlace?.(null);
   $('atlas-info').hidden = true;
   $('live').dataset.atlasInfo = 'false';
   $('atlas-pins').querySelectorAll('.atlas-pin').forEach(button => button.classList.remove('is-selected'));
@@ -195,6 +196,7 @@ function closeAtlasInfo() {
 
 function openAtlasInfo(place) {
   selectedAtlasPlace = place.id;
+  artifact?.selectPlace?.(place);
   $('atlas-info-type').textContent = place.type;
   $('atlas-info-title').textContent = place.title;
   $('atlas-info-description').textContent = place.description;
@@ -879,8 +881,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=27`
-      : `?mode=phone&experience=${experience}&v=27`;
+      ? `?room=${session.code}&v=28`
+      : `?mode=phone&experience=${experience}&v=28`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

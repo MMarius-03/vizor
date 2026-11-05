@@ -17,3 +17,8 @@ ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](htt
 3. **Poziția vizitatorului:** localizarea opțională va plasa un pin pe hartă după calibrarea coordonatelor geografice; numele corpului va fi afișat ca sigur doar când precizia permite.
 
 ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după validarea machetei în AR.
+
+## Polish vizual — punctele 4 și 5
+
+4. Vegetație cu trunchiuri și coroane variate, plus bănci în parc. Plasările sunt ilustrative, filtrate pentru a evita clădirile, terenul de sport și aleile. Elementele repetate folosesc instanțe pentru a limita costul de randare.
+5. Selecție spațială în AR: pinul sau clădirea atinsă deschide fișa și evidențiază corpul asociat printr-o nuanță albastră și un contur al acoperișului. Terenul de sport primește contur propriu; închiderea fișei și pierderea ancorei după perioada de grație elimină selecția. Nu se folosesc efecte fullscreen de postprocesare.
