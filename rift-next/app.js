@@ -2,6 +2,7 @@ import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
 import { createAtlas, createOrbit } from './studies/models.js?v=10';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
+import { smoothAtlasPose } from './atlas-pose.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -43,10 +44,10 @@ let desiredPosition = null;
 let desiredRotation = null;
 let desiredScale = 1;
 let anchorSized = false;
+let anchorWidth = .75;
 let activePointer = null;
 let atlasPointer = null;
 let selectedAtlasPlace = null;
-let lastPinUpdate = 0;
 const atlasPinButtons = [];
 let atlasPoint = null;
 let restoredCoreState = null;
@@ -229,8 +230,6 @@ function updateAtlasPins(now) {
     if (!$('atlas-info').hidden) closeAtlasInfo();
     return;
   }
-  if (now - lastPinUpdate < 33) return;
-  lastPinUpdate = now;
   if (container.hidden) container.hidden = false;
   preparePicking();
   const rect = canvas.getBoundingClientRect();
@@ -250,10 +249,10 @@ function updateAtlasPins(now) {
       y + 18 > infoRect.top && y - 18 < infoRect.bottom;
     const visible = point.z >= -1 && point.z <= 1 && x >= rect.left + 22 && x <= rect.right - 22 &&
       y >= Math.max(rect.top + 22, topEdge + 22) && y <= Math.min(rect.bottom - 22, bottomEdge - 22) && !underInfo &&
-      occupied.every(([px, py]) => Math.hypot(px - x, py - y) > 34);
+      occupied.every(([px, py]) => Math.hypot(px - x, py - y) > (button.hidden ? 52 : 46));
     if (button.hidden !== !visible) button.hidden = !visible;
     if (visible) {
-      button.style.transform = `translate3d(${Math.round(x - 22)}px, ${Math.round(y - 22)}px, 0)`;
+      button.style.transform = `translate3d(${(x - 22).toFixed(2)}px, ${(y - 22).toFixed(2)}px, 0)`;
       occupied.push([x, y]);
     }
   }
@@ -367,7 +366,7 @@ function makeProbe(scene) {
   } else {
     artifact = experience === 'atlas' ? createAtlas(three) : createOrbit(three);
     if (experience === 'atlas') atlasPoint = new three.Vector3();
-    artifact.root.scale.setScalar(.12);
+    artifact.root.scale.setScalar(experience === 'atlas' ? .29 : .12);
     artifact.setProgress(1);
     artifact.setEffect(0);
     // Settle the model once, then leave it still for this live beta.
@@ -419,16 +418,17 @@ function applyTarget(detail) {
   // detector width noise cannot resize the artifact on every image update.
   if (!anchorSized && Number.isFinite(detail.scaledWidth) && detail.scaledWidth > 0) {
     const width = detail.scaledWidth / scale;
+    anchorWidth = width;
     const height = Number.isFinite(detail.scaledHeight) && detail.scaledHeight > 0
       ? detail.scaledHeight / scale : width * 4 / 3;
     if (experience === 'core') {
       artifact.root.scale.setScalar(Math.min(1.5, Math.max(0.06, width * 0.38)));
       artifact.root.position.y = -height * .075;
     } else if (experience === 'atlas') {
-      artifact.root.scale.setScalar(Math.min(.34, Math.max(.08, width * .24)));
+      artifact.root.scale.setScalar(Math.min(.55, Math.max(.08, width * .39)));
       orientAtlasFromNorth();
       // Keep the campus slightly higher so close-up viewing needs less downward tilt.
-      artifact.root.position.set(0, -height * .38, width * .36);
+      artifact.root.position.set(0, -height * .29, width * .43);
     } else {
       artifact.root.scale.setScalar(Math.min(.42, Math.max(.09, width * .28)));
       artifact.root.rotation.set(0, 0, 0);
@@ -461,6 +461,10 @@ function renderPassiveState() {
 
 function updateTargetPose(dt) {
   if (!found || !desiredPosition || !dt) return;
+  if (experience === 'atlas') {
+    smoothAtlasPose(targetRoot, desiredPosition, desiredRotation, desiredScale, dt, anchorWidth);
+    return;
+  }
   // Fast lateral response, softer depth/scale response for hand-held zoom.
   targetRoot.position.x = three.MathUtils.damp(targetRoot.position.x, desiredPosition.x, 14, dt);
   targetRoot.position.y = three.MathUtils.damp(targetRoot.position.y, desiredPosition.y, 14, dt);
@@ -875,8 +879,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=26`
-      : `?mode=phone&experience=${experience}&v=26`;
+      ? `?room=${session.code}&v=27`
+      : `?mode=phone&experience=${experience}&v=27`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

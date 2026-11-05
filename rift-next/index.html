@@ -11,10 +11,10 @@
   <title>RIFT / AR LIVE</title>
   <script>
     const query = new URLSearchParams(location.search);
-    if (!query.has('mode') && !query.has('room') && !query.has('experience')) location.replace('./choose.html?v=26');
+    if (!query.has('mode') && !query.has('room') && !query.has('experience')) location.replace('./choose.html?v=27');
     document.documentElement.dataset.mode = query.get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');
   </script>
-  <link rel="stylesheet" href="./styles.css?v=14">
+  <link rel="stylesheet" href="./styles.css?v=15">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -71,6 +71,6 @@
     <section id="error" class="error" hidden><div class="intro-head"><span class="phone-brand">RIFT / CORE</span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=26"></script>
+  <script type="module" src="./app.js?v=27"></script>
 </body>
 </html>

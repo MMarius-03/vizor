@@ -19,14 +19,20 @@ const { chromium } = require(process.argv[2] || 'playwright');
     };
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.addInitScript(() => {
+    await page.addInitScript((renderScene) => {
       let sceneModule;
       const events = {};
       window.__fakeAR = {
         emit(name, detail) {
           for (const listener of events[name] || []) listener({ name, detail });
         },
-        tick() { sceneModule?.onUpdate(); },
+        tick() {
+          sceneModule?.onUpdate();
+          if (renderScene && this.scene) {
+            this.scene.renderer.setSize(innerWidth, innerHeight, false);
+            this.scene.renderer.render(this.scene.scene, this.scene.camera);
+          }
+        },
         get configuration() { return this._configuration; },
       };
       window.XR8 = {
@@ -35,6 +41,10 @@ const { chromium } = require(process.argv[2] || 'playwright');
           pipelineModule: () => ({ name: 'three' }),
           xrScene: () => {
             const result = { scene: new window.THREE.Scene(), camera: new window.THREE.PerspectiveCamera(60, 430 / 932, .01, 100), renderer: { localClippingEnabled: false } };
+            if (renderScene) {
+              result.renderer = new window.THREE.WebGLRenderer({ canvas:document.getElementById('ar-canvas'), alpha:true, antialias:true });
+              result.renderer.setPixelRatio(1);
+            }
             window.__fakeAR.scene = result;
             return result;
           },
@@ -52,7 +62,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
         stop() {},
       };
       window.XRExtras = { FullWindowCanvas: { pipelineModule: () => ({ name: 'full-window' }) } };
-    });
+    }, !!process.env.ATLAS_SCREENSHOT);
     await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&debug=1');
     await page.getByRole('button', { name: /PORNEȘTE CAMERA/ }).click();
     await page.getByText('CAUTĂ IMAGINEA', { exact: true }).waitFor();
@@ -280,6 +290,31 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.ok(atlasLive.state.modelPositionZ > .25, 'ATLAS should float in front of the display plane');
     assert.equal(atlasLive.campusVisible, true);
     assert.equal(atlasLive.noCoreControls, true);
+    const filterResults = await page.evaluate(async () => {
+      const { smoothAtlasPose } = await import('./atlas-pose.js?v=1');
+      const T = window.THREE;
+      return [30, 60, 120].map(fps => {
+        const root = new T.Group();
+        const position = new T.Vector3();
+        const rotation = new T.Quaternion();
+        for (let i = 0; i < fps * 2; i++) {
+          const sign = i % 2 ? 1 : -1;
+          position.set(sign * .0008, 0, 0);
+          rotation.setFromAxisAngle(new T.Vector3(0,1,0), sign * .004);
+          smoothAtlasPose(root, position, rotation, 1 + sign * .001, 1/fps);
+        }
+        const jitter = root.position.length() + root.quaternion.angleTo(new T.Quaternion()) + Math.abs(root.scale.x - 1);
+        position.set(.15, .05, -.2);
+        rotation.setFromAxisAngle(new T.Vector3(0,1,0), .25);
+        for (let i = 0; i < fps * 2; i++) smoothAtlasPose(root, position, rotation, 1.2, 1/fps);
+        return { fps, jitter, distance:root.position.distanceTo(position), angle:root.quaternion.angleTo(rotation), scale:root.scale.x };
+      });
+    });
+    for (const result of filterResults) {
+      assert.ok(result.jitter < .00001, `small anchor noise should stay still: ${JSON.stringify(result)}`);
+      assert.ok(result.distance < .003 && result.angle < .009 && Math.abs(result.scale - 1.2) < .004,
+        `deliberate pose changes must converge at ${result.fps} fps: ${JSON.stringify(result)}`);
+    }
     await page.evaluate(() => window.__fakeAR.tick());
     assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
     const misplacedPlaces = await page.evaluate(async () => {
@@ -301,6 +336,21 @@ const { chromium } = require(process.argv[2] || 'playwright');
       }).map(place => place.id);
     });
     assert.deepEqual(misplacedPlaces, [], 'ATLAS pins must sit on their named locations');
+    if (process.env.ATLAS_SCREENSHOT) {
+      await page.evaluate(async () => {
+        const T = window.THREE;
+        const { scene, camera } = window.__fakeAR.scene;
+        const texture = await new T.TextureLoader().loadAsync('./target-data/atlas-screen_original.png?v=4');
+        texture.colorSpace = T.SRGBColorSpace;
+        const poster = new T.Mesh(new T.PlaneGeometry(.75,1), new T.MeshBasicMaterial({ map:texture }));
+        poster.position.set(0,0,-1.003);
+        scene.add(poster);
+        camera.position.set(0,.3,1.1);
+        camera.lookAt(0,-.1,-.7);
+        camera.updateMatrixWorld();
+        window.__fakeAR.tick();
+      });
+    }
     const visibleAtlasPins = await page.locator('#atlas-pins .atlas-pin:not([hidden])').count();
     assert.ok(visibleAtlasPins > 0, 'ATLAS should show projected campus pins after tracking');
     if (process.env.ATLAS_SCREENSHOT) {

@@ -45,8 +45,8 @@ body.target-focus .target-stage img{height:min(82dvh,calc((100dvw - 24px)*1.3333
 /* ATLAS points stay attached to their projected 3D locations. */
 .atlas-pins{position:fixed;inset:0;z-index:3;pointer-events:none}
 .atlas-pin{position:absolute;top:0;left:0;width:44px;height:44px;padding:0;border:0;background:transparent;pointer-events:auto;touch-action:manipulation;filter:drop-shadow(0 2px 7px #071828a8)}
-.atlas-pin::before{content:"";position:absolute;inset:7px;border:2px solid #f4fcff;border-radius:50%;background:#174d73;box-shadow:0 0 0 3px #4f9ed1a6}
-.atlas-pin span{position:absolute;inset:17px;border-radius:50%;background:#fff}
+.atlas-pin::before{content:"";position:absolute;inset:11px;border:1.5px solid #f4fcff;border-radius:50%;background:#174d73;box-shadow:0 0 0 2px #4f9ed180}
+.atlas-pin span{position:absolute;inset:19px;border-radius:50%;background:#fff}
 .atlas-pin.is-selected::before{background:#4f9ed1;box-shadow:0 0 0 5px #4f9ed184}
 .atlas-pin:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .atlas-info{position:absolute;z-index:4;left:18px;right:18px;bottom:calc(106px + env(safe-area-inset-bottom));max-width:440px;padding:16px 17px 15px;background:#112333f2;color:#f7fbfc;border:1px solid #70a6c8;box-shadow:0 16px 35px #00101bbc;pointer-events:auto;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
