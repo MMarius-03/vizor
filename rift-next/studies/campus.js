@@ -1,4 +1,5 @@
 import { campusLayout } from './campus-layout.js?v=3';
+import { campusRoute } from './campus-route.js?v=1';
 
 // Coordinates and proportions share one source with the printed image target.
 export function createAtlas(THREE) {
@@ -459,6 +460,52 @@ export function createAtlas(THREE) {
   root.rotation.x = -1.18;
   let target = .9, progress = .9, effect = .65, technical = false;
   let selection = null;
+  let routeGroup = null, routePulse = null, routePoints = null, routeDistance = 0, routePhase = 0;
+  const clearRoute = () => {
+    if(routeGroup){routeGroup.removeFromParent();routeGroup.traverse(object=>{
+      object.geometry?.dispose();object.material?.dispose();
+    });}
+    routeGroup=routePulse=routePoints=null;routeDistance=routePhase=0;
+  };
+  const showRoute = (start,destination) => {
+    clearRoute();
+    if(!start||!destination)return false;
+    const points=campusRoute(campusLayout,start.point,destination.point);
+    if(!points||points.length<2)return false;
+    routeGroup=new THREE.Group();routeGroup.name='atlas-campus-route';
+    routePoints=points.map(xy);routeDistance=0;
+    for(let i=1;i<routePoints.length;i++)routeDistance+=routePoints[i-1].distanceTo(routePoints[i]);
+    for(const [radius,color,z] of [[.022,0x164c68,.060],[.013,0x74e5ff,.067]]){
+      const curve=new THREE.CurvePath();
+      for(let i=1;i<routePoints.length;i++){
+        const a=routePoints[i-1],b=routePoints[i];
+        if(a.distanceTo(b)>.0001)curve.add(new THREE.LineCurve3(
+          new THREE.Vector3(a.x,a.y,z),new THREE.Vector3(b.x,b.y,z)));
+      }
+      routeGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(48,routePoints.length*6),radius,6,false),
+        new THREE.MeshBasicMaterial({color,depthTest:false})));
+    }
+    const mark=(p,color,name)=>{
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(.042,.008,6,24),new THREE.MeshBasicMaterial({color,depthTest:false}));
+      ring.position.set(p.x,p.y,.08);ring.name=name;routeGroup.add(ring);
+    };
+    mark(routePoints[0],0x74e5ff,'atlas-route-start');
+    mark(routePoints.at(-1),0xffbb61,'atlas-route-destination');
+    routePulse=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),new THREE.MeshBasicMaterial({color:0xffffff,depthTest:false}));
+    routePulse.name='atlas-route-pulse';routeGroup.add(routePulse);
+    routeGroup.traverse(object=>{if(object.isMesh)object.renderOrder=10;});
+    root.add(routeGroup);return true;
+  };
+  const updateRoute = dt => {
+    if(!routePulse||routeDistance<=0)return;
+    routePhase=(routePhase+dt*.34)%routeDistance;
+    let left=routePhase;
+    for(let i=1;i<routePoints.length;i++){
+      const a=routePoints[i-1],b=routePoints[i],length=a.distanceTo(b);
+      if(left<=length){routePulse.position.set(a.x+(b.x-a.x)*left/length,a.y+(b.y-a.y)*left/length,.088);break;}
+      left-=length;
+    }
+  };
   const selectionMaterials = [];
   const selectionMaterial = new THREE.MeshBasicMaterial({ color:0x51c9ff, transparent:true, opacity:0 });
   const clearSelection = () => {
@@ -511,6 +558,9 @@ export function createAtlas(THREE) {
     root,
     buildingTargets,
     selectPlace,
+    showRoute,
+    clearRoute,
+    updateRoute,
     updateSelection,
     freezeStatic() {
       root.traverse(object=>{ if(object!==root) { object.updateMatrix(); object.matrixAutoUpdate=false; } });
@@ -535,6 +585,7 @@ export function createAtlas(THREE) {
     },
     update(dt) {
       updateSelection(dt);
+      updateRoute(dt);
       progress = THREE.MathUtils.damp(progress,target,7,Math.min(dt,.05));
       outlines.forEach(({ mesh,line }) => {
         line.position.copy(mesh.position); line.quaternion.copy(mesh.quaternion); line.scale.copy(mesh.scale);

@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=13';
+import { createAtlas, createOrbit } from './studies/models.js?v=14';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
@@ -52,6 +52,8 @@ let activePointer = null;
 let atlasPointer = null;
 let selectedAtlasPlace = null;
 let atlasRecentering = false;
+let atlasRouteLabel = '';
+let atlasRouteEndpoints = null;
 const atlasPinButtons = [];
 let atlasPoint = null;
 let restoredCoreState = null;
@@ -199,6 +201,8 @@ function closeAtlasInfo() {
 }
 
 function openAtlasInfo(place) {
+  $('atlas-route-panel').hidden = true;
+  $('live').dataset.atlasRoutePanel = 'false';
   selectedAtlasPlace = place.id;
   artifact?.selectPlace?.(place);
   $('atlas-info').dataset.expanded = 'false';
@@ -239,6 +243,46 @@ function setupAtlasPins() {
   });
 }
 
+function setupAtlasRoutes() {
+  const start=$('atlas-route-start'), end=$('atlas-route-end');
+  for(const place of atlasPlaces)for(const select of [start,end]){
+    const option=document.createElement('option');
+    option.value=place.id;option.textContent=place.title;select.append(option);
+  }
+  start.value='restaurant';end.value='biblioteca';
+  $('atlas-route-toggle').addEventListener('click',()=>{
+    const panel=$('atlas-route-panel');
+    panel.hidden=!panel.hidden;
+    $('live').dataset.atlasRoutePanel=String(!panel.hidden);
+    if(!panel.hidden)closeAtlasInfo();
+  });
+  $('atlas-route-close').addEventListener('click',()=>{$('atlas-route-panel').hidden=true;$('live').dataset.atlasRoutePanel='false';});
+  $('atlas-route-show').addEventListener('click',()=>{
+    const from=atlasPlaces.find(place=>place.id===start.value);
+    const to=atlasPlaces.find(place=>place.id===end.value);
+    const message=$('atlas-route-message');
+    if(!from||!to||from.id===to.id){
+      message.textContent='Alege două locuri diferite.';return;
+    }
+    if(!targetRoot?.visible||!artifact?.showRoute(from,to)){
+      message.textContent='Încadrează posterul ATLAS și încearcă din nou.';return;
+    }
+    atlasRouteLabel=`${from.title} → ${to.title}`;
+    atlasRouteEndpoints=new Set([from.id,to.id]);
+    message.textContent=`Traseu afișat: ${atlasRouteLabel}. Linia urmează aleile; capetele sunt orientative.`;
+    $('target-count').textContent='ATLAS / TRASEU ACTIV';
+    $('atlas-route-panel').hidden=true;
+    $('live').dataset.atlasRoutePanel='false';
+    $('instruction').textContent='Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.';
+  });
+  $('atlas-route-clear').addEventListener('click',()=>{
+    artifact?.clearRoute();atlasRouteLabel='';atlasRouteEndpoints=null;
+    $('target-count').textContent='ATLAS / AR LIVE';
+    $('atlas-route-message').textContent='Traseu șters. Alege două locuri.';
+    $('instruction').textContent=experienceCopy.atlas.found;
+  });
+}
+
 function updateAtlasPins(now) {
   if (experience !== 'atlas' || !phoneMode || !artifact || !camera) return;
   const container = $('atlas-pins');
@@ -256,9 +300,13 @@ function updateAtlasPins(now) {
   const bottomEdge = document.querySelector('.live-bottom').getBoundingClientRect().top - 6;
   const infoRect = $('atlas-info').hidden ? null : $('atlas-info').getBoundingClientRect();
   const occupied = [];
+  const routePins=atlasRouteEndpoints ? atlasPinButtons.filter(({place})=>atlasRouteEndpoints.has(place.id)) : atlasPinButtons;
   const pins = selectedAtlasPlace
-    ? [...atlasPinButtons].sort((a, b) => (b.place.id === selectedAtlasPlace) - (a.place.id === selectedAtlasPlace))
-    : atlasPinButtons;
+    ? [...routePins].sort((a, b) => (b.place.id === selectedAtlasPlace) - (a.place.id === selectedAtlasPlace))
+    : routePins;
+  if(atlasRouteEndpoints)atlasPinButtons.forEach(({place,button})=>{
+    if(!atlasRouteEndpoints.has(place.id))button.hidden=true;
+  });
   const point = atlasPoint;
   for (const { place, button } of pins) {
     artifact.getPlaceWorldPosition(place, point).project(camera);
@@ -486,10 +534,12 @@ function applyTarget(detail) {
 
 function renderPassiveState() {
   const copy = experienceCopy[experience];
-  setStatus(`${copy.label} ANCORAT`, 'found', copy.found);
-  $('target-count').textContent = `${copy.label} / AR LIVE`;
+  setStatus(`${copy.label} ANCORAT`, 'found', atlasRouteLabel && experience==='atlas'
+    ? 'Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.' : copy.found);
+  $('target-count').textContent = atlasRouteLabel && experience==='atlas' ? 'ATLAS / TRASEU ACTIV' : `${copy.label} / AR LIVE`;
   $('restart').textContent = 'REIA CAMERA';
   $('atlas-recenter').hidden = experience !== 'atlas';
+  $('atlas-route-toggle').hidden = experience !== 'atlas';
   $('node-controls').hidden = true;
   $('section-toggle').hidden = true;
 }
@@ -620,6 +670,7 @@ async function startAR() {
         updateTargetPose(dt);
         if (experience === 'core') artifact?.update(dt);
         if (experience === 'atlas') artifact?.updateSelection(dt);
+        if (experience === 'atlas') artifact?.updateRoute(dt);
         if (experience === 'atlas') updateAtlasPins(now);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
@@ -899,7 +950,7 @@ function onCanvasPointerUp(event) {
 
 if (phoneMode) {
   if (experience === 'core') session.start();
-  if (experience === 'atlas') setupAtlasPins();
+  if (experience === 'atlas') { setupAtlasPins(); setupAtlasRoutes(); }
   $('atlas-recenter').addEventListener('click', () => {
     if (experience !== 'atlas') return;
     atlasRecentering = true;
@@ -945,8 +996,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=30`
-      : `?mode=phone&experience=${experience}&v=30`;
+      ? `?room=${session.code}&v=31`
+      : `?mode=phone&experience=${experience}&v=31`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';
@@ -956,4 +1007,4 @@ if (phoneMode) {
   });
 }
 
-window.__RIFT_NEXT__ = { startAR, getState: () => ({ experience, found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, sectionOpen: !!artifact?.isSectionOpen, modelName: artifact?.root?.name || experience, modelRotationX: artifact?.root?.rotation.x, modelPositionY: artifact?.root?.position.y, modelPositionZ: artifact?.root?.position.z, riverOffset: artifact?.riverOffset, plasmaTime: artifact?.plasmaTime, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };
+window.__RIFT_NEXT__ = { startAR, getState: () => ({ experience, found, foundCount, updates, lastEvent, targetName, lostCount, recoveredCount, trackingMode, room: session.code, syncState: session.state, visible: !!targetRoot?.visible, anchorSized, atlasRouteLabel, coreOpen: !!artifact?.isOpen, armed: !!artifact?.isArmed, progress: artifact?.progress ?? 0, complete: !!artifact?.isComplete, sectionOpen: !!artifact?.isSectionOpen, modelName: artifact?.root?.name || experience, modelRotationX: artifact?.root?.rotation.x, modelPositionY: artifact?.root?.position.y, modelPositionZ: artifact?.root?.position.z, riverOffset: artifact?.riverOffset, plasmaTime: artifact?.plasmaTime, poseZ: targetRoot?.position.z, poseScale: targetRoot?.scale.x }) };

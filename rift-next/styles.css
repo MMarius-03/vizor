@@ -61,6 +61,16 @@ body.target-focus .target-stage img{height:min(82dvh,calc((100dvw - 24px)*1.3333
 html[data-experience=atlas] .live-actions{gap:8px}html[data-experience=atlas] .live-actions button{padding:0 10px}
 html[data-experience=atlas] .live[data-recentering=true] .scan-guide{opacity:.9}
 @media(max-width:410px){html[data-experience=atlas] .live-actions{flex-wrap:wrap}html[data-experience=atlas] .live-actions span{flex-basis:100%}}
+html[data-experience=atlas] .live-actions{flex-wrap:wrap}html[data-experience=atlas] .live-actions span{flex-basis:100%;font-size:9px}
+html[data-experience=atlas] .live[data-atlas-route-panel=true] .live-bottom p{visibility:hidden}
+.atlas-route-panel{position:absolute;z-index:4;left:18px;right:18px;bottom:calc(137px + env(safe-area-inset-bottom));max-width:440px;max-height:55vh;overflow:auto;padding:14px 16px;background:#112333f5;color:#f7fbfc;border:1px solid #70a6c8;box-shadow:0 16px 35px #00101bbc;pointer-events:auto;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
+.atlas-route-head{display:flex;align-items:center;justify-content:space-between;color:#85c5ee;font:700 10px Consolas,Menlo,monospace;letter-spacing:.1em}
+.atlas-route-head button{width:44px;height:44px;border:0;background:transparent;color:#e5f3fc;font-size:27px;touch-action:manipulation}
+.atlas-route-panel label{display:block;margin:8px 0 5px;color:#85c5ee;font:700 10px Consolas,Menlo,monospace;letter-spacing:.08em}
+.atlas-route-panel select{width:100%;min-height:44px;padding:7px 9px;border:1px solid #668aa1;border-radius:0;background:#182d3a;color:#fff;font-size:14px}
+.atlas-route-panel p{font-size:12px;line-height:1.35;color:#d5e1e9;margin:10px 0}
+.atlas-route-actions{display:flex;gap:8px}.atlas-route-actions button{min-height:44px;padding:0 12px;border:1px solid #79b8dc;background:#5ca6d1;color:#092234;font:700 10px Consolas,Menlo,monospace;touch-action:manipulation}.atlas-route-actions button+button{background:transparent;color:#d5e1e9;border-color:#668aa1}
+@media(orientation:landscape) and (max-height:560px){.atlas-route-panel{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(74px + env(safe-area-inset-bottom));max-width:min(340px,48vw);max-height:calc(100vh - 150px);padding:10px 14px}}
 html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{visibility:hidden}
 @media(orientation:landscape) and (max-height:560px){
   .atlas-info{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(75px + env(safe-area-inset-bottom));max-width:min(340px,48vw);padding:10px 14px}

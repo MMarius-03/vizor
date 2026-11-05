@@ -390,6 +390,37 @@ const { chromium } = require(process.argv[2] || 'playwright');
       'tapping a campus building should open its details');
     await page.locator('#atlas-info-close').click();
     assert.equal(await page.locator('#atlas-recenter').isVisible(), true);
+    await page.locator('#atlas-route-toggle').click();
+    assert.equal(await page.locator('#atlas-route-panel').isVisible(),true);
+    for (const viewport of [{width:375,height:667},{width:932,height:430}]) {
+      await page.setViewportSize(viewport);
+      const rect=await page.locator('#atlas-route-panel').boundingBox();
+      assert.ok(rect.x>=0 && rect.x+rect.width<=viewport.width && rect.y>=60 && rect.y+rect.height<=viewport.height,
+        `route controls must fit the phone: ${JSON.stringify({viewport,rect})}`);
+    }
+    await page.setViewportSize({width:430,height:932});
+    if(process.env.ATLAS_SCREENSHOT)await page.screenshot({path:process.env.ATLAS_SCREENSHOT.replace(/\.png$/,'-route-panel.png')});
+    assert.equal(await page.locator('#atlas-route-start').inputValue(),'restaurant');
+    assert.equal(await page.locator('#atlas-route-end').inputValue(),'biblioteca');
+    await page.locator('#atlas-route-show').click();
+    assert.equal(await page.locator('#atlas-route-panel').isHidden(),true);
+    assert.match((await page.evaluate(()=>window.__RIFT_NEXT__.getState())).atlasRouteLabel,/Restaurantul.*Biblioteca/);
+    assert.ok(await page.evaluate(()=>window.__fakeAR.scene.scene.getObjectByName('atlas-route-pulse')));
+    await page.evaluate(()=>window.__fakeAR.tick());
+    assert.ok((await page.locator('#atlas-pins .atlas-pin:not([hidden])').count())<=2);
+    if(process.env.ATLAS_SCREENSHOT){
+      await page.evaluate(()=>window.__fakeAR.tick());
+      await page.screenshot({path:process.env.ATLAS_SCREENSHOT.replace(/\.png$/,'-route.png')});
+    }
+    await page.locator('#atlas-route-toggle').click();
+    await page.locator('#atlas-route-start').selectOption('aula');
+    await page.locator('#atlas-route-end').selectOption('aula');
+    await page.locator('#atlas-route-show').click();
+    assert.equal(await page.locator('#atlas-route-message').textContent(),'Alege două locuri diferite.');
+    assert.ok(await page.evaluate(()=>window.__fakeAR.scene.scene.getObjectByName('atlas-route-pulse')));
+    await page.locator('#atlas-route-clear').click();
+    assert.equal(await page.evaluate(()=>!!window.__fakeAR.scene.scene.getObjectByName('atlas-campus-route')),false);
+    await page.locator('#atlas-route-close').click();
     await page.locator('#atlas-recenter').click();
     assert.equal(await page.locator('#tracking-state').textContent(), 'REÎNCADREAZĂ');
     await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
