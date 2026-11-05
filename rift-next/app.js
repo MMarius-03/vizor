@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=12';
+import { createAtlas, createOrbit } from './studies/models.js?v=13';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
@@ -51,6 +51,7 @@ let atlasFrameBudget = null;
 let activePointer = null;
 let atlasPointer = null;
 let selectedAtlasPlace = null;
+let atlasRecentering = false;
 const atlasPinButtons = [];
 let atlasPoint = null;
 let restoredCoreState = null;
@@ -200,6 +201,10 @@ function closeAtlasInfo() {
 function openAtlasInfo(place) {
   selectedAtlasPlace = place.id;
   artifact?.selectPlace?.(place);
+  $('atlas-info').dataset.expanded = 'false';
+  $('atlas-info-expand').setAttribute('aria-expanded', 'false');
+  $('atlas-info-expand').textContent = 'VEZI DETALII ↓';
+  $('atlas-info-more').hidden = true;
   $('atlas-info-type').textContent = place.type;
   $('atlas-info-title').textContent = place.title;
   $('atlas-info-description').textContent = place.description;
@@ -225,6 +230,13 @@ function setupAtlasPins() {
     atlasPinButtons.push({ place, button });
   }
   $('atlas-info-close').addEventListener('click', closeAtlasInfo);
+  $('atlas-info-expand').addEventListener('click', () => {
+    const expanded = $('atlas-info').dataset.expanded !== 'true';
+    $('atlas-info').dataset.expanded = String(expanded);
+    $('atlas-info-expand').setAttribute('aria-expanded', String(expanded));
+    $('atlas-info-expand').textContent = expanded ? 'ASCUNDE DETALII ↑' : 'VEZI DETALII ↓';
+    $('atlas-info-more').hidden = !expanded;
+  });
 }
 
 function updateAtlasPins(now) {
@@ -413,7 +425,7 @@ function applyTarget(detail) {
   const recovering = lossStartedAt > 0;
   const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : desiredScale;
   if (experience === 'atlas') {
-    if (!atlasPoseTracker.measure(position,rotation,scale,now,anchorWidth,!hasPose || !targetRoot.visible)) return false;
+    if (!atlasPoseTracker.measure(position,rotation,scale,now,anchorWidth,atlasRecentering || !hasPose || !targetRoot.visible)) return false;
     desiredPosition.copy(atlasPoseTracker.position);
     desiredRotation.copy(atlasPoseTracker.rotation);
     desiredScale = atlasPoseTracker.scale;
@@ -425,7 +437,7 @@ function applyTarget(detail) {
   if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
   // First detection and reacquisition after a long loss need an exact pose.
   // Subsequent measurements are blended in the render loop.
-  if (!hasPose || !targetRoot.visible) {
+  if (atlasRecentering || !hasPose || !targetRoot.visible) {
     targetRoot.position.copy(desiredPosition);
     targetRoot.quaternion.copy(desiredRotation);
     targetRoot.scale.setScalar(scale);
@@ -459,6 +471,11 @@ function applyTarget(detail) {
   lossStartedAt = 0;
   lastSeenAt = now;
   found = true;
+  if (atlasRecentering) {
+    atlasRecentering = false;
+    $('live').dataset.recentering = 'false';
+    renderPassiveState();
+  }
   updates += 1;
   if (!wasFound) {
     if (experience === 'core') renderCoreState();
@@ -472,6 +489,7 @@ function renderPassiveState() {
   setStatus(`${copy.label} ANCORAT`, 'found', copy.found);
   $('target-count').textContent = `${copy.label} / AR LIVE`;
   $('restart').textContent = 'REIA CAMERA';
+  $('atlas-recenter').hidden = experience !== 'atlas';
   $('node-controls').hidden = true;
   $('section-toggle').hidden = true;
 }
@@ -601,6 +619,7 @@ async function startAR() {
         updateTrackingHold(now);
         updateTargetPose(dt);
         if (experience === 'core') artifact?.update(dt);
+        if (experience === 'atlas') artifact?.updateSelection(dt);
         if (experience === 'atlas') updateAtlasPins(now);
         if (lastFrame) fps = fps * 0.9 + (1000 / Math.max(1, now - lastFrame)) * 0.1;
         lastFrame = now;
@@ -672,21 +691,40 @@ function pickAtlasBuilding(clientX, clientY) {
   );
   preparePicking();
   const ray = new three.Raycaster();
-  ray.setFromCamera(pointer, camera);
-  const hit = ray.intersectObjects(artifact.buildingTargets, false)
-    .find(({ object }) => object.parent.visible);
+  const hitAt = (x,y) => {
+    pointer.set(((x-rect.left)/rect.width)*2-1,-((y-rect.top)/rect.height)*2+1);
+    ray.setFromCamera(pointer,camera);
+    return ray.intersectObjects(artifact.buildingTargets,false)
+      .find(({object}) => object.parent.visible);
+  };
+  let hit = hitAt(clientX,clientY);
+  if (!hit) {
+    for (const radius of [10,20]) {
+      const nearby=[];
+      for (let i=0;i<8;i++) {
+        const angle=i*Math.PI/4;
+        const found=hitAt(clientX+Math.cos(angle)*radius,clientY+Math.sin(angle)*radius);
+        if(found) nearby.push(found);
+      }
+      if(nearby.length) {hit=nearby.sort((a,b)=>a.distance-b.distance)[0];break;}
+    }
+  }
   const building = hit?.object.userData.atlasBuildingId;
   if (!building) {
     const projected = new three.Vector3();
     let nearest = null;
-    let distance = 34;
+    let distance = 42;
     for (const place of atlasPlaces) {
       artifact.getPlaceWorldPosition(place, projected).project(camera);
       if (projected.z < -1 || projected.z > 1) continue;
       const x = rect.left + (projected.x + 1) * rect.width / 2;
       const y = rect.top + (1 - projected.y) * rect.height / 2;
       const candidate = Math.hypot(clientX - x, clientY - y);
-      if (candidate < distance) { nearest = place; distance = candidate; }
+      if (candidate < distance) {
+        const front=hitAt(x,y)?.object.userData.atlasBuildingId;
+        if (front && front !== place.building) continue;
+        nearest = place; distance = candidate;
+      }
     }
     if (nearest) openAtlasInfo(nearest);
     else closeAtlasInfo();
@@ -862,6 +900,13 @@ function onCanvasPointerUp(event) {
 if (phoneMode) {
   if (experience === 'core') session.start();
   if (experience === 'atlas') setupAtlasPins();
+  $('atlas-recenter').addEventListener('click', () => {
+    if (experience !== 'atlas') return;
+    atlasRecentering = true;
+    $('live').dataset.recentering = 'true';
+    closeAtlasInfo();
+    setStatus('REÎNCADREAZĂ', 'grace', 'Ține posterul ATLAS întreg în cameră până când macheta se fixează din nou.');
+  });
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {
     if (experience !== 'core') return location.reload();
@@ -900,8 +945,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=29`
-      : `?mode=phone&experience=${experience}&v=29`;
+      ? `?room=${session.code}&v=30`
+      : `?mode=phone&experience=${experience}&v=30`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

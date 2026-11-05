@@ -27,8 +27,8 @@ ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după
 
 1. Stabilitate: filtrare adaptivă după mișcare susținută, respingerea salturilor izolate și reinițializare la redetectarea după pierderea ancorei. Camera rămâne controlată de tracking; filtrăm numai corecțiile ancorei.
 2. Randare: alei și borduri instanțiate, transformări locale statice în AR, actualizarea pinurilor fără traversarea întregului model. Rezoluția canvasului este plafonată la 1440 px pe latura lungă și coboară treptat la 85%/70% după performanță scăzută susținută; revine lent când există suficient timp pentru randare. Schimbările de tab și pauzele lungi nu declanșează retrogradarea.
-3. Urmează: selecție mai tolerantă a clădirilor apropiate, cu feedback vizual scurt.
-4. Urmează: fișă compactă extensibilă și ghidare pentru recentrare.
+3. Implementat: selecție mai tolerantă a acoperișurilor înguste, cu verificarea corpului vizibil și apariție graduală a evidențierii.
+4. Implementat: fișă compactă extensibilă și buton de recentrare care cere reîncadrarea posterului și acceptă imediat următoarea ancoră validă.
 5. Apoi: trasee între puncte alese manual, fără GPS. Luminozitatea materialelor rămâne un polish separat.
 
 Dimensionarea adaptivă păstrează lifecycle-ul [XRExtras FullWindowCanvas](https://github.com/8thwall/web/blob/master/xrextras/src/fullwindowcanvasmodule/full-window-canvas-module.ts), care dimensionează canvasul după ecran și video. Nu modifică manual proiecția camerei sau rezoluția sursei video. Testul `tools/atlas-performance.cjs` verifică filtrul la 30/60/120 fps, salturi izolate, redetectare, pragurile de calitate și rotirea canvasului. Aceste simulări nu măsoară FPS-ul sau stabilitatea camerei reale pe iPhone.

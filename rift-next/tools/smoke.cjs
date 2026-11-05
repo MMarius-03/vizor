@@ -359,12 +359,18 @@ const { chromium } = require(process.argv[2] || 'playwright');
     }
     const firstPin = page.locator('#atlas-pins .atlas-pin:not([hidden])').first();
     const selectedPlace = await firstPin.getAttribute('aria-label');
-    await firstPin.click();
+    const selectedPlaceId = await firstPin.getAttribute('data-place');
+    await page.locator(`#atlas-pins .atlas-pin[data-place="${selectedPlaceId}"]`).click();
     await page.evaluate(() => window.__fakeAR.tick());
     assert.equal(await page.locator('#atlas-info').isVisible(), true);
     assert.equal(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-place-selection')?.userData.placeId),
-      await firstPin.getAttribute('data-place'), '3D highlight should match the opened information card');
+      selectedPlaceId, '3D highlight should match the opened information card');
     assert.equal(await page.locator('#atlas-info-title').textContent(), selectedPlace.replace('Detalii: ', ''));
+    assert.equal(await page.locator('#atlas-info-expand').getAttribute('aria-expanded'), 'false');
+    assert.equal(await page.locator('#atlas-info-more').isHidden(), true);
+    await page.locator('#atlas-info-expand').click();
+    assert.equal(await page.locator('#atlas-info-more').isVisible(), true);
+    assert.equal(await page.locator('#atlas-info-expand').getAttribute('aria-expanded'), 'true');
     assert.match(await page.locator('#atlas-info-source').getAttribute('href'), /usv\.ro\/resurse\/harta-interactiva-usv/);
     if (process.env.ATLAS_SCREENSHOT) await page.screenshot({ path: process.env.ATLAS_SCREENSHOT });
     await page.locator('#atlas-info-close').click();
@@ -383,6 +389,15 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#atlas-info').isVisible(), true,
       'tapping a campus building should open its details');
     await page.locator('#atlas-info-close').click();
+    assert.equal(await page.locator('#atlas-recenter').isVisible(), true);
+    await page.locator('#atlas-recenter').click();
+    assert.equal(await page.locator('#tracking-state').textContent(), 'REÎNCADREAZĂ');
+    await page.evaluate(() => window.__fakeAR.emit('reality.imageupdated', {
+      name:'atlas-screen', position:{x:.07,y:0,z:-1},
+      rotation:{x:0,y:0,z:0,w:1}, scale:1,
+    }));
+    assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
+    assert.ok(Math.abs((await page.evaluate(() => window.__RIFT_NEXT__.getState())).poseZ + 1) < .001);
     for (const viewport of [{ width: 375, height: 667 }, { width: 932, height: 430 }]) {
       await page.setViewportSize(viewport);
       await page.evaluate(() => {

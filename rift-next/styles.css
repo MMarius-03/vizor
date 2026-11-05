@@ -48,6 +48,7 @@ body.target-focus .target-stage img{height:min(82dvh,calc((100dvw - 24px)*1.3333
 .atlas-pin::before{content:"";position:absolute;inset:11px;border:1.5px solid #f4fcff;border-radius:50%;background:#174d73;box-shadow:0 0 0 2px #4f9ed180}
 .atlas-pin span{position:absolute;inset:19px;border-radius:50%;background:#fff}
 .atlas-pin.is-selected::before{background:#4f9ed1;box-shadow:0 0 0 5px #4f9ed184}
+.atlas-pin::before{transition:background .18s,box-shadow .18s,transform .18s}.atlas-pin.is-selected::before{transform:scale(1.15)}
 .atlas-pin:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .atlas-info{position:absolute;z-index:4;left:18px;right:18px;bottom:calc(106px + env(safe-area-inset-bottom));max-width:440px;padding:16px 17px 15px;background:#112333f2;color:#f7fbfc;border:1px solid #70a6c8;box-shadow:0 16px 35px #00101bbc;pointer-events:auto;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
 .atlas-info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-3px -3px 3px 0;color:#85c5ee;font:700 10px Consolas,Menlo,monospace;letter-spacing:.12em}
@@ -55,6 +56,11 @@ body.target-focus .target-stage img{height:min(82dvh,calc((100dvw - 24px)*1.3333
 .atlas-info h2{margin:0 0 6px;font-size:20px;line-height:1.16;letter-spacing:-.035em}
 .atlas-info p{margin:0 0 13px;color:#d5e1e9;font-size:14px;line-height:1.4}
 .atlas-info a{display:inline-block;color:#93d6ff;font:700 10px Consolas,Menlo,monospace;letter-spacing:.08em;padding:5px 0;pointer-events:auto}
+.atlas-info #atlas-info-expand{pointer-events:auto;min-height:40px;padding:0;border:0;background:transparent;color:#93d6ff;font:700 10px Consolas,Menlo,monospace;letter-spacing:.08em;touch-action:manipulation}
+.atlas-info #atlas-info-more[hidden]{display:none}.atlas-info #atlas-info-more{padding-top:6px}
+html[data-experience=atlas] .live-actions{gap:8px}html[data-experience=atlas] .live-actions button{padding:0 10px}
+html[data-experience=atlas] .live[data-recentering=true] .scan-guide{opacity:.9}
+@media(max-width:410px){html[data-experience=atlas] .live-actions{flex-wrap:wrap}html[data-experience=atlas] .live-actions span{flex-basis:100%}}
 html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{visibility:hidden}
 @media(orientation:landscape) and (max-height:560px){
   .atlas-info{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(75px + env(safe-area-inset-bottom));max-width:min(340px,48vw);padding:10px 14px}

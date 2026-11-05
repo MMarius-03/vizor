@@ -460,7 +460,7 @@ export function createAtlas(THREE) {
   let target = .9, progress = .9, effect = .65, technical = false;
   let selection = null;
   const selectionMaterials = [];
-  const selectionMaterial = new THREE.MeshBasicMaterial({ color:0x51c9ff });
+  const selectionMaterial = new THREE.MeshBasicMaterial({ color:0x51c9ff, transparent:true, opacity:0 });
   const clearSelection = () => {
     selectionMaterials.splice(0).forEach(({mesh,original,highlight})=>{
       mesh.material=original; highlight.dispose();
@@ -481,8 +481,8 @@ export function createAtlas(THREE) {
     if (block) holder.traverse(mesh=>{
       if (!mesh.isMesh || !mesh.material.isMeshStandardMaterial) return;
       const original=mesh.material, highlight=original.clone();
-      highlight.color.lerp(new THREE.Color(0x279bd5),.5);
-      highlight.emissive.set(0x135b83); highlight.emissiveIntensity=.5;
+      highlight.userData.baseColor=original.color.clone();
+      highlight.emissive.set(0x135b83); highlight.emissiveIntensity=0;
       mesh.material=highlight; selectionMaterials.push({mesh,original,highlight});
     });
     selection=new THREE.Group(); selection.name='atlas-place-selection';
@@ -495,12 +495,23 @@ export function createAtlas(THREE) {
       selection.add(rail);
     }));
     selection.visible=!technical;
+    selectionMaterial.opacity=0;
     holder.add(selection);
+  };
+  const updateSelection = dt => {
+    if (!selection || technical) return;
+    const blend=1-Math.exp(-Math.min(dt,.05)*12);
+    selectionMaterial.opacity=THREE.MathUtils.lerp(selectionMaterial.opacity,.95,blend);
+    selectionMaterials.forEach(({highlight})=>{
+      highlight.color.copy(highlight.userData.baseColor).lerp(new THREE.Color(0x279bd5),selectionMaterial.opacity*.5);
+      highlight.emissiveIntensity=selectionMaterial.opacity*.5;
+    });
   };
   return {
     root,
     buildingTargets,
     selectPlace,
+    updateSelection,
     freezeStatic() {
       root.traverse(object=>{ if(object!==root) { object.updateMatrix(); object.matrixAutoUpdate=false; } });
     },
@@ -523,6 +534,7 @@ export function createAtlas(THREE) {
       labels.forEach(label => { label.visible = !technical; });
     },
     update(dt) {
+      updateSelection(dt);
       progress = THREE.MathUtils.damp(progress,target,7,Math.min(dt,.05));
       outlines.forEach(({ mesh,line }) => {
         line.position.copy(mesh.position); line.quaternion.copy(mesh.quaternion); line.scale.copy(mesh.scale);
