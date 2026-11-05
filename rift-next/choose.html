@@ -40,7 +40,7 @@
     const core = document.getElementById('choose-core');
     core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}`;
     for (const name of ['atlas', 'orbit']) {
-      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=25`;
+      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=26`;
     }
     if (onPhone) {
       document.querySelector('footer span').textContent = 'ALEGE UN OBIECT ȘI PORNEȘTE CAMERA DIN SPATE';

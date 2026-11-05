@@ -10,6 +10,11 @@ export function createAtlas(THREE) {
   const buildingTargets = [];
   const labels = [];
   const buildingHeights = new Map(campusLayout.buildings.map(block => [block.id, block.height]));
+  const treePositions = [
+    [246,270],[242,318],[239,379],[206,477],[341,689],[353,740],[374,792],
+    [559,546],[566,596],[725,235],[871,244],[901,300],[881,493],
+    [733,753],[837,752],[677,815],[904,823],[677,904],[862,918],
+  ];
   // One small, shared texture keeps the campus detailed without adding image downloads.
   const surfaceTexture = (kind) => {
     const canvas = document.createElement('canvas');
@@ -36,27 +41,68 @@ export function createAtlas(THREE) {
   };
   const roofTexture = surfaceTexture('roof');
   const groundTexture = surfaceTexture('ground');
+  const reliefTexture = (kind) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const image = ctx.createImageData(128, 128);
+    for (let y = 0; y < 128; y += 1) {
+      for (let x = 0; x < 128; x += 1) {
+        const grain = 118 + ((x * 29 + y * 47 + x * y * 5) % 24);
+        const seam = kind === 'roof' && (x % 32 < 2 || y % 48 < 2);
+        const value = seam ? 78 : grain;
+        const p = (y * 128 + x) * 4;
+        image.data[p] = image.data[p + 1] = image.data[p + 2] = value;
+        image.data[p + 3] = 255;
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(kind === 'roof' ? 4 : 2, kind === 'roof' ? 4 : 2);
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.anisotropy = 2;
+    return texture;
+  };
+  const roofRelief = reliefTexture('roof');
+  const wallRelief = reliefTexture('wall');
+  const groundRelief = reliefTexture('ground');
   const materials = {
-    ground: new THREE.MeshStandardMaterial({ color: 0xc6c9bd, roughness: .98 }),
-    plan: new THREE.MeshStandardMaterial({ color: 0xecebe1, map: groundTexture, roughness: .96 }),
-    grass: new THREE.MeshStandardMaterial({ color: 0x9bbd6d, map: groundTexture, roughness: 1 }),
-    grassLight: new THREE.MeshStandardMaterial({ color: 0xaac77b, map: groundTexture, roughness: 1 }),
-    path: new THREE.MeshStandardMaterial({ color: 0xe7e5d9, roughness: .96 }),
-    curb: new THREE.MeshStandardMaterial({ color: 0xb9b9ae, roughness: 1 }),
-    wall: new THREE.MeshStandardMaterial({ color: 0x42789c, roughness: .84, metalness: .03 }),
-    dormWall: new THREE.MeshStandardMaterial({ color: 0x628aa1, roughness: .9 }),
-    roof: new THREE.MeshStandardMaterial({ color: 0x86aebc, map: roofTexture, roughness: .88 }),
-    dormRoof: new THREE.MeshStandardMaterial({ color: 0xa5b9ba, map: roofTexture, roughness: .92 }),
-    amenityRoof: new THREE.MeshStandardMaterial({ color: 0x758f9c, map: roofTexture, roughness: .8 }),
-    neutralWall: new THREE.MeshStandardMaterial({ color: 0x919c99, roughness: .92 }),
-    neutralRoof: new THREE.MeshStandardMaterial({ color: 0xc3c9c1, map: roofTexture, roughness: .94 }),
-    window: new THREE.MeshStandardMaterial({ color: 0x315b72, metalness: .25, roughness: .37,
-      emissive: 0x183747, emissiveIntensity: .12 }),
+    ground: new THREE.MeshStandardMaterial({ color: 0xb8bbb2, roughness: .98 }),
+    plan: new THREE.MeshStandardMaterial({ color: 0xe9e7dc, map:groundTexture,
+      bumpMap:groundRelief, bumpScale:.012, roughness:.94 }),
+    grass: new THREE.MeshStandardMaterial({ color: 0x789a62, map:groundTexture,
+      bumpMap:groundRelief, bumpScale:.016, roughness:1 }),
+    grassLight: new THREE.MeshStandardMaterial({ color: 0x8eaa6b, map:groundTexture,
+      bumpMap:groundRelief, bumpScale:.016, roughness:1 }),
+    path: new THREE.MeshStandardMaterial({ color: 0xd3d1c7, bumpMap:groundRelief,
+      bumpScale:.009, roughness:.96 }),
+    curb: new THREE.MeshStandardMaterial({ color: 0xa8aaa5, roughness:1 }),
+    wall: new THREE.MeshStandardMaterial({ color: 0x8f9c99, bumpMap:wallRelief,
+      bumpScale:.006, roughness:.88, metalness:.01 }),
+    dormWall: new THREE.MeshStandardMaterial({ color: 0x858f8b, bumpMap:wallRelief,
+      bumpScale:.006, roughness:.92 }),
+    roof: new THREE.MeshStandardMaterial({ color: 0x203a46, map:roofTexture,
+      bumpMap:roofRelief, bumpScale:.014, roughness:.58, metalness:.22 }),
+    dormRoof: new THREE.MeshStandardMaterial({ color: 0x4b2925, map:roofTexture,
+      bumpMap:roofRelief, bumpScale:.012, roughness:.7, metalness:.08 }),
+    amenityRoof: new THREE.MeshStandardMaterial({ color: 0x1e4a60, map:roofTexture,
+      bumpMap:roofRelief, bumpScale:.015, roughness:.5, metalness:.3 }),
+    neutralWall: new THREE.MeshStandardMaterial({ color: 0xa7aaa5, roughness:.92 }),
+    neutralRoof: new THREE.MeshStandardMaterial({ color: 0x8d9492, map:roofTexture, roughness:.78 }),
+    window: new THREE.MeshStandardMaterial({ color: 0x244b62, metalness:.35, roughness:.24,
+      emissive:0x102f42, emissiveIntensity:.18 }),
+    glass: new THREE.MeshStandardMaterial({ color:0x8fc8d8, metalness:.25, roughness:.16,
+      transparent:true, opacity:.68, depthWrite:false }),
+    dome: new THREE.MeshStandardMaterial({ color:0x2d9ed0, metalness:.38, roughness:.28,
+      emissive:0x0a4163, emissiveIntensity:.16 }),
+    timber: new THREE.MeshStandardMaterial({ color:0x8a5e39, roughness:.68 }),
+    entrance: new THREE.MeshStandardMaterial({ color:0x40515a, metalness:.24, roughness:.48 }),
     accent: new THREE.MeshBasicMaterial({ color: 0xeaa43e }),
   };
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x335f7b, transparent: true, opacity: .66 });
-  const roofRimMaterial = new THREE.LineBasicMaterial({ color: 0x426779, transparent: true, opacity: .9 });
-  const windowGeometry = new THREE.BoxGeometry(.028, .009, .018);
+  const edgeMaterial = new THREE.LineBasicMaterial({ color:0x536871, transparent:true, opacity:.62 });
+  const roofRimMaterial = new THREE.LineBasicMaterial({ color:0x304d5b, transparent:true, opacity:.88 });
+  const windowGeometry = new THREE.BoxGeometry(.034,.011,.025);
   const xy = ([u, v]) => new THREE.Vector2((u / 1000 - .5) * 3.28, (.5 - v / 1000) * 2.44);
   const polygon = points => {
     const vectors = points.map(xy);
@@ -64,6 +110,44 @@ export function createAtlas(THREE) {
     vectors.forEach((p, i) => i ? shape.lineTo(p.x, p.y) : shape.moveTo(p.x, p.y));
     shape.closePath();
     return shape;
+  };
+  const contactShadowTexture = () => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const trace = block => {
+      ctx.beginPath();
+      const rings = [block.points, ...(block.holes || [])];
+      for (const points of rings) {
+        points.forEach(([u,v], index) => {
+          const x = u / 1000 * size;
+          const y = v / 1000 * size;
+          if (index) ctx.lineTo(x,y); else ctx.moveTo(x,y);
+        });
+        ctx.closePath();
+      }
+      ctx.fill('evenodd');
+    };
+    ctx.save();
+    ctx.translate(5,7);
+    ctx.filter = 'blur(7px)';
+    ctx.fillStyle = 'rgba(20,33,37,.34)';
+    campusLayout.buildings.forEach(trace);
+    for (const [u,v] of treePositions) {
+      ctx.beginPath(); ctx.arc(u/1000*size,v/1000*size,4,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.translate(2,3);
+    ctx.filter = 'blur(2px)';
+    ctx.fillStyle = 'rgba(18,28,31,.18)';
+    campusLayout.buildings.forEach(trace);
+    ctx.restore();
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 2;
+    return texture;
   };
   const add = (geometry, material, name = '', edges = false) => {
     const mesh = new THREE.Mesh(geometry, material);
@@ -81,6 +165,11 @@ export function createAtlas(THREE) {
   base.position.z = -.07;
   const turf = add(new THREE.BoxGeometry(3.28, 2.44, .012), materials.plan, 'atlas-plan');
   turf.position.z = .002;
+  const contactShadows = add(new THREE.PlaneGeometry(3.28,2.44),
+    new THREE.MeshBasicMaterial({ map:contactShadowTexture(), transparent:true, opacity:.65,
+      depthWrite:false, polygonOffset:true, polygonOffsetFactor:-1 }), 'atlas-contact-shadows');
+  contactShadows.position.z = .036;
+  contactShadows.renderOrder = 2;
   campusLayout.greens.forEach((points, i) => {
     const patch = add(new THREE.ShapeGeometry(polygon(points)),
       i % 2 ? materials.grassLight : materials.grass, `atlas-lawn-${i}`);
@@ -128,11 +217,6 @@ export function createAtlas(THREE) {
   const parkDot = add(new THREE.CylinderGeometry(.035,.035,.025,20), materials.grass, 'atlas-park-centre');
   parkDot.rotation.x = Math.PI/2;
   parkDot.position.set(parkCenter.x,parkCenter.y,.046);
-  const treePositions = [
-    [246,270],[242,318],[239,379],[206,477],[341,689],[353,740],[374,792],
-    [559,546],[566,596],[725,235],[871,244],[901,300],[881,493],
-    [733,753],[837,752],[677,815],[904,823],[677,904],[862,918],
-  ];
   const crownGeometry = new THREE.SphereGeometry(.027, 7, 5);
   const crown = new THREE.InstancedMesh(crownGeometry,
     new THREE.MeshStandardMaterial({ color: 0x668a61, roughness: 1 }), treePositions.length);
@@ -161,6 +245,77 @@ export function createAtlas(THREE) {
     return texture;
   };
   const labelPositions = { A:[768,579], D:[783,370], E:[560,748], 'CĂMIN 1':[475,614], 'CĂMIN 2':[457,453] };
+  const detailMesh = (holder, geometry, material, name, position, rotation = null) => {
+    const mesh = new THREE.Mesh(geometry,material);
+    mesh.name = name;
+    mesh.position.copy(position);
+    if (rotation) mesh.rotation.set(rotation.x,rotation.y,rotation.z);
+    holder.add(mesh);
+    solids.push(mesh);
+    return mesh;
+  };
+  const addLandmarkDetails = (block,holder) => {
+    const z0 = .038;
+    if (block.id === 'A') {
+      const entrance = xy([782,687]);
+      for (let step = 0; step < 4; step += 1) {
+        const loc = xy([782,688 + step * 7]);
+        detailMesh(holder,new THREE.BoxGeometry(.16 + step*.022,.025,.008 + step*.002),materials.path,
+          `atlas-A-step-${step}`,new THREE.Vector3(loc.x,loc.y,z0+.006+step*.004));
+      }
+      detailMesh(holder,new THREE.BoxGeometry(.17,.062,.018),materials.entrance,'atlas-A-canopy',
+        new THREE.Vector3(entrance.x,entrance.y,z0+.112));
+      for (const side of [-1,1]) detailMesh(holder,new THREE.BoxGeometry(.012,.012,.105),materials.entrance,
+        `atlas-A-canopy-pillar-${side}`,new THREE.Vector3(entrance.x+side*.062,entrance.y-.014,z0+.055));
+      detailMesh(holder,new THREE.BoxGeometry(.13,.012,.085),materials.glass,'atlas-A-entrance-glass',
+        new THREE.Vector3(entrance.x,entrance.y+.025,z0+.064));
+      const roofPoint = xy([700,505]);
+      detailMesh(holder,new THREE.BoxGeometry(.18,.15,.025),materials.roof,'atlas-A-raised-roof',
+        new THREE.Vector3(roofPoint.x,roofPoint.y,z0+block.height+.014));
+    }
+    if (block.id === 'E') {
+      const rotunda = xy([636,752]);
+      detailMesh(holder,new THREE.CylinderGeometry(.112,.118,.205,24),materials.wall,'atlas-E-rotunda',
+        new THREE.Vector3(rotunda.x,rotunda.y,z0+.103),new THREE.Euler(Math.PI/2,0,0));
+      detailMesh(holder,new THREE.CylinderGeometry(.116,.116,.072,24,1,true),materials.glass,
+        'atlas-E-rotunda-glass',new THREE.Vector3(rotunda.x,rotunda.y,z0+.142),
+        new THREE.Euler(Math.PI/2,0,0));
+      const bridge = xy([570,707]);
+      detailMesh(holder,new THREE.BoxGeometry(.36,.06,.055),materials.glass,'atlas-E-glass-bridge',
+        new THREE.Vector3(bridge.x,bridge.y,z0+.17));
+      for (const side of [-1,1]) detailMesh(holder,new THREE.BoxGeometry(.014,.014,.14),materials.entrance,
+        `atlas-E-bridge-pillar-${side}`,new THREE.Vector3(bridge.x+side*.135,bridge.y,z0+.07));
+    }
+    if (block.id === 'OBSERVATOR') {
+      const domePoint = xy([875,397]);
+      const roofZ = z0 + block.height;
+      detailMesh(holder,new THREE.CylinderGeometry(.102,.108,.035,24),materials.wall,'atlas-observatory-collar',
+        new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.017),new THREE.Euler(Math.PI/2,0,0));
+      detailMesh(holder,new THREE.SphereGeometry(.101,24,10,0,Math.PI*2,0,Math.PI/2),materials.dome,
+        'atlas-observatory-main-dome',new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.035),
+        new THREE.Euler(Math.PI/2,0,0));
+      const towerPoint = xy([889,369]);
+      detailMesh(holder,new THREE.CylinderGeometry(.047,.052,.09,20),materials.glass,'atlas-observatory-tower',
+        new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.045),new THREE.Euler(Math.PI/2,0,0));
+      detailMesh(holder,new THREE.SphereGeometry(.052,20,8,0,Math.PI*2,0,Math.PI/2),materials.dome,
+        'atlas-observatory-tower-dome',new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.09),
+        new THREE.Euler(Math.PI/2,0,0));
+    }
+    if (block.id === 'NATAȚIE') {
+      const centre = xy([624,101]);
+      const roofZ = z0 + block.height;
+      detailMesh(holder,new THREE.CylinderGeometry(.105,.105,.4,20,1,false,-Math.PI/2,Math.PI),
+        materials.amenityRoof,'atlas-pool-arched-roof',new THREE.Vector3(centre.x,centre.y,roofZ),
+        new THREE.Euler(0,0,Math.PI/2));
+      const glassEnd = detailMesh(holder,new THREE.PlaneGeometry(.17,.11),materials.glass,
+        'atlas-pool-glass-end',new THREE.Vector3(centre.x+.202,centre.y,roofZ+.052),
+        new THREE.Euler(0,Math.PI/2,0));
+      glassEnd.renderOrder = 3;
+      const timber = xy([624,137]);
+      detailMesh(holder,new THREE.BoxGeometry(.4,.014,.018),materials.timber,'atlas-pool-timber-edge',
+        new THREE.Vector3(timber.x,timber.y,roofZ+.015));
+    }
+  };
   campusLayout.buildings.forEach((block, index) => {
     const shape = polygon(block.points);
     for (const holePoints of block.holes || []) {
@@ -174,7 +329,8 @@ export function createAtlas(THREE) {
     root.add(holder);
     const dorm = block.id.startsWith('CĂMIN');
     const amenity = ['SPORT', 'NATAȚIE', 'OBSERVATOR', 'AULA'].includes(block.id);
-    const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth:block.height, bevelEnabled:false, steps:1 }),
+    const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth:block.height,
+      bevelEnabled:!block.neutral, bevelThickness:.006, bevelSize:.005, bevelSegments:1, steps:1 }),
       block.neutral ? materials.neutralWall : dorm ? materials.dormWall : materials.wall);
     body.position.z = .038;
     body.name = `${holder.name}-volume`;
@@ -192,7 +348,9 @@ export function createAtlas(THREE) {
         const angle = Math.atan2(b.y - a.y, b.x - a.x);
         for (let slot = 0; slot < count; slot += 1) {
           const t = (slot + 1) / (count + 1);
-          windows.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, angle });
+          const levels = block.height > .19 ? [.38,.7] : [.58];
+          levels.forEach(level => windows.push({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t,
+            angle, level }));
         }
       }
       if (windows.length) {
@@ -201,7 +359,7 @@ export function createAtlas(THREE) {
         const orientation = new THREE.Quaternion();
         windows.forEach((window, slot) => {
           orientation.setFromAxisAngle(new THREE.Vector3(0, 0, 1), window.angle);
-          transform.compose(new THREE.Vector3(window.x, window.y, .038 + block.height * .61),
+          transform.compose(new THREE.Vector3(window.x,window.y,.038+block.height*window.level),
             orientation, new THREE.Vector3(1, 1, 1));
           glazing.setMatrixAt(slot, transform);
         });
@@ -224,6 +382,7 @@ export function createAtlas(THREE) {
     const border = new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry, 20), edgeMaterial);
     holder.add(border);
     outlines.push({ mesh:body, line:border });
+    addLandmarkDetails(block,holder);
     if (!block.neutral) {
     const labelPoint = labelPositions[block.id] || [
       block.points.reduce((sum,p)=>sum+p[0],0)/block.points.length,
@@ -259,7 +418,7 @@ export function createAtlas(THREE) {
     setTechnical(value) {
       technical = !!value;
       solids.forEach(mesh => { mesh.visible = !technical; });
-      outlines.forEach(({ line }) => { line.visible = technical; });
+      outlines.forEach(({ line }) => { line.visible = true; });
       labels.forEach(label => { label.visible = !technical; });
     },
     update(dt) {
@@ -271,6 +430,8 @@ export function createAtlas(THREE) {
         holder.visible = progress > start;
         holder.scale.z = Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
       });
+      contactShadows.visible = !technical && progress > .3;
+      contactShadows.material.opacity = .65 * THREE.MathUtils.smoothstep(progress,.3,.78);
       marker.visible = !technical && progress > .75;
       marker.scale.setScalar(.7+effect*.5);
     },

@@ -22,15 +22,41 @@ fs.mkdirSync(output, { recursive: true });
     assert.ok(posterImage.complete && posterImage.width >= 900 && posterImage.height >= 1200,
       `ATLAS poster failed to decode at full resolution: ${JSON.stringify(posterImage)}`);
     await page.screenshot({ path: path.join(output, 'atlas.png') });
+    const atlasStats = await page.evaluate(() => ({
+      calls: window.__RIFT_STUDY__.renderer.info.render.calls,
+      triangles: window.__RIFT_STUDY__.renderer.info.render.triangles,
+    }));
+    assert.ok(atlasStats.calls < 200 && atlasStats.triangles < 50000,
+      `ATLAS exceeded the mobile rendering budget: ${JSON.stringify(atlasStats)}`);
+    const atlasCanvas = await page.locator('#scene').boundingBox();
+    await page.mouse.move(atlasCanvas.x + atlasCanvas.width * .52, atlasCanvas.y + atlasCanvas.height * .48);
+    await page.mouse.down();
+    await page.mouse.move(atlasCanvas.x + atlasCanvas.width * .68, atlasCanvas.y + atlasCanvas.height * .38,
+      { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(output, 'atlas-angle.png') });
+    await page.mouse.move(atlasCanvas.x + atlasCanvas.width * .68, atlasCanvas.y + atlasCanvas.height * .38);
+    await page.mouse.down();
+    await page.mouse.move(atlasCanvas.x + atlasCanvas.width * .52, atlasCanvas.y + atlasCanvas.height * .48,
+      { steps: 8 });
+    await page.mouse.up();
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
       .getObjectByName('atlas-plan')));
     assert.ok(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
       .getObjectByName('atlas-building-A')));
+    for (const name of ['atlas-contact-shadows','atlas-A-canopy','atlas-E-rotunda',
+      'atlas-observatory-main-dome','atlas-pool-arched-roof']) {
+      assert.ok(await page.evaluate(objectName => window.__RIFT_STUDY__.atlas.root.getObjectByName(objectName),name),
+        `${name} should be present in the ATLAS model`);
+    }
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.posterAtlas.visible), true);
     await page.locator('#progress').fill('0');
     await page.waitForTimeout(550);
     assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
       .getObjectByName('atlas-building-A').visible), false);
+    assert.equal(await page.evaluate(() => window.__RIFT_STUDY__.atlas.root
+      .getObjectByName('atlas-contact-shadows').visible), false);
     await page.screenshot({ path: path.join(output, 'atlas-terrain.png') });
     await page.locator('#progress').fill('24');
     await page.waitForTimeout(550);
