@@ -1,8 +1,9 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=11';
+import { createAtlas, createOrbit } from './studies/models.js?v=12';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
-import { smoothAtlasPose } from './atlas-pose.js?v=1';
+import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
+import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -45,6 +46,8 @@ let desiredRotation = null;
 let desiredScale = 1;
 let anchorSized = false;
 let anchorWidth = .75;
+let atlasPoseTracker = null;
+let atlasFrameBudget = null;
 let activePointer = null;
 let atlasPointer = null;
 let selectedAtlasPlace = null;
@@ -233,7 +236,9 @@ function updateAtlasPins(now) {
     return;
   }
   if (container.hidden) container.hidden = false;
-  preparePicking();
+  targetRoot.updateWorldMatrix(true, false);
+  artifact.root.updateWorldMatrix(false, false);
+  camera.updateMatrixWorld();
   const rect = canvas.getBoundingClientRect();
   const topEdge = document.querySelector('.live-top').getBoundingClientRect().bottom + 6;
   const bottomEdge = document.querySelector('.live-bottom').getBoundingClientRect().top - 6;
@@ -367,13 +372,16 @@ function makeProbe(scene) {
     artifact.root.position.y = -.075;
   } else {
     artifact = experience === 'atlas' ? createAtlas(three) : createOrbit(three);
-    if (experience === 'atlas') atlasPoint = new three.Vector3();
+    if (experience === 'atlas') {
+      atlasPoint = new three.Vector3();
+      atlasPoseTracker = createAtlasPoseTracker(three);
+    }
     artifact.root.scale.setScalar(experience === 'atlas' ? .29 : .12);
     artifact.setProgress(1);
     artifact.setEffect(0);
     // Settle the model once, then leave it still for this live beta.
     for (let frame = 0; frame < 120; frame += 1) artifact.update(.05);
-    if (experience === 'atlas') orientAtlasFromNorth();
+    if (experience === 'atlas') { orientAtlasFromNorth(); artifact.freezeStatic(); }
     artifact.root.position.z = experience === 'atlas' ? .18 : .12;
   }
   targetRoot.add(artifact.root);
@@ -403,11 +411,18 @@ function applyTarget(detail) {
   const now = performance.now();
   const wasFound = found;
   const recovering = lossStartedAt > 0;
-  if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
-  desiredPosition.set(position.x, position.y, position.z);
-  desiredRotation.set(rotation.x, rotation.y, rotation.z, rotation.w).normalize();
   const scale = Number.isFinite(detail.scale) && detail.scale > 0 ? detail.scale : desiredScale;
-  desiredScale = scale;
+  if (experience === 'atlas') {
+    if (!atlasPoseTracker.measure(position,rotation,scale,now,anchorWidth,!hasPose || !targetRoot.visible)) return false;
+    desiredPosition.copy(atlasPoseTracker.position);
+    desiredRotation.copy(atlasPoseTracker.rotation);
+    desiredScale = atlasPoseTracker.scale;
+  } else {
+    desiredPosition.set(position.x, position.y, position.z);
+    desiredRotation.set(rotation.x, rotation.y, rotation.z, rotation.w).normalize();
+    desiredScale = scale;
+  }
+  if (recovering && now - lossStartedAt < lossGraceMs) recoveredCount += 1;
   // First detection and reacquisition after a long loss need an exact pose.
   // Subsequent measurements are blended in the render loop.
   if (!hasPose || !targetRoot.visible) {
@@ -464,7 +479,8 @@ function renderPassiveState() {
 function updateTargetPose(dt) {
   if (!found || !desiredPosition || !dt) return;
   if (experience === 'atlas') {
-    smoothAtlasPose(targetRoot, desiredPosition, desiredRotation, desiredScale, dt, anchorWidth);
+    smoothAtlasPose(targetRoot, desiredPosition, desiredRotation, desiredScale, dt, anchorWidth,
+      atlasPoseTracker.motionAt(performance.now()));
     return;
   }
   // Fast lateral response, softer depth/scale response for hand-held zoom.
@@ -521,6 +537,7 @@ function updateDebug() {
     `pose: ${pose ? [pose.x, pose.y, pose.z].map((v) => v.toFixed(2)).join(', ') : '—'}`,
     `depth: ${pose?.z.toFixed(2) ?? '—'} → ${desiredPosition?.z.toFixed(2) ?? '—'} | scale: ${targetRoot?.scale.x.toFixed(2) ?? '—'} → ${desiredScale.toFixed(2)}`,
     `canvas: ${canvas.width} × ${canvas.height} | fps: ${fps.toFixed(0)}`,
+    ...(atlasFrameBudget ? [`render quality: ${Math.round(atlasFrameBudget.scale*100)}%`] : []),
     `viewport: ${innerWidth} × ${innerHeight}`,
   ].join('\n');
 }
@@ -613,11 +630,13 @@ async function startAR() {
         } },
       ],
     };
+    const fullWindowModule = extras.FullWindowCanvas.pipelineModule();
+    if (experience === 'atlas') atlasFrameBudget = createFrameBudget();
     xr.addCameraPipelineModules([
       xr.GlTextureRenderer.pipelineModule(),
       xr.Threejs.pipelineModule(),
       xr.XrController.pipelineModule(),
-      extras.FullWindowCanvas.pipelineModule(),
+      experience === 'atlas' ? createAtlasCanvasModule(fullWindowModule, atlasFrameBudget) : fullWindowModule,
       sceneModule,
     ]);
     viewport.content = `${normalViewport}, maximum-scale=1, user-scalable=no`;
@@ -881,8 +900,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=28`
-      : `?mode=phone&experience=${experience}&v=28`;
+      ? `?room=${session.code}&v=29`
+      : `?mode=phone&experience=${experience}&v=29`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

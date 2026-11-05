@@ -291,7 +291,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(atlasLive.campusVisible, true);
     assert.equal(atlasLive.noCoreControls, true);
     const filterResults = await page.evaluate(async () => {
-      const { smoothAtlasPose } = await import('./atlas-pose.js?v=1');
+      const { smoothAtlasPose } = await import('./atlas-pose.js?v=2');
       const T = window.THREE;
       return [30, 60, 120].map(fps => {
         const root = new T.Group();

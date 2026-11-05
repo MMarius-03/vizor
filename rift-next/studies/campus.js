@@ -195,18 +195,26 @@ export function createAtlas(THREE) {
       i % 2 ? materials.grassLight : materials.grass, `atlas-lawn-${i}`);
     patch.position.z = .017;
   });
-  campusLayout.paths.forEach(({ points, width }, i) => {
+  const pathSegments=[];
+  campusLayout.paths.forEach(({ points, width }) => {
     for (let j = 1; j < points.length; j += 1) {
       const a = xy(points[j - 1]), b = xy(points[j]);
       const length = a.distanceTo(b);
-      const curb = add(new THREE.BoxGeometry(length + .006, width * .003 + .024, .009),
-        materials.curb, `atlas-curb-${i}-${j}`);
-      curb.position.set((a.x+b.x)/2, (a.y+b.y)/2, .025);
-      curb.rotation.z = Math.atan2(b.y-a.y, b.x-a.x);
-      const path = add(new THREE.BoxGeometry(length, width * .003, .012), materials.path, `atlas-path-${i}-${j}`);
-      path.position.set(curb.position.x, curb.position.y, .032);
-      path.rotation.z = curb.rotation.z;
+      pathSegments.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,length,width:width*.003,angle:Math.atan2(b.y-a.y,b.x-a.x)});
     }
+  });
+  const pathBox=new THREE.BoxGeometry(1,1,1);
+  [false,true].forEach(isCurb=>{
+    const mesh=new THREE.InstancedMesh(pathBox,isCurb?materials.curb:materials.path,pathSegments.length);
+    mesh.name=isCurb?'atlas-curbs':'atlas-paths';
+    const matrix=new THREE.Matrix4(), orientation=new THREE.Quaternion();
+    pathSegments.forEach((segment,i)=>{
+      orientation.setFromAxisAngle(new THREE.Vector3(0,0,1),segment.angle);
+      matrix.compose(new THREE.Vector3(segment.x,segment.y,isCurb?.025:.032),orientation,
+        new THREE.Vector3(segment.length+(isCurb?.006:0),segment.width+(isCurb?.024:0),isCurb?.009:.012));
+      mesh.setMatrixAt(i,matrix);
+    });
+    root.add(mesh); solids.push(mesh);
   });
   const [x1,y1,x2,y2] = campusLayout.sportField;
   const fieldCenter = xy([(x1+x2)/2,(y1+y2)/2]);
@@ -493,6 +501,9 @@ export function createAtlas(THREE) {
     root,
     buildingTargets,
     selectPlace,
+    freezeStatic() {
+      root.traverse(object=>{ if(object!==root) { object.updateMatrix(); object.matrixAutoUpdate=false; } });
+    },
     getPlaceWorldPosition(place, target) {
       const point = xy(place.point);
       target.set(point.x, point.y, .10 + (buildingHeights.get(place.building) || 0));

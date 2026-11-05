@@ -14,7 +14,7 @@ ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](htt
 
 1. **Macheta — în lucru:** materiale inspirate din fotografiile campusului, umbre de contact pre-generate, muchii teșite, două rânduri de ferestre și siluete dedicate pentru intrarea corpului A, rotunda și pasarela corpului E, domurile Observatorului și acoperișul arcuit al bazinului. Curtea corpului A este corectată și posterul ATLAS este generat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
 2. **Puncte interactive — implementate în AR:** nouă pinuri pentru locurile din harta oficială USV se proiectează peste machetă. Atingerea unui pin sau a unei clădiri deschide o fișă compactă și linkul către sursă. Poziția, lizibilitatea și gesturile trebuie validate pe iPhone.
-3. **Poziția vizitatorului:** localizarea opțională va plasa un pin pe hartă după calibrarea coordonatelor geografice; numele corpului va fi afișat ca sigur doar când precizia permite.
+3. **Trasee fără GPS — planificate:** plecarea și destinația se aleg manual; traseul se desenează pe rețeaua aleilor. Exemplu: Restaurant → Biblioteca. Nu se solicită localizarea dispozitivului.
 
 ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după validarea machetei în AR.
 
@@ -22,3 +22,13 @@ ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după
 
 4. Vegetație cu trunchiuri și coroane variate, plus bănci în parc. Plasările sunt ilustrative, filtrate pentru a evita clădirile, terenul de sport și aleile. Elementele repetate folosesc instanțe pentru a limita costul de randare.
 5. Selecție spațială în AR: pinul sau clădirea atinsă deschide fișa și evidențiază corpul asociat printr-o nuanță albastră și un contur al acoperișului. Terenul de sport primește contur propriu; închiderea fișei și pierderea ancorei după perioada de grație elimină selecția. Nu se folosesc efecte fullscreen de postprocesare.
+
+## Ordinea următoarelor update-uri
+
+1. Stabilitate: filtrare adaptivă după mișcare susținută, respingerea salturilor izolate și reinițializare la redetectarea după pierderea ancorei. Camera rămâne controlată de tracking; filtrăm numai corecțiile ancorei.
+2. Randare: alei și borduri instanțiate, transformări locale statice în AR, actualizarea pinurilor fără traversarea întregului model. Rezoluția canvasului este plafonată la 1440 px pe latura lungă și coboară treptat la 85%/70% după performanță scăzută susținută; revine lent când există suficient timp pentru randare. Schimbările de tab și pauzele lungi nu declanșează retrogradarea.
+3. Urmează: selecție mai tolerantă a clădirilor apropiate, cu feedback vizual scurt.
+4. Urmează: fișă compactă extensibilă și ghidare pentru recentrare.
+5. Apoi: trasee între puncte alese manual, fără GPS. Luminozitatea materialelor rămâne un polish separat.
+
+Dimensionarea adaptivă păstrează lifecycle-ul [XRExtras FullWindowCanvas](https://github.com/8thwall/web/blob/master/xrextras/src/fullwindowcanvasmodule/full-window-canvas-module.ts), care dimensionează canvasul după ecran și video. Nu modifică manual proiecția camerei sau rezoluția sursei video. Testul `tools/atlas-performance.cjs` verifică filtrul la 30/60/120 fps, salturi izolate, redetectare, pragurile de calitate și rotirea canvasului. Aceste simulări nu măsoară FPS-ul sau stabilitatea camerei reale pe iPhone.
