@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=15';
+import { createAtlas, createOrbit } from './studies/models.js?v=16';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
@@ -1020,8 +1020,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=32`
-      : `?mode=phone&experience=${experience}&v=32`;
+      ? `?room=${session.code}&v=33`
+      : `?mode=phone&experience=${experience}&v=33`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

@@ -1,4 +1,4 @@
-export { createAtlas } from './campus.js?v=14';
+export { createAtlas } from './campus.js?v=15';
 
 export function createOrbit(THREE) {
   const root = new THREE.Group();

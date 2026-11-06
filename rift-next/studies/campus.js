@@ -103,11 +103,11 @@ export function createAtlas(THREE) {
       bumpScale:.006, roughness:.88, metalness:.01 }),
     dormWall: new THREE.MeshStandardMaterial({ color: 0xa6b1ac, bumpMap:wallRelief,
       bumpScale:.006, roughness:.92 }),
-    roof: new THREE.MeshStandardMaterial({ color: 0x203a46, map:roofTexture,
+    roof: new THREE.MeshStandardMaterial({ color: 0x536b77, map:roofTexture,
       bumpMap:roofRelief, bumpScale:.014, roughness:.58, metalness:.22 }),
-    dormRoof: new THREE.MeshStandardMaterial({ color: 0x4b2925, map:roofTexture,
+    dormRoof: new THREE.MeshStandardMaterial({ color: 0x746864, map:roofTexture,
       bumpMap:roofRelief, bumpScale:.012, roughness:.7, metalness:.08 }),
-    amenityRoof: new THREE.MeshStandardMaterial({ color: 0x1e4a60, map:roofTexture,
+    amenityRoof: new THREE.MeshStandardMaterial({ color: 0x4e8094, map:roofTexture,
       bumpMap:roofRelief, bumpScale:.015, roughness:.5, metalness:.3 }),
     neutralWall: new THREE.MeshStandardMaterial({ color: 0xa7aaa5, roughness:.92 }),
     neutralRoof: new THREE.MeshStandardMaterial({ color: 0x8d9492, map:roofTexture, roughness:.78 }),
@@ -384,6 +384,8 @@ export function createAtlas(THREE) {
     }
     const holder = new THREE.Group();
     holder.name = `atlas-building-${block.id}`;
+    // Keep the observatory footprint and domes' width; lower its complete silhouette by 10%.
+    if (block.id === 'OBSERVATOR') holder.scale.z = .9;
     root.add(holder);
     const dorm = block.id.startsWith('CĂMIN');
     const amenity = ['SPORT', 'NATAȚIE', 'OBSERVATOR', 'AULA'].includes(block.id);
@@ -569,7 +571,8 @@ export function createAtlas(THREE) {
     },
     getPlaceWorldPosition(place, target) {
       const point = xy(place.point);
-      target.set(point.x, point.y, .10 + (buildingHeights.get(place.building) || 0));
+      target.set(point.x, point.y, .10 + (buildingHeights.get(place.building) || 0) *
+        (place.building === 'OBSERVATOR' ? .9 : 1));
       return root.localToWorld(target);
     },
     setViewFromNorth() {

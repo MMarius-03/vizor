@@ -10,6 +10,11 @@ Aceste pagini sunt previzualizări vizuale pentru ATLAS și ORBIT. `index.html` 
 
 ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](https://usv.ro/resurse/harta-interactiva-usv/) drept referință pentru contururile și pozițiile relative ale corpurilor, aleilor și parcului. `campus-layout.json` este sursa comună; `tools/make-study-targets.py` generează `campus-layout.js` pentru modelul 3D și posterul pentru tracking. Proporțiile și unele detalii sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral.
 
+## De revizuit ulterior
+
+- Posterul ATLAS: un update vizual dedicat, păstrând reperele contrastante necesare recunoașterii imaginii.
+- Acoperișurile au acum nuanțe distincte de metal, ardezie caldă și albastru; silueta Observatorului este cu 10% mai scundă pe verticală, cu aceeași amprentă și lățime a domurilor. Validare pe iPhone înainte de reglaje fine.
+
 ## Campus map înainte de lansare
 
 1. **Macheta — în lucru:** materiale inspirate din fotografiile campusului, umbre de contact pre-generate, muchii teșite, două rânduri de ferestre și siluete dedicate pentru intrarea corpului A, rotunda și pasarela corpului E, domurile Observatorului și acoperișul arcuit al bazinului. Curtea corpului A este corectată și posterul ATLAS este generat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
