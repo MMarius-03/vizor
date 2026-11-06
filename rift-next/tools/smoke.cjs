@@ -20,6 +20,11 @@ const { chromium } = require(process.argv[2] || 'playwright');
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.addInitScript((renderScene) => {
+      window.__fakeLocation={calls:0,callback:null};
+      Object.defineProperty(navigator,'geolocation',{value:{
+        watchPosition(callback){window.__fakeLocation.calls++;window.__fakeLocation.callback=callback;return 0;},
+        clearWatch(){window.__fakeLocation.callback=null;}
+      }});
       let sceneModule;
       const events = {};
       window.__fakeAR = {
@@ -401,6 +406,12 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await page.locator('#atlas-recenter').isVisible(), true);
     await page.locator('#atlas-route-toggle').click();
     assert.equal(await page.locator('#atlas-route-panel').isVisible(),true);
+    assert.equal(await page.evaluate(()=>window.__fakeLocation.calls),0);
+    await page.locator('#atlas-route-panel summary').click();
+    await page.locator('#atlas-location button').click();
+    await page.evaluate(()=>window.__fakeLocation.callback({coords:{longitude:26.244,latitude:47.641,accuracy:8},timestamp:Date.now()}));
+    assert.equal(await page.locator('#atlas-location').getAttribute('data-state'),'located');
+    assert.ok(await page.evaluate(()=>window.__fakeAR.scene.scene.getObjectByName('campus-user-location').visible));
     for (const viewport of [{width:375,height:667},{width:932,height:430}]) {
       await page.setViewportSize(viewport);
       const rect=await page.locator('#atlas-route-panel').boundingBox();
@@ -409,6 +420,10 @@ const { chromium } = require(process.argv[2] || 'playwright');
     }
     await page.setViewportSize({width:430,height:932});
     if(process.env.ATLAS_SCREENSHOT)await page.screenshot({path:process.env.ATLAS_SCREENSHOT.replace(/\.png$/,'-route-panel.png')});
+    await page.locator('#atlas-location button').click();
+    assert.equal(await page.evaluate(()=>window.__fakeLocation.callback),null);
+    assert.equal(await page.evaluate(()=>window.__fakeAR.scene.scene.getObjectByName('campus-user-location').visible),false);
+    await page.locator('#atlas-route-panel summary').click();
     assert.equal(await page.locator('#atlas-route-start').inputValue(),'restaurant');
     assert.equal(await page.locator('#atlas-route-end').inputValue(),'biblioteca');
     await page.locator('#atlas-route-show').click();

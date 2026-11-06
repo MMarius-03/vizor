@@ -5,6 +5,7 @@ import { campusLayout } from './studies/campus-layout.js?v=4';
 import { atlasPlaces, atlasPlaceByBuilding } from './studies/atlas-places.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
 import { createFrameBudget } from './atlas-quality.js?v=2';
+import { mountCampusLocation } from './campus-location.js?v=1';
 
 const $=id=>document.getElementById(id), canvas=$('scene'), view=$('view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
@@ -14,6 +15,8 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(0x233640);
 const camera=new THREE.PerspectiveCamera(40,1,.01,40);
 const atlas=createAtlas(THREE);atlas.root.rotation.set(-Math.PI/2,0,0);scene.add(atlas.root);
 atlas.setProgress(1);atlas.setEffect(0);for(let i=0;i<120;i++)atlas.update(.05);atlas.freezeStatic();
+const locationUI=mountCampusLocation(THREE,atlas,$('location'));
+if(location.hash==='#location')$('location-panel').open=true;
 scene.add(new THREE.HemisphereLight(0xeaf3ee,0x243744,2.1));
 const key=new THREE.DirectionalLight(0xfff5e4,3.4);key.position.set(-3,5,3);scene.add(key);
 const rim=new THREE.DirectionalLight(0x9bcfe8,1.4);rim.position.set(3,2,-2);scene.add(rim);
@@ -53,7 +56,8 @@ canvas.addEventListener('pointerup',e=>{
   const rect=canvas.getBoundingClientRect(),ray=new THREE.Raycaster();
   scene.updateMatrixWorld(true);camera.updateMatrixWorld();
   ray.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);
-  const hit=ray.intersectObjects(atlas.buildingTargets,false).find(h=>h.object.parent.visible);
+  const hit=ray.intersectObjects([...locationUI.targets,...atlas.buildingTargets],false).find(h=>h.object.parent.visible);
+  if(hit?.object.userData.campusLocation){$('location-panel').open=true;$('location').scrollIntoView({block:'nearest'});return;}
   if(hit)select(places.find(p=>p.building===hit.object.userData.atlasBuildingId));
 });
 function showRoute(from,to){

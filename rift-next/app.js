@@ -5,6 +5,7 @@ import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atl
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
+import { mountCampusLocation } from './campus-location.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -58,6 +59,7 @@ let atlasRouteLabel = '';
 let atlasRouteEndpoints = null;
 const atlasPinButtons = [];
 let atlasPoint = null;
+let campusLocation = null;
 let restoredCoreState = null;
 let lastLaptopPulseCount = null;
 let lastLaptopComplete = null;
@@ -185,7 +187,7 @@ function configureExperience() {
   if (experience === 'atlas') {
     for (const id of ['phone-description','laptop-description']) {
       const link = document.createElement('a');
-      link.href='./explore.html?v=37';
+      link.href='./explore.html?v=38';
       link.textContent='Explorează fără cameră →';
       link.style.cssText='display:block;padding:14px 0;color:#80c7eb;text-decoration:underline;min-height:44px';
       $(id).after(link);
@@ -459,6 +461,8 @@ function makeProbe(scene) {
     for (let frame = 0; frame < 120; frame += 1) artifact.update(.05);
     if (experience === 'atlas') {
       orientAtlasFromNorth(); artifact.freezeStatic();
+      campusLocation?.dispose();
+      campusLocation=mountCampusLocation(three,artifact,$('atlas-location'));
       const saved = readRoute();
       if (saved && artifact.showRoute(saved.from,saved.to)) {
         atlasRouteLabel=`${saved.from.title} → ${saved.to.title}`;
@@ -775,7 +779,7 @@ function pickAtlasBuilding(clientX, clientY) {
   const hitAt = (x,y) => {
     pointer.set(((x-rect.left)/rect.width)*2-1,-((y-rect.top)/rect.height)*2+1);
     ray.setFromCamera(pointer,camera);
-    return ray.intersectObjects(artifact.buildingTargets,false)
+    return ray.intersectObjects([...(campusLocation?.targets||[]),...artifact.buildingTargets],false)
       .find(({object}) => object.parent.visible);
   };
   let hit = hitAt(clientX,clientY);
@@ -789,6 +793,10 @@ function pickAtlasBuilding(clientX, clientY) {
       }
       if(nearby.length) {hit=nearby.sort((a,b)=>a.distance-b.distance)[0];break;}
     }
+  }
+  if(hit?.object.userData.campusLocation){
+    closeAtlasInfo();$('atlas-route-panel').hidden=false;$('live').dataset.atlasRoutePanel='true';
+    $('atlas-location').parentElement.open=true;$('atlas-location').scrollIntoView({block:'nearest'});return;
   }
   const building = hit?.object.userData.atlasBuildingId;
   if (!building) {
@@ -1053,8 +1061,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=37`
-      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=37`;
+      ? `?room=${session.code}&v=38`
+      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=38`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

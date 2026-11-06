@@ -14,7 +14,9 @@ Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe lap
 
 **Fără cameră / fără poster:** deschide [Explorare CAMPUS](https://mmarius-03.github.io/vizor/rift-next/explore.html). Rotește prin tragere, mărește cu două degete sau rotița mouse-ului, selectează o clădire și alege traseul. Butonul **De sus** face aleile mai ușor de urmărit. Pe mobil panoul inferior se derulează separat. Încărcarea necesită internet, fără permisiune pentru cameră sau locație.
 
-Traseul confirmat se păstrează în `sessionStorage`, în aceeași filă, inclusiv după repornirea camerei. **Șterge** elimină și salvarea. Segmentele din spatele clădirilor sunt ascunse de acestea; schimbă unghiul pentru a le vedea. [Geolocația](./PLAN-GEOLOCATIE.md) rămâne o propunere pentru viitor.
+Traseul confirmat se păstrează în `sessionStorage`, în aceeași filă, inclusiv după repornirea camerei. **Șterge** elimină și salvarea. Segmentele din spatele clădirilor sunt ascunse de acestea; schimbă unghiul pentru a le vedea.
+
+**Locație beta, în campus:** deschide **Poziția mea în campus → Arată unde sunt** și permite locația precisă. Un pin roșu și o zonă estimată apar doar pentru o poziție recentă, suficient de precisă și în interiorul campusului. În AR opțiunea se află în panoul **Hartă**. Poți opri localizarea oricând; coordonatele nu sunt salvate și nu sunt trimise backendului proiectului. [Calibrarea, sursele și limitele geolocației](./PLAN-GEOLOCATIE.md) sunt documentate separat. Traseele păstrează plecarea aleasă manual.
 
 1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege CAMPUS. Laptopul arată posterul și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
 2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta CAMPUS de acolo.
