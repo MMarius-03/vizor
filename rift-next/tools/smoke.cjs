@@ -421,6 +421,15 @@ const { chromium } = require(process.argv[2] || 'playwright');
       await page.evaluate(()=>window.__fakeAR.tick());
       await page.screenshot({path:process.env.ATLAS_SCREENSHOT.replace(/\.png$/,'-route.png')});
     }
+    await page.reload();
+    await page.locator('#start-ar').click();
+    await page.waitForFunction(()=>!!window.__fakeAR?.scene);
+    await page.evaluate(() => window.__fakeAR.emit('reality.imagefound', {
+      name:'atlas-screen',position:{x:0,y:0,z:-1},rotation:{x:0,y:0,z:0,w:1},scale:1,
+      scaledWidth:.75,scaledHeight:1,
+    }));
+    assert.match((await page.evaluate(()=>window.__RIFT_NEXT__.getState())).atlasRouteLabel,/Restaurantul.*Biblioteca/);
+    assert.ok(await page.evaluate(()=>window.__fakeAR.scene.scene.getObjectByName('atlas-route-pulse')));
     await page.locator('#atlas-route-toggle').click();
     await page.locator('#atlas-route-start').selectOption('aula');
     await page.locator('#atlas-route-end').selectOption('aula');

@@ -12,6 +12,10 @@ Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe lap
 
 ## Încearcă experiența
 
+**Fără cameră / fără poster:** deschide [Explorare CAMPUS](https://mmarius-03.github.io/vizor/rift-next/explore.html). Rotește prin tragere, mărește cu două degete sau rotița mouse-ului, selectează o clădire și alege traseul. Butonul **De sus** face aleile mai ușor de urmărit. Pe mobil panoul inferior se derulează separat. Încărcarea necesită internet, fără permisiune pentru cameră sau locație.
+
+Traseul confirmat se păstrează în `sessionStorage`, în aceeași filă, inclusiv după repornirea camerei. **Șterge** elimină și salvarea. Segmentele din spatele clădirilor sunt ascunse de acestea; schimbă unghiul pentru a le vedea. [Geolocația](./PLAN-GEOLOCATIE.md) rămâne o propunere pentru viitor.
+
 1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege CAMPUS. Laptopul arată posterul și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
 2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta CAMPUS de acolo.
 3. Încadrează posterul CAMPUS întreg pe laptop. Macheta apare deasupra tastaturii; apropie-te și mișcă telefonul lateral, apoi atinge clădirile sau pinurile. Traseul dintre două locuri se alege fără GPS.

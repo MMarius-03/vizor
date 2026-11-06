@@ -1,9 +1,10 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=19';
+import { createAtlas, createOrbit } from './studies/models.js?v=20';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=2';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
-import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
+import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=2';
+import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
@@ -181,6 +182,15 @@ function configureExperience() {
   $('phone-eyebrow').innerHTML = `<span class="led"></span> ${copy.phoneEyebrow}`;
   $('phone-title').innerHTML = copy.phoneTitle;
   $('phone-description').textContent = copy.phoneDescription;
+  if (experience === 'atlas') {
+    for (const id of ['phone-description','laptop-description']) {
+      const link = document.createElement('a');
+      link.href='./explore.html?v=37';
+      link.textContent='Explorează fără cameră →';
+      link.style.cssText='display:block;padding:14px 0;color:#80c7eb;text-decoration:underline;min-height:44px';
+      $(id).after(link);
+    }
+  }
   $('target-image').src = copy.target;
   $('target-image').alt = copy.targetAlt;
   $('target-label').textContent = copy.targetLabel;
@@ -251,6 +261,8 @@ function setupAtlasRoutes() {
     option.value=place.id;option.textContent=place.title;select.append(option);
   }
   start.value='restaurant';end.value='biblioteca';
+  const saved = readRoute();
+  if (saved) { start.value=saved.from.id; end.value=saved.to.id; }
   $('atlas-route-toggle').addEventListener('click',()=>{
     const panel=$('atlas-route-panel');
     panel.hidden=!panel.hidden;
@@ -270,6 +282,7 @@ function setupAtlasRoutes() {
     }
     atlasRouteLabel=`${from.title} → ${to.title}`;
     atlasRouteEndpoints=new Set([from.id,to.id]);
+    saveRoute(from,to);
     message.textContent=`Traseu orientativ: ${atlasRouteLabel}. Verifică intrările și accesul în campus.`;
     $('target-count').textContent='CAMPUS / TRASEU ACTIV';
     $('atlas-route-panel').hidden=true;
@@ -278,6 +291,7 @@ function setupAtlasRoutes() {
   });
   $('atlas-route-clear').addEventListener('click',()=>{
     artifact?.clearRoute();atlasRouteLabel='';atlasRouteEndpoints=null;
+    forgetRoute();
     $('target-count').textContent='CAMPUS / AR LIVE';
     $('atlas-route-message').textContent='Traseu șters. Alege două locuri.';
     $('instruction').textContent=experienceCopy.atlas.found;
@@ -443,7 +457,15 @@ function makeProbe(scene) {
     artifact.setEffect(0);
     // Settle the model once, then leave it still for this live beta.
     for (let frame = 0; frame < 120; frame += 1) artifact.update(.05);
-    if (experience === 'atlas') { orientAtlasFromNorth(); artifact.freezeStatic(); }
+    if (experience === 'atlas') {
+      orientAtlasFromNorth(); artifact.freezeStatic();
+      const saved = readRoute();
+      if (saved && artifact.showRoute(saved.from,saved.to)) {
+        atlasRouteLabel=`${saved.from.title} → ${saved.to.title}`;
+        atlasRouteEndpoints=new Set([saved.from.id,saved.to.id]);
+        $('atlas-route-message').textContent=`Traseu restaurat: ${atlasRouteLabel}. Intrările sunt orientative.`;
+      }
+    }
     artifact.root.position.z = experience === 'atlas' ? .18 : .12;
   }
   targetRoot.add(artifact.root);
@@ -1031,8 +1053,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=36`
-      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=36`;
+      ? `?room=${session.code}&v=37`
+      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=37`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

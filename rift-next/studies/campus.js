@@ -503,15 +503,15 @@ export function createAtlas(THREE) {
           new THREE.Vector3(a.x,a.y,z),new THREE.Vector3(b.x,b.y,z)));
       }
       routeGroup.add(new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(48,routePoints.length*6),radius,6,false),
-        new THREE.MeshBasicMaterial({color,depthTest:false})));
+        new THREE.MeshBasicMaterial({color})));
     }
     const mark=(p,color,name)=>{
-      const ring=new THREE.Mesh(new THREE.TorusGeometry(.042,.008,6,24),new THREE.MeshBasicMaterial({color,depthTest:false}));
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(.042,.008,6,24),new THREE.MeshBasicMaterial({color}));
       ring.position.set(p.x,p.y,.08);ring.name=name;routeGroup.add(ring);
     };
     mark(routePoints[0],0x74e5ff,'atlas-route-start');
     mark(routePoints.at(-1),0xffbb61,'atlas-route-destination');
-    routePulse=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),new THREE.MeshBasicMaterial({color:0xffffff,depthTest:false}));
+    routePulse=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),new THREE.MeshBasicMaterial({color:0xffffff}));
     routePulse.name='atlas-route-pulse';routeGroup.add(routePulse);
     routeGroup.traverse(object=>{if(object.isMesh)object.renderOrder=10;});
     root.add(routeGroup);return true;

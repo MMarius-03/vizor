@@ -1,13 +1,16 @@
 // Slow quality changes avoid oscillation and ignore startup/background stalls.
 export function createFrameBudget() {
-  let level=0, elapsed=0, frames=0, slow=0, fast=0, cooldown=4;
+  let level=0, elapsed=0, frames=0, slow=0, fast=0, cooldown=4, stalls=0;
   const scales=[1,.85,.7];
   return {
     get scale() { return scales[level]; },
     sample(ms,visible=true) {
-      if (!visible || !Number.isFinite(ms) || ms<=0 || ms>100) {
-        elapsed=frames=slow=fast=0; cooldown=4; return false;
+      if (!visible || !Number.isFinite(ms) || ms<=0) {
+        elapsed=frames=slow=fast=stalls=0; cooldown=4; return false;
       }
+      // Ignore one interruption, but count repeated slow frames even below 1 FPS.
+      if (ms>100) { if (++stalls===1) return false; } else stalls=0;
+      ms=Math.min(ms,1000);
       cooldown=Math.max(0,cooldown-ms/1000); elapsed+=ms; frames++;
       if (elapsed<2000) return false;
       const fps=frames*1000/elapsed; elapsed=frames=0;
