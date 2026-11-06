@@ -50,7 +50,7 @@ export function createLocationController({onChange,geolocation=navigator.geoloca
         if(token!==generation||!active)return;
         last=null;
         if(error.code===1){active=false;clear();}
-        notify({state:'error',text:error.code===1?'Accesul la locație a fost refuzat. Îl poți permite din setările site-ului.':error.code===3?'Localizarea durează. Rămâi într-un loc deschis; continuăm să căutăm.':'Poziția nu este disponibilă momentan. Continuăm să căutăm.'});
+        notify({state:error.code===1?'denied':'error',text:error.code===1?'Safari a refuzat accesul la locație. Schimbă permisiunea pentru acest site, apoi încearcă din nou.':error.code===3?'Localizarea durează. Rămâi într-un loc deschis; continuăm să căutăm.':'Poziția nu este disponibilă momentan. Continuăm să căutăm.'});
       },{enableHighAccuracy:true,maximumAge:0,timeout:15000});
       if(token===generation&&active)watch=id;else geolocation.clearWatch(id);
     } catch {active=false;clear();notify({state:'error',text:'Localizarea nu a putut porni. Verifică permisiunea browserului.'});}
@@ -66,8 +66,8 @@ export function createLocationController({onChange,geolocation=navigator.geoloca
 }
 
 export function mountCampusLocation(THREE,atlas,container) {
-  container.innerHTML='<button type="button" class="geo-toggle">Arată unde sunt</button><p class="geo-status" role="status">Locație beta · disponibilă în campus. Poziția rămâne în browser.</p><p class="geo-note">Machetă schematică; verifică poziția pe teren. <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Date © OpenStreetMap contributors</a></p>';
-  const button=container.querySelector('button'),status=container.querySelector('.geo-status');
+  container.innerHTML='<button type="button" class="geo-toggle">Arată unde sunt</button><p class="geo-status" role="status">Locație beta · disponibilă în campus. Poziția rămâne în browser.</p><div class="geo-help" hidden><p>Pe iPhone: apasă meniul din stânga adresei Safari → Setări pentru site → Localizare → Permite sau Întreabă. Verifică și Configurări → Confidențialitate și securitate → Servicii de localizare → Safari Websites, cu Localizare precisă activată. Revino aici și apasă „Arată unde sunt”.</p><a href="https://support.apple.com/guide/iphone/browse-the-web-privately-iphb01fc3c85/ios" target="_blank" rel="noopener noreferrer">Pașii Apple pentru Safari ↗</a></div><p class="geo-note">Machetă schematică; verifică poziția pe teren. <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Date © OpenStreetMap contributors</a></p>';
+  const button=container.querySelector('button'),status=container.querySelector('.geo-status'),help=container.querySelector('.geo-help');
   const root=new THREE.Group();root.name='campus-user-location';root.visible=false;atlas.root.add(root);
   const pin=new THREE.Mesh(new THREE.SphereGeometry(.035,16,10),new THREE.MeshBasicMaterial({color:0xef4545}));
   pin.position.z=.48;root.add(pin);
@@ -81,7 +81,7 @@ export function mountCampusLocation(THREE,atlas,container) {
   ring.matrixAutoUpdate=false;
   let result={state:'off',text:'Localizarea este oprită.'};
   const controller=createLocationController({onChange:next=>{
-    result=next;status.textContent=next.text;container.dataset.state=next.state;
+    result=next;status.textContent=next.text;container.dataset.state=next.state;help.hidden=next.state!=='denied';
     button.textContent=next.active?'Oprește locația':'Arată unde sunt';button.setAttribute('aria-pressed',String(next.active));
     root.visible=next.state==='located';
     if(root.visible){root.position.set((next.point[0]/1000-.5)*3.28,(.5-next.point[1]/1000)*2.44,0);

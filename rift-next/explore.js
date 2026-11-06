@@ -5,7 +5,7 @@ import { campusLayout } from './studies/campus-layout.js?v=4';
 import { atlasPlaces, atlasPlaceByBuilding } from './studies/atlas-places.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
 import { createFrameBudget } from './atlas-quality.js?v=2';
-import { mountCampusLocation } from './campus-location.js?v=1';
+import { mountCampusLocation } from './campus-location.js?v=2';
 
 const $=id=>document.getElementById(id), canvas=$('scene'), view=$('view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
