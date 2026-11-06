@@ -38,9 +38,9 @@
     const room = new URLSearchParams(location.search).get('room');
     const onPhone = /iPhone|Android|Mobile/i.test(navigator.userAgent) || !!room;
     const core = document.getElementById('choose-core');
-    core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=34`;
+    core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=35`;
     for (const name of ['atlas', 'orbit']) {
-      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name === 'atlas' ? 'campus' : name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=34`;
+      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name === 'atlas' ? 'campus' : name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=35`;
     }
     if (onPhone) {
       document.querySelector('footer span').textContent = 'ALEGE UN OBIECT ȘI PORNEȘTE CAMERA DIN SPATE';

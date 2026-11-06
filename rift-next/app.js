@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=17';
+import { createAtlas, createOrbit } from './studies/models.js?v=18';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=2';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
@@ -292,6 +292,7 @@ function updateAtlasPins(now) {
     if (!$('atlas-info').hidden) closeAtlasInfo();
     return;
   }
+  if (!$('atlas-route-panel').hidden) { container.hidden = true; return; }
   if (container.hidden) container.hidden = false;
   targetRoot.updateWorldMatrix(true, false);
   artifact.root.updateWorldMatrix(false, false);
@@ -313,11 +314,11 @@ function updateAtlasPins(now) {
     artifact.getPlaceWorldPosition(place, point).project(camera);
     const x = rect.left + (point.x + 1) * rect.width / 2;
     const y = rect.top + (1 - point.y) * rect.height / 2;
-    const underInfo = infoRect && x + 18 > infoRect.left && x - 18 < infoRect.right &&
-      y + 18 > infoRect.top && y - 18 < infoRect.bottom;
+    const underInfo = infoRect && x + 22 > infoRect.left && x - 22 < infoRect.right &&
+      y + 22 > infoRect.top && y - 22 < infoRect.bottom;
     const visible = point.z >= -1 && point.z <= 1 && x >= rect.left + 22 && x <= rect.right - 22 &&
       y >= Math.max(rect.top + 22, topEdge + 22) && y <= Math.min(rect.bottom - 22, bottomEdge - 22) && !underInfo &&
-      occupied.every(([px, py]) => Math.hypot(px - x, py - y) > (button.hidden ? 52 : 46));
+      occupied.every(([px, py]) => Math.max(Math.abs(px - x), Math.abs(py - y)) > (button.hidden ? 52 : 46));
     if (button.hidden !== !visible) button.hidden = !visible;
     if (visible) {
       button.style.transform = `translate3d(${(x - 22).toFixed(2)}px, ${(y - 22).toFixed(2)}px, 0)`;
@@ -462,6 +463,7 @@ function orientAtlasFromNorth() {
 }
 
 function applyTarget(detail) {
+  if (document.hidden) return false;
   if (!targetRoot || detail?.name !== targetName || !detail.position || !detail.rotation) return false;
   const position = detail.position;
   const rotation = detail.rotation;
@@ -583,6 +585,10 @@ function updateTrackingHold(now) {
   const elapsed = now - lossStartedAt;
   if (elapsed >= lossGraceMs) {
     targetRoot.visible = false;
+    activePointer = null;
+    atlasPointer = null;
+    $('node-controls').hidden = true;
+    $('section-toggle').hidden = true;
     if (experience === 'atlas') updateAtlasPins(now);
     lossStartedAt = 0;
     setStatus('IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
@@ -959,6 +965,10 @@ if (phoneMode) {
     hasPose = false;
     lossStartedAt = 0;
     targetRoot.visible = false;
+    activePointer = null;
+    atlasPointer = null;
+    $('node-controls').hidden = true;
+    $('section-toggle').hidden = true;
     if (experience === 'atlas') {
       atlasRecentering = true;
       $('live').dataset.recentering = 'true';
@@ -966,7 +976,7 @@ if (phoneMode) {
     }
     closeAtlasInfo();
     lastEvent = 'camera reluată';
-    setStatus('REÎNCADREAZĂ', 'searching', `Reîncadrează posterul ${experienceCopy[experience].label} întreg pe laptop.`);
+    setStatus('REÎNCADREAZĂ', 'searching', `Reîncadrează posterul ${experienceCopy[experience]?.label || 'RIFT CORE'} întreg pe laptop.`);
   };
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cameraWasInterrupted = !!targetRoot;
@@ -1021,8 +1031,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=34`
-      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=34`;
+      ? `?room=${session.code}&v=35`
+      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=35`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

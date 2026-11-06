@@ -29,6 +29,26 @@ fs.mkdirSync(output, { recursive: true });
     assert.ok(atlasStats.calls < 200 && atlasStats.triangles < 50000,
       `ATLAS exceeded the mobile rendering budget: ${JSON.stringify(atlasStats)}`);
     console.log('ATLAS render budget:', JSON.stringify(atlasStats));
+    const geometryAudit=await page.evaluate(()=>{
+      const atlas=window.__RIFT_STUDY__.atlas;
+      atlas.setProgress(1);
+      for(let i=0;i<120;i++)atlas.update(.05);
+      const observatory=atlas.root.getObjectByName('atlas-building-OBSERVATOR');
+      const building=atlas.root.getObjectByName('atlas-building-A');
+      const body=building.getObjectByName('atlas-building-A-volume');
+      body.geometry.computeBoundingBox();
+      const roof=building.children.find(child=>child.geometry?.type==='ShapeGeometry');
+      const from={entrance:[375,568]},to={entrance:[582,730]};
+      const routeOk=atlas.showRoute(from,to);
+      const route=atlas.root.getObjectByName('atlas-campus-route');
+      const invalid=atlas.showRoute(from,from);
+      const preserved=route===atlas.root.getObjectByName('atlas-campus-route');
+      atlas.clearRoute();atlas.setProgress(.9);
+      return {scale:observatory.scale.toArray(),roofVisible:roof.position.z>body.position.z+body.geometry.boundingBox.max.z,routeOk,invalid,preserved};
+    });
+    assert.deepEqual(geometryAudit.scale,[1,1,.9]);
+    assert.ok(geometryAudit.roofVisible,'roof must sit above the bevelled wall cap');
+    assert.ok(geometryAudit.routeOk&&!geometryAudit.invalid&&geometryAudit.preserved,'failed route must preserve the active route');
     const landscape = await page.evaluate(() => {
       const root=window.__RIFT_STUDY__.atlas.root;
       return { trees:root.getObjectByName('atlas-trees').count,

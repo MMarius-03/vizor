@@ -71,18 +71,6 @@ export function campusRoute(layout, start, destination) {
     s.splits.sort((a,b)=>a.t-b.t);
     for(let i=1;i<s.splits.length;i++)connect(s.splits[i-1].id,s.splits[i].id);
   }
-  // Short links around footprints replace drawn alley strokes that intersect buildings.
-  const pathNodeCount=nodes.length;
-  const corners=layout.buildings.flatMap(b=>{
-    const xs=b.points.map(p=>p[0]),ys=b.points.map(p=>p[1]);
-    const l=Math.min(...xs)-9,r=Math.max(...xs)+9,t=Math.min(...ys)-9,d=Math.max(...ys)+9;
-    return [[l,t],[r,t],[r,d],[l,d]];
-  }).filter(p=>!obstacles.some(poly=>inside(p,poly)));
-  const cornerIds=corners.map(point);
-  for(const id of cornerIds){
-    for(let other=0;other<pathNodeCount;other++)if(Math.hypot(nodes[id][0]-nodes[other][0],nodes[id][1]-nodes[other][1])<90)connect(id,other);
-    for(const other of cornerIds)if(other!==id&&Math.hypot(nodes[id][0]-nodes[other][0],nodes[id][1]-nodes[other][1])<170)connect(id,other);
-  }
   const distances=nodes.map(()=>Infinity),previous=nodes.map(()=>-1),visited=new Set();
   distances[origin]=0;
   while(visited.size<nodes.length){

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=17';
+import { createAtlas, createOrbit } from './models.js?v=18';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');

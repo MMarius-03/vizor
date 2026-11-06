@@ -1,5 +1,5 @@
 import { campusLayout } from './campus-layout.js?v=4';
-import { campusRoute } from './campus-route.js?v=2';
+import { campusRoute } from './campus-route.js?v=3';
 
 // Coordinates and proportions share one source with the printed image target.
 export function createAtlas(THREE) {
@@ -432,7 +432,8 @@ export function createAtlas(THREE) {
     const roof = new THREE.Mesh(new THREE.ShapeGeometry(shape),
       block.neutral ? materials.neutralRoof : dorm ? materials.dormRoof
         : amenity ? materials.amenityRoof : materials.roof);
-    roof.position.z = .039 + block.height;
+    // Clear the extruded cap, including its .006 bevel, so roof materials are visible.
+    roof.position.z = .046 + block.height;
     roof.userData.atlasBuildingId = block.id;
     holder.add(roof); solids.push(roof); buildingTargets.push(roof);
     const roofEdge = new THREE.LineSegments(new THREE.EdgesGeometry(roof.geometry), roofRimMaterial);
@@ -451,10 +452,11 @@ export function createAtlas(THREE) {
     const loc = xy(labelPoint);
     const label = new THREE.Mesh(new THREE.PlaneGeometry(block.id.length > 3 ? .23 : .17, .11),
       new THREE.MeshBasicMaterial({ map:labelTexture(block.id), transparent:true, depthWrite:false }));
-    label.position.set(loc.x,loc.y,.043+block.height);
+    label.position.set(loc.x,loc.y,.052+block.height);
     holder.add(label); labels.push(label);
     }
-    buildings.push({ holder, start:.12+index*.022, end:.48+index*.023 });
+    buildings.push({ holder, heightScale:block.id === 'OBSERVATOR' ? .9 : 1,
+      start:.12+index*.022, end:.48+index*.023 });
   });
   const marker = add(new THREE.SphereGeometry(.026,10,8), materials.accent, 'atlas-campus-marker');
   const markerPoint = xy([612,556]);
@@ -470,10 +472,10 @@ export function createAtlas(THREE) {
     routeGroup=routePulse=routePoints=null;routeDistance=routePhase=0;
   };
   const showRoute = (start,destination) => {
-    clearRoute();
     if(!start||!destination)return false;
     const points=campusRoute(campusLayout,start.entrance || start.point,destination.entrance || destination.point);
     if(!points||points.length<2)return false;
+    clearRoute();
     routeGroup=new THREE.Group();routeGroup.name='atlas-campus-route';
     routePoints=points.map(xy);routeDistance=0;
     for(let i=1;i<routePoints.length;i++)routeDistance+=routePoints[i-1].distanceTo(routePoints[i]);
@@ -541,7 +543,7 @@ export function createAtlas(THREE) {
     rings.forEach(points=>points.forEach((point,i)=>{
       const a=xy(point),b=xy(points[(i+1)%points.length]);
       const rail=new THREE.Mesh(new THREE.BoxGeometry(a.distanceTo(b)+.012,.014,.01),selectionMaterial);
-      rail.position.set((a.x+b.x)/2,(a.y+b.y)/2,block ? .05+block.height : .045);
+      rail.position.set((a.x+b.x)/2,(a.y+b.y)/2,block ? .055+block.height : .045);
       rail.rotation.z=Math.atan2(b.y-a.y,b.x-a.x);
       selection.add(rail);
     }));
@@ -595,9 +597,9 @@ export function createAtlas(THREE) {
       outlines.forEach(({ mesh,line }) => {
         line.position.copy(mesh.position); line.quaternion.copy(mesh.quaternion); line.scale.copy(mesh.scale);
       });
-      buildings.forEach(({ holder,start,end }) => {
+      buildings.forEach(({ holder,start,end,heightScale }) => {
         holder.visible = progress > start;
-        holder.scale.z = Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
+        holder.scale.z = heightScale * Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
       });
       contactShadows.visible = !technical && progress > .3;
       contactShadows.material.opacity = .65 * THREE.MathUtils.smoothstep(progress,.3,.78);
