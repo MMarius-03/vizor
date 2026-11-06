@@ -49,6 +49,35 @@ fs.mkdirSync(output, { recursive: true });
     assert.deepEqual(geometryAudit.scale,[1,1,.9]);
     assert.ok(geometryAudit.roofVisible,'roof must sit above the bevelled wall cap');
     assert.ok(geometryAudit.routeOk&&!geometryAudit.invalid&&geometryAudit.preserved,'failed route must preserve the active route');
+    const observatoryAudit = await page.evaluate(async () => {
+      const THREE = await import('three');
+      const atlas = window.__RIFT_STUDY__.atlas;
+      atlas.setProgress(1);
+      for (let i=0;i<120;i++) atlas.update(.05);
+      atlas.root.updateWorldMatrix(true,true);
+      const holder = atlas.root.getObjectByName('atlas-building-OBSERVATOR');
+      const dome = holder.getObjectByName('atlas-observatory-main-dome');
+      const tower = holder.getObjectByName('atlas-observatory-tower-dome');
+      const collar = holder.getObjectByName('atlas-observatory-collar').geometry.parameters;
+      const spacing = Math.hypot(dome.position.x-tower.position.x,dome.position.y-tower.position.y);
+      const picks = [dome,tower].map(mesh => {
+        const localTop = mesh.position.clone().add(new THREE.Vector3(0,0,.25));
+        const origin = holder.localToWorld(localTop);
+        const direction = new THREE.Vector3(0,0,-1).transformDirection(holder.matrixWorld);
+        const hit = new THREE.Raycaster(origin,direction).intersectObjects(atlas.buildingTargets,false)
+          .find(({object})=>object.parent.visible);
+        return { expected:mesh.name, actual:hit?.object.name, building:hit?.object.userData.atlasBuildingId };
+      });
+      atlas.setProgress(.9);
+      return { separated:spacing > Math.max(collar.radiusTop,collar.radiusBottom) + tower.geometry.parameters.radius, picks,
+        labelled:atlas.buildingTargets.every(mesh=>!!mesh.userData.atlasBuildingId) };
+    });
+    assert.ok(observatoryAudit.separated,'observatory domes and collars must not intersect');
+    assert.ok(observatoryAudit.labelled,'every pickable surface must identify its building');
+    for (const pick of observatoryAudit.picks) {
+      assert.equal(pick.actual,pick.expected,'dome touch must hit the visible dome surface');
+      assert.equal(pick.building,'OBSERVATOR');
+    }
     const landscape = await page.evaluate(() => {
       const root=window.__RIFT_STUDY__.atlas.root;
       return { trees:root.getObjectByName('atlas-trees').count,

@@ -307,9 +307,12 @@ export function createAtlas(THREE) {
     const mesh = new THREE.Mesh(geometry,material);
     mesh.name = name;
     mesh.position.copy(position);
+    // Visible landmark details must pick their owner, not a building behind them.
+    mesh.userData.atlasBuildingId = holder.userData.atlasBuildingId;
     if (rotation) mesh.rotation.set(rotation.x,rotation.y,rotation.z);
     holder.add(mesh);
     solids.push(mesh);
+    buildingTargets.push(mesh);
     return mesh;
   };
   const addLandmarkDetails = (block,holder) => {
@@ -345,18 +348,30 @@ export function createAtlas(THREE) {
         `atlas-E-bridge-pillar-${side}`,new THREE.Vector3(bridge.x+side*.135,bridge.y,z0+.07));
     }
     if (block.id === 'OBSERVATOR') {
-      const domePoint = xy([875,397]);
-      const roofZ = z0 + block.height;
-      detailMesh(holder,new THREE.CylinderGeometry(.102,.108,.035,24),materials.wall,'atlas-observatory-collar',
-        new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.017),new THREE.Euler(Math.PI/2,0,0));
-      detailMesh(holder,new THREE.SphereGeometry(.101,24,10,0,Math.PI*2,0,Math.PI/2),materials.dome,
-        'atlas-observatory-main-dome',new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.035),
+      // Separate the low planetarium dome from the taller glazed telescope tower.
+      // Both sit on the finished roof, above the extrusion's bevelled cap.
+      const domePoint = xy([885,404]);
+      const roofZ = .046 + block.height;
+      detailMesh(holder,new THREE.CylinderGeometry(.071,.073,.024,24),materials.wall,'atlas-observatory-collar',
+        new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.012),new THREE.Euler(Math.PI/2,0,0));
+      const dome = detailMesh(holder,new THREE.SphereGeometry(.070,24,10,0,Math.PI*2,0,Math.PI/2),materials.dome,
+        'atlas-observatory-main-dome',new THREE.Vector3(domePoint.x,domePoint.y,roofZ+.024),
         new THREE.Euler(Math.PI/2,0,0));
-      const towerPoint = xy([889,369]);
-      detailMesh(holder,new THREE.CylinderGeometry(.047,.052,.09,20),materials.glass,'atlas-observatory-tower',
+      dome.scale.y = .68;
+      const towerPoint = xy([868,365]);
+      detailMesh(holder,new THREE.CylinderGeometry(.031,.032,.09,20),materials.window,'atlas-observatory-tower',
         new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.045),new THREE.Euler(Math.PI/2,0,0));
-      detailMesh(holder,new THREE.SphereGeometry(.052,20,8,0,Math.PI*2,0,Math.PI/2),materials.dome,
-        'atlas-observatory-tower-dome',new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.09),
+      for (let i = 0; i < 8; i += 1) {
+        const angle = i * Math.PI / 4;
+        detailMesh(holder,new THREE.BoxGeometry(.003,.003,.09),materials.wall,
+          `atlas-observatory-mullion-${i}`,new THREE.Vector3(
+            towerPoint.x+Math.cos(angle)*.032,towerPoint.y+Math.sin(angle)*.032,roofZ+.045));
+      }
+      detailMesh(holder,new THREE.CylinderGeometry(.034,.034,.008,20),materials.wall,
+        'atlas-observatory-tower-rim',new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.088),
+        new THREE.Euler(Math.PI/2,0,0));
+      detailMesh(holder,new THREE.SphereGeometry(.034,20,8,0,Math.PI*2,0,Math.PI/2),materials.dome,
+        'atlas-observatory-tower-dome',new THREE.Vector3(towerPoint.x,towerPoint.y,roofZ+.092),
         new THREE.Euler(Math.PI/2,0,0));
     }
     if (block.id === 'NATAȚIE') {
@@ -384,7 +399,8 @@ export function createAtlas(THREE) {
     }
     const holder = new THREE.Group();
     holder.name = `atlas-building-${block.id}`;
-    // Keep the observatory footprint and domes' width; lower its complete silhouette by 10%.
+    holder.userData.atlasBuildingId = block.id;
+    // Keep the observatory footprint; lower its complete silhouette by 10%.
     if (block.id === 'OBSERVATOR') holder.scale.z = .9;
     root.add(holder);
     const dorm = block.id.startsWith('CĂMIN');
