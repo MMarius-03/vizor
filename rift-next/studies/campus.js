@@ -1,5 +1,5 @@
 import { campusLayout } from './campus-layout.js?v=3';
-import { campusRoute } from './campus-route.js?v=1';
+import { campusRoute } from './campus-route.js?v=2';
 
 // Coordinates and proportions share one source with the printed image target.
 export function createAtlas(THREE) {
@@ -92,16 +92,16 @@ export function createAtlas(THREE) {
     ground: new THREE.MeshStandardMaterial({ color: 0xb8bbb2, roughness: .98 }),
     plan: new THREE.MeshStandardMaterial({ color: 0xe9e7dc, map:groundTexture,
       bumpMap:groundRelief, bumpScale:.012, roughness:.94 }),
-    grass: new THREE.MeshStandardMaterial({ color: 0x789a62, map:groundTexture,
+    grass: new THREE.MeshStandardMaterial({ color: 0x8cae70, map:groundTexture,
       bumpMap:groundRelief, bumpScale:.016, roughness:1 }),
-    grassLight: new THREE.MeshStandardMaterial({ color: 0x8eaa6b, map:groundTexture,
+    grassLight: new THREE.MeshStandardMaterial({ color: 0xa6c17d, map:groundTexture,
       bumpMap:groundRelief, bumpScale:.016, roughness:1 }),
     path: new THREE.MeshStandardMaterial({ color: 0xd3d1c7, bumpMap:groundRelief,
       bumpScale:.009, roughness:.96 }),
     curb: new THREE.MeshStandardMaterial({ color: 0xa8aaa5, roughness:1 }),
-    wall: new THREE.MeshStandardMaterial({ color: 0x8f9c99, bumpMap:wallRelief,
+    wall: new THREE.MeshStandardMaterial({ color: 0xaebeb9, bumpMap:wallRelief,
       bumpScale:.006, roughness:.88, metalness:.01 }),
-    dormWall: new THREE.MeshStandardMaterial({ color: 0x858f8b, bumpMap:wallRelief,
+    dormWall: new THREE.MeshStandardMaterial({ color: 0xa6b1ac, bumpMap:wallRelief,
       bumpScale:.006, roughness:.92 }),
     roof: new THREE.MeshStandardMaterial({ color: 0x203a46, map:roofTexture,
       bumpMap:roofRelief, bumpScale:.014, roughness:.58, metalness:.22 }),
@@ -470,7 +470,7 @@ export function createAtlas(THREE) {
   const showRoute = (start,destination) => {
     clearRoute();
     if(!start||!destination)return false;
-    const points=campusRoute(campusLayout,start.point,destination.point);
+    const points=campusRoute(campusLayout,start.entrance || start.point,destination.entrance || destination.point);
     if(!points||points.length<2)return false;
     routeGroup=new THREE.Group();routeGroup.name='atlas-campus-route';
     routePoints=points.map(xy);routeDistance=0;
@@ -498,6 +498,8 @@ export function createAtlas(THREE) {
   };
   const updateRoute = dt => {
     if(!routePulse||routeDistance<=0)return;
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){routePulse.visible=false;return;}
+    routePulse.visible=true;
     routePhase=(routePhase+dt*.34)%routeDistance;
     let left=routePhase;
     for(let i=1;i<routePoints.length;i++){

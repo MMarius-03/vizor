@@ -50,6 +50,7 @@ body.target-focus .target-stage img{height:min(82dvh,calc((100dvw - 24px)*1.3333
 .atlas-pin.is-selected::before{background:#4f9ed1;box-shadow:0 0 0 5px #4f9ed184}
 .atlas-pin::before{transition:background .18s,box-shadow .18s,transform .18s}.atlas-pin.is-selected::before{transform:scale(1.15)}
 .atlas-pin:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.atlas-pin::before{transition:none!important}.atlas-pin.is-selected::before{transform:none}}
 .atlas-info{position:absolute;z-index:4;left:18px;right:18px;bottom:calc(106px + env(safe-area-inset-bottom));max-width:440px;padding:16px 17px 15px;background:#112333f2;color:#f7fbfc;border:1px solid #70a6c8;box-shadow:0 16px 35px #00101bbc;pointer-events:auto;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px)}
 .atlas-info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-3px -3px 3px 0;color:#85c5ee;font:700 10px Consolas,Menlo,monospace;letter-spacing:.12em}
 .atlas-info-head button{width:44px;height:44px;padding:0;border:0;background:transparent;color:#e5f3fc;font-size:27px;line-height:1;touch-action:manipulation}

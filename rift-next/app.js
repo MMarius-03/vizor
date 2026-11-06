@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=14';
+import { createAtlas, createOrbit } from './studies/models.js?v=15';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
@@ -683,9 +683,9 @@ async function startAR() {
         } },
         { event: 'reality.imagescanning', process: () => {
           lastEvent = 'scanare';
-          if (!found && !lossStartedAt) setStatus('CAUTĂ IMAGINEA', 'searching', experience === 'core'
+          if (!found && !lossStartedAt) setStatus(experience === 'atlas' ? 'REÎNCADREAZĂ' : 'CAUTĂ IMAGINEA', 'searching', experience === 'core'
             ? 'Încadrează imaginea RIFT întreagă de pe laptop.'
-            : `Încadrează ${experienceCopy[experience].targetPrompt} întreg în cadru.`);
+            : `Reîncadrează posterul ${experienceCopy[experience].label} întreg pe laptop.`);
         } },
         { event: 'reality.imagefound', process: ({ detail }) => {
           if (detail?.name !== targetName) return;
@@ -728,6 +728,7 @@ function atlasBuildingSummary(building) {
   const academic = /^[A-Z]$/.test(building);
   return {
     id: `building-${building}`,
+    building,
     type: dorm ? 'CAZARE' : academic ? 'CORP UNIVERSITAR' : 'REPER',
     title: dorm ? `Căminul studențesc nr. ${dorm[1]}` : academic ? `Corpul ${building}` : building,
     description: 'Loc marcat pe planul schematic al campusului USV.',
@@ -949,6 +950,29 @@ function onCanvasPointerUp(event) {
 }
 
 if (phoneMode) {
+  let cameraWasInterrupted = false;
+  const restoreCameraView = () => {
+    if (!cameraWasInterrupted || !targetRoot) return;
+    cameraWasInterrupted = false;
+    found = false;
+    hasPose = false;
+    lossStartedAt = 0;
+    targetRoot.visible = false;
+    if (experience === 'atlas') {
+      atlasRecentering = true;
+      $('live').dataset.recentering = 'true';
+      updateAtlasPins(performance.now());
+    }
+    closeAtlasInfo();
+    lastEvent = 'camera reluată';
+    setStatus('REÎNCADREAZĂ', 'searching', `Reîncadrează posterul ${experienceCopy[experience].label} întreg pe laptop.`);
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cameraWasInterrupted = !!targetRoot;
+    else restoreCameraView();
+  });
+  window.addEventListener('pagehide', () => { cameraWasInterrupted = !!targetRoot; });
+  window.addEventListener('pageshow', event => { if (event.persisted) restoreCameraView(); });
   if (experience === 'core') session.start();
   if (experience === 'atlas') { setupAtlasPins(); setupAtlasRoutes(); }
   $('atlas-recenter').addEventListener('click', () => {
@@ -996,8 +1020,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=31`
-      : `?mode=phone&experience=${experience}&v=31`;
+      ? `?room=${session.code}&v=32`
+      : `?mode=phone&experience=${experience}&v=32`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

@@ -14,7 +14,7 @@ ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](htt
 
 1. **Macheta — în lucru:** materiale inspirate din fotografiile campusului, umbre de contact pre-generate, muchii teșite, două rânduri de ferestre și siluete dedicate pentru intrarea corpului A, rotunda și pasarela corpului E, domurile Observatorului și acoperișul arcuit al bazinului. Curtea corpului A este corectată și posterul ATLAS este generat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
 2. **Puncte interactive — implementate în AR:** nouă pinuri pentru locurile din harta oficială USV se proiectează peste machetă. Atingerea unui pin sau a unei clădiri deschide o fișă compactă și linkul către sursă. Poziția, lizibilitatea și gesturile trebuie validate pe iPhone.
-3. **Trasee fără GPS — planificate:** plecarea și destinația se aleg manual; traseul se desenează pe rețeaua aleilor. Exemplu: Restaurant → Biblioteca. Nu se solicită localizarea dispozitivului.
+3. **Trasee fără GPS — implementate schematic:** plecarea și destinația se aleg manual; traseul pornește de la puncte de acces desenate pe conturul clădirilor și evită volumele acestora. Exemplu: Restaurant → Biblioteca. Punctele de acces nu sunt intrări verificate la fața locului; traseul nu se folosește pentru navigație pietonală reală.
 
 ORBIT rămâne în beta. Animațiile dedicate și interacțiunile sale vin după validarea machetei în AR.
 

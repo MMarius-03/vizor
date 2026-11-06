@@ -1,5 +1,22 @@
 // A small graph built from the drawn campus paths. Coordinates match the poster (0–1000).
 export function campusRoute(layout, start, destination) {
+  const obstacles=layout.buildings.map(b=>b.points);
+  const inside=(p,poly)=>{
+    let hit=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const a=poly[i],b=poly[j];
+      if(((a[1]>p[1])!==(b[1]>p[1])) && p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])hit=!hit;
+    }
+    return hit;
+  };
+  const clear=(a,b)=>{
+    const length=Math.hypot(a[0]-b[0],a[1]-b[1]);
+    for(let i=1,n=Math.ceil(length/4);i<n;i++){
+      const t=i/n,p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+      if(obstacles.some(poly=>inside(p,poly)))return false;
+    }
+    return true;
+  };
   const segments=layout.paths.flatMap(path=>path.points.slice(1).map((b,i)=>({a:path.points[i],b,splits:[]})));
   const nodes=[], edges=[];
   const point=(p)=>{
@@ -9,6 +26,7 @@ export function campusRoute(layout, start, destination) {
   };
   const connect=(a,b)=>{
     if(a===b)return;
+    if(!clear(nodes[a],nodes[b]))return;
     const weight=Math.hypot(nodes[a][0]-nodes[b][0],nodes[a][1]-nodes[b][1]);
     edges[a].push([b,weight]);edges[b].push([a,weight]);
   };
@@ -39,7 +57,8 @@ export function campusRoute(layout, start, destination) {
     }
   }
   const attach=p=>{
-    const choices=segments.map(s=>({s,...project(p,s)})).sort((a,b)=>a.distance-b.distance);
+    const choices=segments.map(s=>({s,...project(p,s)})).filter(c=>clear(p,c.q)).sort((a,b)=>a.distance-b.distance);
+    if(!choices.length)return -1;
     const entrance=point(p);
     for(const choice of choices.filter(c=>c.distance<=choices[0].distance+8).slice(0,2)){
       connect(entrance,split(choice.s,choice.q,choice.t));
@@ -47,9 +66,22 @@ export function campusRoute(layout, start, destination) {
     return entrance;
   };
   const origin=attach(start),finish=attach(destination);
+  if(origin<0||finish<0)return null;
   for(const s of segments){
     s.splits.sort((a,b)=>a.t-b.t);
     for(let i=1;i<s.splits.length;i++)connect(s.splits[i-1].id,s.splits[i].id);
+  }
+  // Short links around footprints replace drawn alley strokes that intersect buildings.
+  const pathNodeCount=nodes.length;
+  const corners=layout.buildings.flatMap(b=>{
+    const xs=b.points.map(p=>p[0]),ys=b.points.map(p=>p[1]);
+    const l=Math.min(...xs)-9,r=Math.max(...xs)+9,t=Math.min(...ys)-9,d=Math.max(...ys)+9;
+    return [[l,t],[r,t],[r,d],[l,d]];
+  }).filter(p=>!obstacles.some(poly=>inside(p,poly)));
+  const cornerIds=corners.map(point);
+  for(const id of cornerIds){
+    for(let other=0;other<pathNodeCount;other++)if(Math.hypot(nodes[id][0]-nodes[other][0],nodes[id][1]-nodes[other][1])<90)connect(id,other);
+    for(const other of cornerIds)if(other!==id&&Math.hypot(nodes[id][0]-nodes[other][0],nodes[id][1]-nodes[other][1])<170)connect(id,other);
   }
   const distances=nodes.map(()=>Infinity),previous=nodes.map(()=>-1),visited=new Set();
   distances[origin]=0;
