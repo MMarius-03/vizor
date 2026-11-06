@@ -1,13 +1,14 @@
 // Positions use the same 0–1000 campus coordinates as campus-layout.json.
 // Descriptions are paraphrased from https://usv.ro/resurse/harta-interactiva-usv/.
+// Entrance points are schematic access points; physical doors require on-site verification.
 export const atlasPlaces = [
   { id: 'restaurant', building: 'RESTAURANT', point: [344, 568], entrance: [375, 568], type: 'SERVICII',
     title: 'Restaurantul universitar', description: 'Restaurantul campusului, modernizat pentru servirea mesei studenților.' },
-  { id: 'aula', building: 'AULA', point: [785, 677], entrance: [766, 701], type: 'SPAȚIU UNIVERSITAR',
+  { id: 'aula', building: 'AULA', point: [785, 677], entrance: [766, 705], type: 'SPAȚIU UNIVERSITAR',
     title: 'Aula Magna', description: 'Aula universității, lângă corpul A.' },
   { id: 'observator', building: 'OBSERVATOR', point: [879, 386], entrance: [840, 408], type: 'ȘTIINȚĂ',
     title: 'Observatorul Astronomic', description: 'Observatorul Astronomic al Universității „Ștefan cel Mare” din Suceava.' },
-  { id: 'biblioteca', building: 'E', point: [539, 746], entrance: [491, 750], type: 'STUDIU',
+  { id: 'biblioteca', building: 'E', point: [539, 746], entrance: [582, 730], type: 'STUDIU',
     title: 'Biblioteca USV', description: 'Biblioteca universitară se află în corpul E și oferă săli de lectură.' },
   { id: 'sala-sport', building: 'SPORT', point: [645, 394], entrance: [595, 394], type: 'SPORT',
     title: 'Sala de sport', description: 'Sală de sport modernizată, în zona centrală a campusului.' },

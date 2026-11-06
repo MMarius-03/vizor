@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createAtlas, createOrbit } from './models.js?v=16';
+import { createAtlas, createOrbit } from './models.js?v=17';
 
 const $ = id => document.getElementById(id);
 const canvas = $('scene');
@@ -27,7 +27,7 @@ const makePoster = file => {
   scene.add(mesh);
   return mesh;
 };
-const posterAtlas = makePoster('../target-data/atlas-screen_original.png?v=4');
+const posterAtlas = makePoster('../target-data/atlas-screen_original.png?v=5');
 const posterOrbit = makePoster('./poster-orbit.svg');
 const ambient = new THREE.HemisphereLight(0xfff4e0,0x343c45,2.3);
 scene.add(ambient);
@@ -62,7 +62,7 @@ const setActive=name=>{
   updateCamera();
   document.body.dataset.object=name;
   scene.background.setHex(isAtlas?0x191612:0x101721);
-  $('brand').innerHTML=`${isAtlas?'ATLAS':'ORBIT'}<span> / RIFT</span>`;
+  $('brand').innerHTML=`${isAtlas?'CAMPUS':'ORBIT'}<span> / RIFT</span>`;
   atlas.root.visible=isAtlas;
   orbit.root.visible=!isAtlas;
   posterAtlas.visible=isAtlas;
@@ -70,7 +70,7 @@ const setActive=name=>{
   $('atlas').setAttribute('aria-pressed',String(isAtlas));
   $('orbit').setAttribute('aria-pressed',String(!isAtlas));
   $('technical').setAttribute('aria-pressed',String(isAtlas?atlas.technical:orbit.technical));
-  $('name').textContent=isAtlas?'ATLAS — campus în miniatură':'ORBIT — instrument cinetic';
+  $('name').textContent=isAtlas?'CAMPUS — USV în miniatură':'ORBIT — instrument cinetic';
   $('description').textContent=isAtlas
     ? 'Corpurile campusului se ridică între alei și curți verzi.'
     : 'Brațe și inele pe axe diferite, cu aliniere controlată.';

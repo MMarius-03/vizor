@@ -1,4 +1,4 @@
-import { campusLayout } from './campus-layout.js?v=3';
+import { campusLayout } from './campus-layout.js?v=4';
 import { campusRoute } from './campus-route.js?v=2';
 
 // Coordinates and proportions share one source with the printed image target.

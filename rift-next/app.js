@@ -1,7 +1,7 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=16';
-import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=1';
+import { createAtlas, createOrbit } from './studies/models.js?v=17';
+import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=2';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=1';
 
@@ -9,7 +9,8 @@ const $ = (id) => document.getElementById(id);
 const phoneMode = document.documentElement.dataset.mode === 'phone';
 const query = new URLSearchParams(location.search);
 const requestedExperience = query.get('experience');
-const experience = ['atlas', 'orbit'].includes(requestedExperience) ? requestedExperience : 'core';
+const experience = requestedExperience === 'campus' ? 'atlas'
+  : ['atlas', 'orbit'].includes(requestedExperience) ? requestedExperience : 'core';
 const roomParam = query.get('room');
 const invalidRoom = experience === 'core' && phoneMode && roomParam !== null && !/^[A-HJ-NP-Z2-9]{6}$/.test(roomParam);
 const savedRoom = (() => { try { return sessionStorage.getItem('rift-core-room'); } catch { return ''; } })();
@@ -119,19 +120,19 @@ const session = experience === 'core' ? createCoreSession({
 
 const experienceCopy = {
   atlas: {
-    label: 'ATLAS',
-    laptopEyebrow: 'ATLAS / AR LIVE · BETA',
+    label: 'CAMPUS',
+    laptopEyebrow: 'CAMPUS / AR LIVE · BETA',
     laptopTitle: 'Campusul<br><em>prinde formă.</em>',
-    target: './target-data/atlas-screen_original.png?v=4',
-    targetData: './target-data/atlas-screen.json?v=4',
-    targetLabel: 'ATLAS / IMAGE TARGET',
-    targetAlt: 'Planul campusului ATLAS cu clădiri, alei și spații verzi.',
-    targetPrompt: 'posterul ATLAS',
+    target: './target-data/atlas-screen_original.png?v=5',
+    targetData: './target-data/atlas-screen.json?v=5',
+    targetLabel: 'CAMPUS / IMAGE TARGET',
+    targetAlt: 'Planul CAMPUS USV cu clădiri, alei și spații verzi.',
+    targetPrompt: 'posterul CAMPUS',
     laptopDescription: 'Lasă harta campusului deschisă pe laptop. Pe iPhone pornește camera: clădirile apar deasupra tastaturii, iar pinurile deschid detalii despre locuri.',
-    laptopStep: 'Ține harta ATLAS întreagă în cadru. Mișcă telefonul lateral, apoi atinge pinurile albastre sau clădirile pentru detalii.',
-    phoneEyebrow: 'ATLAS · AR PRIN IMAGINE',
+    laptopStep: 'Ține harta CAMPUS întreagă în cadru. Mișcă telefonul lateral, apoi atinge pinurile albastre sau clădirile pentru detalii.',
+    phoneEyebrow: 'CAMPUS · AR PRIN IMAGINE',
     phoneTitle: 'Explorează<br><em>campusul.</em>',
-    phoneDescription: 'Încadrează harta ATLAS de pe laptop. Privește campusul deasupra tastaturii, apoi atinge un pin sau o clădire.',
+    phoneDescription: 'Încadrează harta CAMPUS de pe laptop. Privește campusul deasupra tastaturii, apoi atinge un pin sau o clădire.',
     found: 'Campus ancorat. Atinge un pin albastru sau o clădire pentru detalii; mișcă telefonul ca să explorezi.',
   },
   orbit: {
@@ -265,19 +266,19 @@ function setupAtlasRoutes() {
       message.textContent='Alege două locuri diferite.';return;
     }
     if(!targetRoot?.visible||!artifact?.showRoute(from,to)){
-      message.textContent='Încadrează posterul ATLAS și încearcă din nou.';return;
+      message.textContent='Încadrează posterul CAMPUS și încearcă din nou.';return;
     }
     atlasRouteLabel=`${from.title} → ${to.title}`;
     atlasRouteEndpoints=new Set([from.id,to.id]);
-    message.textContent=`Traseu afișat: ${atlasRouteLabel}. Linia urmează aleile; capetele sunt orientative.`;
-    $('target-count').textContent='ATLAS / TRASEU ACTIV';
+    message.textContent=`Traseu orientativ: ${atlasRouteLabel}. Verifică intrările și accesul în campus.`;
+    $('target-count').textContent='CAMPUS / TRASEU ACTIV';
     $('atlas-route-panel').hidden=true;
     $('live').dataset.atlasRoutePanel='false';
     $('instruction').textContent='Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.';
   });
   $('atlas-route-clear').addEventListener('click',()=>{
     artifact?.clearRoute();atlasRouteLabel='';atlasRouteEndpoints=null;
-    $('target-count').textContent='ATLAS / AR LIVE';
+    $('target-count').textContent='CAMPUS / AR LIVE';
     $('atlas-route-message').textContent='Traseu șters. Alege două locuri.';
     $('instruction').textContent=experienceCopy.atlas.found;
   });
@@ -536,7 +537,7 @@ function renderPassiveState() {
   const copy = experienceCopy[experience];
   setStatus(`${copy.label} ANCORAT`, 'found', atlasRouteLabel && experience==='atlas'
     ? 'Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.' : copy.found);
-  $('target-count').textContent = atlasRouteLabel && experience==='atlas' ? 'ATLAS / TRASEU ACTIV' : `${copy.label} / AR LIVE`;
+  $('target-count').textContent = atlasRouteLabel && experience==='atlas' ? 'CAMPUS / TRASEU ACTIV' : `${copy.label} / AR LIVE`;
   $('restart').textContent = 'REIA CAMERA';
   $('atlas-recenter').hidden = experience !== 'atlas';
   $('atlas-route-toggle').hidden = experience !== 'atlas';
@@ -571,7 +572,7 @@ function markLost() {
   lostCount += 1;
   lastEvent = 'imagine pierdută';
   if (experience === 'atlas' && trackingMode === 'hybrid') {
-    setStatus('CAMPUS FIXAT', 'grace', 'Privește macheta de aproape. Reîncadrează posterul ATLAS pentru a reîmprospăta poziția.');
+    setStatus('CAMPUS FIXAT', 'grace', 'Privește macheta de aproape. Reîncadrează posterul CAMPUS pentru a reîmprospăta poziția.');
   } else {
     setStatus('RECONECTARE', 'grace', 'Ține imaginea în cadru. Refixăm obiectul.');
   }
@@ -585,7 +586,7 @@ function updateTrackingHold(now) {
     if (experience === 'atlas') updateAtlasPins(now);
     lossStartedAt = 0;
     setStatus('IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
-      ? 'Încadrează din nou posterul ATLAS de pe laptop pentru a fixa campusul.'
+      ? 'Încadrează din nou posterul CAMPUS de pe laptop pentru a fixa campusul.'
       : 'Încadrează din nou imaginea întreagă de pe laptop.');
     return;
   }
@@ -629,7 +630,7 @@ async function startAR() {
     if (!response.ok) throw new Error('Datele imaginii țintă nu s-au încărcat.');
     const target = await response.json();
     target.imagePath = new URL(target.imagePath, location.href).href;
-    if (experience === 'atlas') target.imagePath += '?v=4';
+    if (experience === 'atlas') target.imagePath += '?v=5';
     targetName = target.name;
     setStatus('ȚINTĂ PREGĂTITĂ', 'loading', 'Se încarcă motorul AR.');
     three = await import('three');
@@ -980,7 +981,7 @@ if (phoneMode) {
     atlasRecentering = true;
     $('live').dataset.recentering = 'true';
     closeAtlasInfo();
-    setStatus('REÎNCADREAZĂ', 'grace', 'Ține posterul ATLAS întreg în cameră până când macheta se fixează din nou.');
+    setStatus('REÎNCADREAZĂ', 'grace', 'Ține posterul CAMPUS întreg în cameră până când macheta se fixează din nou.');
   });
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {
@@ -1020,8 +1021,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=33`
-      : `?mode=phone&experience=${experience}&v=33`;
+      ? `?room=${session.code}&v=34`
+      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=34`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

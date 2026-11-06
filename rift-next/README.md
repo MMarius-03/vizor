@@ -1,6 +1,6 @@
 # RIFT — trei obiecte de explorat
 
-Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe laptop. CORE păstrează posterul RIFT și interacțiunile sale; ATLAS și ORBIT au câte un poster și o țintă AR potrivită temei lor. Modelele ATLAS și ORBIT sunt încă statice, în beta. Folderul este separat de versiunea [`../rift/`](../rift/).
+Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe laptop. CAMPUS este prima opțiune și arată o machetă interactivă a USV; CORE păstrează posterul RIFT, iar ORBIT are propria țintă AR. Folderul este separat de versiunea [`../rift/`](../rift/). Linkurile vechi cu `experience=atlas` rămân compatibile.
 
 [Planul pentru etapa 6](./PLAN-ETAPA-6.md) notează două experiențe AR propuse pe lângă Nucleu și selecția lor înainte de pornirea camerei.
 
@@ -12,9 +12,9 @@ Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe lap
 
 ## Încearcă experiența
 
-1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege obiectul. Pentru ATLAS sau ORBIT, laptopul arată imaginea-țintă și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
-2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta ATLAS sau ORBIT de acolo.
-3. Încadrează posterul experienței alese de pe laptop. Obiectul apare numai după recunoașterea țintei potrivite. ATLAS arată o machetă schematică a campusului USV, cu clădiri joase, alei și spații verzi; apropie-te și mișcă telefonul lateral ca să verifici spațiul de sub machetă.
+1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege CAMPUS. Laptopul arată posterul și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
+2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta CAMPUS de acolo.
+3. Încadrează posterul CAMPUS întreg pe laptop. Macheta apare deasupra tastaturii; apropie-te și mișcă telefonul lateral, apoi atinge clădirile sau pinurile. Traseul dintre două locuri se alege fără GPS.
 4. Atinge nucleul pe ecranul telefonului. Carcasa se deschide și rămâne deschisă.
 5. Glisează orizontal peste nucleu ca să rotești mecanismul și să aprinzi cele trei puncte. Atinge fiecare punct pe obiect sau folosește cele trei butoane care apar jos după armare. La activare, lumina circulă de la nod spre centru.
 6. Atinge carcasa, inelul, rotorul, colierul sau camera reactorului pentru a le identifica. Piesa atinsă este marcată scurt. Atingerea cristalului după 3/3 trimite un impuls.
@@ -23,18 +23,18 @@ Pagina de intrare oferă trei experiențe ancorate de postere tematice de pe lap
 
 [Previzualizarea 3D pe laptop](https://mmarius-03.github.io/vizor/rift-next/model-preview.html) permite rotirea perspectivei prin tragere și deschiderea prin clic. Este un instrument de vizualizare, fără camera AR.
 
-ATLAS și ORBIT nu folosesc încă sincronizarea de stare prin server și nu au interacțiunile/etapele lor de animație. În această versiune apar complet asamblate în cameră; interacțiunile și animațiile dedicate se adaugă în etapele următoare.
+CAMPUS și ORBIT nu folosesc sincronizarea de stare prin server. CAMPUS oferă fișe, selecție și trasee schematice; ORBIT rămâne o machetă beta.
 
 ## Tracking și limite
 
-Modul implicit combină recunoașterea imaginii cu world tracking. Adâncimea și scara sunt netezite între cadre, iar dimensiunea locală a modelului rămâne fixă după prima recunoaștere. ATLAS rămâne vizibil până la 18 secunde când posterul iese din cadru, pentru inspecția clădirilor deasupra tastaturii; după aceea cere reîncadrarea. CORE și ORBIT păstrează intervalul lor scurt de recuperare. `&tracking=image` păstrează modul de comparație doar cu recunoașterea imaginii. `&debug=1` afișează evenimentele, pierderile, recuperările și FPS.
+Modul implicit combină recunoașterea imaginii cu world tracking. Adâncimea și scara sunt netezite între cadre, iar dimensiunea locală a modelului rămâne fixă după prima recunoaștere. CAMPUS rămâne vizibil până la 18 secunde când posterul iese din cadru, pentru inspecția clădirilor deasupra tastaturii; după aceea cere reîncadrarea. CORE și ORBIT păstrează intervalul lor scurt de recuperare. `&tracking=image` păstrează modul de comparație doar cu recunoașterea imaginii. `&debug=1` afișează evenimentele, pierderile, recuperările și FPS.
 
 Artefactul și atingerea lui trebuie verificate pe un iPhone fizic. Previzualizarea de desktop și testul cu cameră simulată nu măsoară stabilitatea sau dimensiunea percepută în Safari. Scena nu detectează mâna în imaginea camerei și nu ocluzionează obiecte reale. Camera online este temporară și expiră după două ore fără activitate.
 
 ## Implementare
 
-- `target-source.png` este posterul CORE. `target-data/atlas-screen_original.png` și `target-data/orbit-screen_original.png` sunt posterele ATLAS și ORBIT.
-- `tools/make-target.py` regenerează posterul CORE. `tools/make-study-targets.py` regenerează posterele ATLAS/ORBIT și țintele lor în `target-data/`.
+- `target-source.png` este posterul CORE. `target-data/atlas-screen_original.png` și `target-data/orbit-screen_original.png` sunt posterele CAMPUS și ORBIT.
+- `tools/make-target.py` regenerează posterul CORE. `tools/make-study-targets.py` regenerează posterele CAMPUS/ORBIT și țintele lor în `target-data/`.
 - Definițiile din `target-data/*-screen.json` indică imaginea de recunoaștere grayscale de 480 × 640; CORE folosește ținta procesată de [8th Wall Image Target CLI](https://github.com/8thwall/8thwall/blob/main/apps/image-target-cli/README.md).
 - `artifact.js` construiește obiectul din geometrii Three.js: carbon procedural pe carcasa antracit, metal periat pe inele, fațete cyan cu un centru luminos, un vas tăiat cu clipping și un mecanism intern. Marcajele asimetrice fac rotația inelelor vizibilă. Zonele tactile au identificatori de piesă și sunt mai largi decât detaliile vizibile. Traseele de lumină apar doar la activarea nodurilor.
 - `app.js` folosește [8th Wall Engine Binary](https://8thwall.org/docs/open-source), [configurarea țintelor](https://8thwall.org/docs/api/engine/xrcontroller/configure) și [evenimentele de tracking](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule). `sync.js` transmite starea prin backendul online RIFT. Vezi [NOTICE.md](./NOTICE.md) pentru credite.

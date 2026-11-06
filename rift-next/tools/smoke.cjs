@@ -262,10 +262,10 @@ const { chromium } = require(process.argv[2] || 'playwright');
     assert.equal(await expired.locator('#start-ar').isDisabled(), true);
     await page.locator('.live-brand').click();
     await page.getByRole('heading', { name: 'Alege un obiect.' }).waitFor();
-    assert.match(await page.locator('#choose-atlas').getAttribute('href'), /mode=phone&experience=atlas/);
-    await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=atlas&debug=1');
+    assert.match(await page.locator('#choose-atlas').getAttribute('href'), /mode=phone&experience=campus/);
+    await page.goto('http://127.0.0.1:4173/rift-next/?mode=phone&experience=campus&debug=1');
     assert.equal(await page.locator('body').getAttribute('data-experience'), 'atlas');
-    assert.equal(await page.locator('#phone-sync').textContent(), 'ATLAS · AR SOLO');
+    assert.equal(await page.locator('#phone-sync').textContent(), 'CAMPUS · AR SOLO');
     assert.equal(await page.locator('#node-controls').isHidden(), true);
     assert.equal(await page.locator('#section-toggle').isHidden(), true);
     await page.locator('#start-ar').click();
@@ -276,7 +276,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       rotation: { x: 0, y: 0, z: 0, w: 1 }, scale: 1,
       scaledWidth: .75, scaledHeight: 1,
     }));
-    assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CAMPUS ANCORAT');
     const atlasLive = await page.evaluate(() => ({
       state: window.__RIFT_NEXT__.getState(),
       campusVisible: window.__fakeAR.scene.scene.getObjectByName('atlas-plan')?.visible,
@@ -318,7 +318,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
     await page.evaluate(() => window.__fakeAR.tick());
     assert.ok(await page.evaluate(() => window.__fakeAR.scene.scene.getObjectByName('atlas-building-A')));
     const misplacedPlaces = await page.evaluate(async () => {
-      const { atlasPlaces } = await import('./studies/atlas-places.js?v=1');
+      const { atlasPlaces } = await import('./studies/atlas-places.js?v=2');
       const layout = await fetch('./studies/campus-layout.json').then(response => response.json());
       const inside = ([x, y], polygon) => polygon.reduce((hit, [ax, ay], index) => {
         const [bx, by] = polygon[(index + 1) % polygon.length];
@@ -340,7 +340,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       await page.evaluate(async () => {
         const T = window.THREE;
         const { scene, camera } = window.__fakeAR.scene;
-        const texture = await new T.TextureLoader().loadAsync('./target-data/atlas-screen_original.png?v=4');
+        const texture = await new T.TextureLoader().loadAsync('./target-data/atlas-screen_original.png?v=5');
         texture.colorSpace = T.SRGBColorSpace;
         const poster = new T.Mesh(new T.PlaneGeometry(.75,1), new T.MeshBasicMaterial({ map:texture }));
         poster.position.set(0,0,-1.003);
@@ -427,7 +427,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       name:'atlas-screen', position:{x:.07,y:0,z:-1},
       rotation:{x:0,y:0,z:0,w:1}, scale:1,
     }));
-    assert.equal(await page.locator('#tracking-state').textContent(), 'ATLAS ANCORAT');
+    assert.equal(await page.locator('#tracking-state').textContent(), 'CAMPUS ANCORAT');
     assert.ok(Math.abs((await page.evaluate(() => window.__RIFT_NEXT__.getState())).poseZ + 1) < .001);
     for (const viewport of [{ width: 375, height: 667 }, { width: 932, height: 430 }]) {
       await page.setViewportSize(viewport);

@@ -1,4 +1,4 @@
-"""Render the ATLAS and ORBIT laptop posters and their image-tracking targets."""
+"""Render the CAMPUS and ORBIT laptop posters and their image-tracking targets."""
 
 from datetime import datetime, timezone
 import json
@@ -42,11 +42,11 @@ def atlas():
     image = Image.new('RGB',(W,H),paper)
     draw = ImageDraw.Draw(image)
     frame(draw,paper,ink,blue)
-    draw.text((191,76),'ATLAS',font=font(84,True),fill=ink)
-    draw.text((195,166),'CAMPUS USV / 02',font=font(25,True,True),fill=blue)
+    draw.text((191,76),'CAMPUS',font=font(80,True),fill=ink)
+    draw.text((195,166),'USV / HARTA AUGMENTATĂ / 01',font=font(24,True,True),fill=blue)
     draw.rectangle((112,238,850,254),fill=ink)
     draw.rectangle((112,254,382,269),fill=grass)
-    draw.text((119,304),'PLANUL CAMPUSULUI',font=font(25,True,True),fill=ink)
+    draw.text((119,304),'CORPURI · ALEI · PUNCTE DE INTERES',font=font(23,True,True),fill=ink)
     box=(105,345,855,974)
     draw.rectangle(box,fill=(250,250,245),outline=ink,width=3)
     def pt(point):
@@ -55,7 +55,9 @@ def atlas():
     for polygon in LAYOUT['greens']:
         draw.polygon([pt(p) for p in polygon],fill=grass)
     for item in LAYOUT['paths']:
-        draw.line([pt(p) for p in item['points']],fill=paper,width=max(5,int(item['width']*.67)),joint='curve')
+        path=[pt(p) for p in item['points']]
+        draw.line(path,fill=(182,199,199),width=max(8,int(item['width']*.95)),joint='curve')
+        draw.line(path,fill=paper,width=max(5,int(item['width']*.67)),joint='curve')
     fx1,fy1,fx2,fy2=LAYOUT['sportField']
     draw.rectangle((*pt((fx1,fy1)),*pt((fx2,fy2))),fill=(198,227,123),outline=(169,197,91),width=3)
     cx,cy=pt(LAYOUT['park']['center'])
@@ -77,9 +79,9 @@ def atlas():
                  sum(p[1] for p in building['points'])/len(points))
         if ident in ('A','B','C','D','E','F','G','H','J','N'):
             draw.text(pt(pos),ident,anchor='mm',font=font(30,True),fill=(25,60,113))
-    draw.text((119,1002),'CORPURI / CĂMINE / PARC',font=font(22,True,True),fill=ink)
-    draw.text((120,1150),'RIFT / CAMPUS STUDY',font=font(22,True,True),fill=blue)
-    draw.text((743,1150),'SCAN 02',font=font(20,True,True),fill=ink)
+    draw.text((119,1002),'HARTA CAMPUSULUI USV',font=font(22,True,True),fill=ink)
+    draw.text((120,1150),'RIFT / CAMPUS AR',font=font(22,True,True),fill=blue)
+    draw.text((743,1150),'SCAN 01',font=font(20,True,True),fill=ink)
     return image
 
 
@@ -160,4 +162,4 @@ def write_target(name, poster):
     encoding="utf-8")
 write_target("atlas-screen", atlas())
 write_target("orbit-screen", orbit())
-print("Generated ATLAS and ORBIT image targets.")
+print("Generated CAMPUS and ORBIT image targets.")

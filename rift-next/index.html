@@ -11,7 +11,7 @@
   <title>RIFT / AR LIVE</title>
   <script>
     const query = new URLSearchParams(location.search);
-    if (!query.has('mode') && !query.has('room') && !query.has('experience')) location.replace('./choose.html?v=33');
+    if (!query.has('mode') && !query.has('room') && !query.has('experience')) location.replace('./choose.html?v=34');
     document.documentElement.dataset.mode = query.get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');
   </script>
   <link rel="stylesheet" href="./styles.css?v=18">
@@ -68,7 +68,7 @@
         <div class="atlas-route-head"><span>TRASEU / CAMPUS</span><button id="atlas-route-close" type="button" aria-label="Închide panoul traseului">×</button></div>
         <label for="atlas-route-start">PLECARE</label><select id="atlas-route-start"></select>
         <label for="atlas-route-end">DESTINAȚIE</label><select id="atlas-route-end"></select>
-        <p id="atlas-route-message" role="status">Alege două locuri; traseul urmează aleile machetei.</p>
+        <p id="atlas-route-message" role="status">Alege două locuri. Aleile și intrările sunt orientative până la verificarea în campus.</p>
         <div class="atlas-route-actions"><button id="atlas-route-show" type="button">ARATĂ TRASEUL</button><button id="atlas-route-clear" type="button">ȘTERGE</button></div>
       </aside>
       <div class="live-bottom"><p id="instruction">Îndreaptă camera spre imaginea întreagă de pe laptop.</p><div id="node-controls" class="node-controls" aria-label="Punctele nucleului" hidden><button type="button" data-node="0" aria-label="Activează punctul 1">01</button><button type="button" data-node="1" aria-label="Activează punctul 2">02</button><button type="button" data-node="2" aria-label="Activează punctul 3">03</button></div><button id="section-toggle" class="section-toggle" type="button" hidden>DESFĂ STRATURILE</button><div class="live-actions"><span id="target-count">RIFT CORE / ÎN AȘTEPTARE</span><button id="atlas-route-toggle" type="button" hidden>TRASEU</button><button id="atlas-recenter" type="button" hidden>RECENTREAZĂ</button><button id="restart" type="button">REPORNEȘTE CAMERA</button></div></div>
@@ -78,6 +78,6 @@
     <section id="error" class="error" hidden><div class="intro-head"><span class="phone-brand">RIFT / CORE</span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=33"></script>
+  <script type="module" src="./app.js?v=34"></script>
 </body>
 </html>

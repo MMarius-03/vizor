@@ -1,23 +1,23 @@
-# Studii 3D — ATLAS și ORBIT
+# Studii 3D — CAMPUS și ORBIT
 
-Aceste pagini sunt previzualizări vizuale pentru ATLAS și ORBIT. `index.html` permite compararea volumelor, culorilor, perspectivei și a vederii tehnice. `models.js` este folosit și de pagina AR live; acolo ATLAS primește o orientare orizontală deasupra tastaturii, iar ambele modele pornesc asamblate și statice. Fiecare experiență are propriul poster și propria țintă de recunoaștere.
+Aceste pagini sunt previzualizări vizuale pentru CAMPUS și ORBIT. `index.html` permite compararea volumelor, culorilor, perspectivei și a vederii tehnice. `models.js` este folosit și de pagina AR live; acolo CAMPUS primește o orientare orizontală deasupra tastaturii, iar ambele modele pornesc asamblate și statice. Fiecare experiență are propriul poster și propria țintă de recunoaștere.
 
 ## Direcție
 
-- **ATLAS:** machetă schematică a campusului USV, cu corpurile principale din harta furnizată, alei și spații verzi. Cursorul principal ridică sau retrage clădirile; al doilea reglează accentul pinului. Perspectiva se poate roti cu degetul sau mouse-ul.
+- **CAMPUS:** machetă schematică a campusului USV, cu corpurile principale din harta furnizată, alei și spații verzi. Cursorul principal ridică sau retrage clădirile; al doilea reglează accentul pinului. Perspectiva se poate roti cu degetul sau mouse-ul.
 - **ORBIT:** instrument cu postament, ax, trei brațe, inele pe planuri înclinate și plasmă în centru. Brațele apar pe rând; la capătul calibrării, liniile converg și apare un impuls luminos. Al doilea cursor controlează viteza și intensitatea plasmei, inclusiv pauza.
 - Vederea tehnică este o variantă de explorare, nu o suprapunere permanentă peste camera telefonului.
 
-ATLAS folosește hărțile furnizate de utilizator și [harta oficială USV](https://usv.ro/resurse/harta-interactiva-usv/) drept referință pentru contururile și pozițiile relative ale corpurilor, aleilor și parcului. `campus-layout.json` este sursa comună; `tools/make-study-targets.py` generează `campus-layout.js` pentru modelul 3D și posterul pentru tracking. Proporțiile și unele detalii sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral.
+CAMPUS folosește hărțile furnizate de utilizator și [harta oficială USV](https://usv.ro/resurse/harta-interactiva-usv/) drept referință pentru contururile și pozițiile relative ale corpurilor, aleilor și parcului. `campus-layout.json` este sursa comună; `tools/make-study-targets.py` generează `campus-layout.js` pentru modelul 3D și posterul pentru tracking. Proporțiile și unele detalii sunt simplificate pentru lizibilitate pe telefon; macheta nu este un plan cadastral. [Lista de validare la campus](./VALIDARE-CAMPUS.md) separă datele confirmate din hartă de intrările încă neconfirmate.
 
 ## De revizuit ulterior
 
-- Posterul ATLAS: un update vizual dedicat, păstrând reperele contrastante necesare recunoașterii imaginii.
+- Posterul CAMPUS a fost refăcut cu numele nou și alei mai vizibile, păstrând reperele contrastante necesare recunoașterii imaginii.
 - Acoperișurile au acum nuanțe distincte de metal, ardezie caldă și albastru; silueta Observatorului este cu 10% mai scundă pe verticală, cu aceeași amprentă și lățime a domurilor. Validare pe iPhone înainte de reglaje fine.
 
 ## Campus map înainte de lansare
 
-1. **Macheta — în lucru:** materiale inspirate din fotografiile campusului, umbre de contact pre-generate, muchii teșite, două rânduri de ferestre și siluete dedicate pentru intrarea corpului A, rotunda și pasarela corpului E, domurile Observatorului și acoperișul arcuit al bazinului. Curtea corpului A este corectată și posterul ATLAS este generat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
+1. **Macheta — în lucru:** materiale inspirate din fotografiile campusului, umbre de contact pre-generate, muchii teșite, două rânduri de ferestre și siluete dedicate pentru intrarea corpului A, rotunda și pasarela corpului E, domurile Observatorului și acoperișul arcuit al bazinului. Curtea corpului A este corectată și posterul CAMPUS este generat din aceeași geometrie. Urmează verificarea proporțiilor și a materialelor pe iPhone, la campus.
 2. **Puncte interactive — implementate în AR:** nouă pinuri pentru locurile din harta oficială USV se proiectează peste machetă. Atingerea unui pin sau a unei clădiri deschide o fișă compactă și linkul către sursă. Poziția, lizibilitatea și gesturile trebuie validate pe iPhone.
 3. **Trasee fără GPS — implementate schematic:** plecarea și destinația se aleg manual; traseul pornește de la puncte de acces desenate pe conturul clădirilor și evită volumele acestora. Exemplu: Restaurant → Biblioteca. Punctele de acces nu sunt intrări verificate la fața locului; traseul nu se folosește pentru navigație pietonală reală.
 
