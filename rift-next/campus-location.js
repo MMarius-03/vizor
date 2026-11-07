@@ -79,12 +79,13 @@ export function mountCampusLocation(THREE,atlas,container) {
   // Transform a geographic accuracy circle into the schematic map's local axes.
   const m=data.transform;
   ring.matrixAutoUpdate=false;
-  let result={state:'off',text:'Localizarea este oprită.'};
+  let result={state:'off',text:'Localizarea este oprită.'},demoPoint=null,demoLabel='';
+  const placePin=point=>root.position.set((point[0]/1000-.5)*3.28,(.5-point[1]/1000)*2.44,0);
   const controller=createLocationController({onChange:next=>{
     result=next;status.textContent=next.text;container.dataset.state=next.state;help.hidden=next.state!=='denied';
     button.textContent=next.active?'Oprește locația':'Arată unde sunt';button.setAttribute('aria-pressed',String(next.active));
     root.visible=next.state==='located';
-    if(root.visible){root.position.set((next.point[0]/1000-.5)*3.28,(.5-next.point[1]/1000)*2.44,0);
+    if(root.visible){placePin(next.point);ring.visible=true;
       const radius=next.radius;
       ring.matrix.set(m[0][0]*.00328*radius,m[1][0]*.00328*radius,0,0,
         -m[0][1]*.00244*radius,-m[1][1]*.00244*radius,0,0,0,0,1,.041,0,0,0,1);
@@ -92,12 +93,21 @@ export function mountCampusLocation(THREE,atlas,container) {
     }
   }});
   button.setAttribute('aria-pressed','false');
-  button.onclick=()=>controller.active?controller.stop():controller.start();
+  button.onclick=()=>{demoPoint=null;controller.active?controller.stop():controller.start();};
   const visibility=()=>document.hidden?controller.suspend():controller.resume();
   const hide=()=>controller.suspend(),show=()=>{if(!document.hidden)controller.resume();};
   document.addEventListener('visibilitychange',visibility);window.addEventListener('pagehide',hide);window.addEventListener('pageshow',show);
   const timer=setInterval(()=>controller.checkAge(),3000);
   return {targets:[pin,stem],get visible(){return root.visible;},get description(){return result.text;},
+    get point(){return demoPoint||result.state==='located'&&result.point||null;},get source(){return demoPoint?'demo':result.state==='located'?'gps':null;},
+    setDemo(point,label){
+      if(controller.active)controller.stop();
+      demoPoint=point;demoLabel=label;placePin(point);root.visible=true;ring.visible=false;
+      container.dataset.state='demo';status.textContent=`SIMULARE · ${label}. Poziție aleasă pe machetă, fără GPS.`;
+      button.textContent='Arată unde sunt';button.setAttribute('aria-pressed','false');help.hidden=true;
+    },
+    moveDemo(point){if(!demoPoint)return;demoPoint=point;placePin(point);root.visible=true;status.textContent=`SIMULARE · ${demoLabel}. Pinul urmează traseul ales, fără GPS.`;},
+    clearDemo(){if(!demoPoint)return;demoPoint=null;root.visible=false;container.dataset.state='off';status.textContent='Localizarea este oprită.';},
     dispose(){controller.stop();clearInterval(timer);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',hide);window.removeEventListener('pageshow',show);
       root.removeFromParent();root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}};
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createAtlas } from './studies/models.js?v=20';
+import { createAtlas } from './studies/models.js?v=21';
 import { campusLayout } from './studies/campus-layout.js?v=4';
 import { atlasPlaces, atlasPlaceByBuilding } from './studies/atlas-places.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
@@ -43,7 +43,33 @@ const places=[...atlasPlaces,...campusLayout.buildings.filter(b=>!b.neutral&&!at
   description:'Loc marcat pe planul schematic al campusului USV.'}))];
 for(const place of places){const option=new Option(place.title,place.id);$('place').add(option);}
 for(const p of atlasPlaces){$('from').add(new Option(p.title,p.id));$('to').add(new Option(p.title,p.id));}
+const demoStarts={parc:{point:[770,859],title:'Parcul Universității'},...Object.fromEntries(atlasPlaces.map(p=>[p.id,{point:p.entrance||p.point,title:p.title}]))};
+$('from').add(new Option('Poziția simulată','demo'));
+$('from').add(new Option('Poziția GPS actuală','gps'));
 $('from').value='restaurant';$('to').value='biblioteca';
+const guide=$('demo-guide'),progress=$('demo-progress');
+function walkDemo(){
+  const points=atlas.routeMapPoints;if(!points?.length||locationUI.source!=='demo')return;
+  const lengths=points.slice(1).map((p,i)=>Math.hypot(p[0]-points[i][0],p[1]-points[i][1]));
+  const total=lengths.reduce((a,b)=>a+b,0),fraction=Number(progress.value)/100;
+  let remaining=total*fraction,point=points.at(-1);
+  for(let i=0;i<lengths.length;i++)if(remaining<=lengths[i]){
+    const t=lengths[i]?remaining/lengths[i]:0;
+    point=points[i].map((v,j)=>v+(points[i+1][j]-v)*t);break;
+  }else remaining-=lengths[i];
+  locationUI.moveDemo(point);$('demo-percent').textContent=`${progress.value}%`;
+  $('demo-direction').textContent=fraction===1?'Ai ajuns la destinația simulată.':`SIMULARE · urmărește linia albastră spre ${$('to').selectedOptions[0].text}. Parcurs ${progress.value}% din traseul schematic.`;
+}
+progress.oninput=walkDemo;
+$('demo-activate').onclick=()=>{
+  const start=demoStarts[$('demo-start').value];locationUI.setDemo(start.point,start.title);
+  $('demo-message').textContent=`SIMULARE activă: ${start.title}. Alege destinația și apasă „Arată traseul”.`;
+  $('from').value='demo';$('route-panel').open=true;
+  atlas.clearRoute();guide.hidden=true;forgetRoute();
+};
+$('location').addEventListener('click',event=>{if(event.target.closest('.geo-toggle')&&locationUI.source!=='demo'&&$('from').value==='demo'){
+  atlas.clearRoute();guide.hidden=true;$('from').value='restaurant';$('demo-message').textContent='Simularea s-a încheiat. GPS-ul real are prioritate.';
+}});
 function select(place){atlas.selectPlace(place);$('info').hidden=!place;$('place').value=place?.id||'';
   if(place){$('place-title').textContent=place.title;$('description').textContent=place.description;}}
 $('place').onchange=()=>select(places.find(p=>p.id===$('place').value));
@@ -63,10 +89,20 @@ canvas.addEventListener('pointerup',e=>{
 function showRoute(from,to){
   if(!from||!to||from===to){$('status').textContent='Alege două locuri diferite.';return false;}
   if(!atlas.showRoute(from,to)){$('status').textContent='Nu am găsit un traseu pentru aceste locuri.';return false;}
-  saveRoute(from,to);$('status').textContent=`${from.title} → ${to.title}. Intrări orientative. Rotește macheta pentru segmentele ascunse de clădiri.`;return true;
+  if(from.id==='demo'){
+    forgetRoute();guide.hidden=false;progress.value='0';walkDemo();
+  }else{if(from.id==='gps')forgetRoute();else saveRoute(from,to);guide.hidden=true;}
+  $('status').textContent=`${from.title} → ${to.title}. Intrări orientative. Rotește macheta pentru segmentele ascunse de clădiri.`;return true;
 }
-$('show-route').onclick=()=>showRoute(atlasPlaces.find(p=>p.id===$('from').value),atlasPlaces.find(p=>p.id===$('to').value));
-$('clear-route').onclick=()=>{atlas.clearRoute();forgetRoute();$('status').textContent='Traseu șters.';};
+$('show-route').onclick=()=>{
+  if($('from').value==='gps'&&locationUI.source!=='gps'){$('status').textContent='Activează locația și așteaptă pinul GPS înainte să pornești de aici.';return;}
+  if($('from').value==='demo'&&locationUI.source!=='demo'){$('status').textContent='Pornește simularea înainte să alegi poziția simulată ca plecare.';return;}
+  const from=$('from').value==='demo'&&locationUI.source==='demo'
+    ?{id:'demo',title:'Poziția simulată',point:locationUI.point}
+    :$('from').value==='gps'?{id:'gps',title:'Ultima poziție GPS',point:locationUI.point}:atlasPlaces.find(p=>p.id===$('from').value);
+  showRoute(from,atlasPlaces.find(p=>p.id===$('to').value));
+};
+$('clear-route').onclick=()=>{atlas.clearRoute();forgetRoute();guide.hidden=true;$('status').textContent='Traseu șters.';};
 const saved=readRoute();if(saved){$('from').value=saved.from.id;$('to').value=saved.to.id;showRoute(saved.from,saved.to);}
 let last=0;const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 renderer.setAnimationLoop(now=>{

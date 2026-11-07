@@ -18,6 +18,8 @@ Traseul confirmat se păstrează în `sessionStorage`, în aceeași filă, inclu
 
 **Locație beta, în campus:** deschide **Poziția mea în campus → Arată unde sunt** și permite locația precisă. Un pin roșu și o zonă estimată apar doar pentru o poziție recentă, suficient de precisă și în interiorul campusului. În AR opțiunea se află în panoul **Hartă**. Poți opri localizarea oricând; coordonatele nu sunt salvate și nu sunt trimise backendului proiectului. [Calibrarea, sursele și limitele geolocației](./PLAN-GEOLOCATIE.md) sunt documentate separat. Traseele păstrează plecarea aleasă manual.
 
+**Demo fără GPS:** în explorarea 3D deschide **Simulează o vizită**, alege locul teoretic de plecare și apasă **Arată poziția simulată**. Alege destinația și apasă **Arată traseul**. Glisorul **Parcurge traseul în simulare** mută pinul pe traseul schematic, pentru a testa ghidarea din afara campusului. Modul este marcat permanent „SIMULARE”; nu înseamnă urmărire reală. Când GPS-ul oferă o poziție validă în campus, poți alege **Poziția GPS actuală** ca punct de plecare al unui traseu orientativ. Această primă variantă nu recalculează automat traseul în timpul mersului.
+
 1. Deschide [pagina de alegere](https://mmarius-03.github.io/vizor/rift-next/) pe laptop și alege CAMPUS. Laptopul arată posterul și oferă butonul **Copiază linkul AR**. Lasă pagina deschisă și copiază linkul pe iPhone.
 2. Deschide linkul pe iPhone în Safari și pornește camera din spate. Poți deschide și pagina de alegere direct pe telefon și selecta CAMPUS de acolo.
 3. Încadrează posterul CAMPUS întreg pe laptop. Macheta apare deasupra tastaturii; apropie-te și mișcă telefonul lateral, apoi atinge clădirile sau pinurile. Traseul dintre două locuri se alege fără GPS.

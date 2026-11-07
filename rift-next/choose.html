@@ -28,7 +28,7 @@
       <section class="intro"><span class="eyebrow">TREI MODURI DE A PRIVI MAI DEPARTE</span><h1>Alege un<br><em>obiect.</em></h1><p>CAMPUS, CORE și ORBIT se ancorează de imaginea de pe laptop și apar în camera iPhone-ului.</p></section>
       <nav class="choices" aria-label="Experiențe">
         <a id="choose-atlas" class="choice" href="./?mode=phone&amp;experience=campus"><span class="number">01</span><div><h2>CAMPUS</h2><p>Campusul deasupra tastaturii, cu alei și curți verzi.</p><div class="meta"><span class="swatch" style="--swatch:#4f9ed1"></span><span class="state">AR LIVE · IPHONE + LAPTOP</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
-        <a href="./explore.html?v=39" style="display:block;padding:18px 10px;color:#80c7eb;min-height:44px">Explorează CAMPUS fără cameră · locație beta →</a>
+        <a href="./explore.html?v=40" style="display:block;padding:18px 10px;color:#80c7eb;min-height:44px">Explorează CAMPUS fără cameră · locație beta →</a>
         <a id="choose-core" class="choice" href="./?mode=laptop"><span class="number">02</span><div><h2>CORE</h2><p>Deschide reactorul, activează nodurile și privește secțiunea din lateral.</p><div class="meta"><span class="swatch" style="--swatch:#d5ef44"></span><span class="state">AR LIVE · LAPTOP + IPHONE</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
         <a id="choose-orbit" class="choice" href="./?mode=phone&amp;experience=orbit"><span class="number">03</span><div><h2>ORBIT</h2><p>Un instrument cinetic ancorat de imaginea laptopului.</p><div class="meta"><span class="swatch" style="--swatch:#638bc6"></span><span class="state">AR LIVE · IPHONE + LAPTOP</span></div></div><span class="arrow" aria-hidden="true">↗</span></a>
       </nav>
@@ -39,9 +39,9 @@
     const room = new URLSearchParams(location.search).get('room');
     const onPhone = /iPhone|Android|Mobile/i.test(navigator.userAgent) || !!room;
     const core = document.getElementById('choose-core');
-    core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=39`;
+    core.href = `./?mode=${onPhone ? 'phone' : 'laptop'}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=40`;
     for (const name of ['atlas', 'orbit']) {
-      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name === 'atlas' ? 'campus' : name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=39`;
+      document.getElementById(`choose-${name}`).href = `./?mode=${onPhone ? 'phone' : 'laptop'}&experience=${name === 'atlas' ? 'campus' : name}${room ? `&room=${encodeURIComponent(room)}` : ''}&v=40`;
     }
     if (onPhone) {
       document.querySelector('footer span').textContent = 'ALEGE UN OBIECT ȘI PORNEȘTE CAMERA DIN SPATE';

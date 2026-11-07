@@ -480,12 +480,12 @@ export function createAtlas(THREE) {
   root.rotation.x = -1.18;
   let target = .9, progress = .9, effect = .65, technical = false;
   let selection = null;
-  let routeGroup = null, routePulse = null, routePoints = null, routeDistance = 0, routePhase = 0;
+  let routeGroup = null, routePulse = null, routePoints = null, routeMapPoints = null, routeDistance = 0, routePhase = 0;
   const clearRoute = () => {
     if(routeGroup){routeGroup.removeFromParent();routeGroup.traverse(object=>{
       object.geometry?.dispose();object.material?.dispose();
     });}
-    routeGroup=routePulse=routePoints=null;routeDistance=routePhase=0;
+    routeGroup=routePulse=routePoints=routeMapPoints=null;routeDistance=routePhase=0;
   };
   const showRoute = (start,destination) => {
     if(!start||!destination)return false;
@@ -493,7 +493,7 @@ export function createAtlas(THREE) {
     if(!points||points.length<2)return false;
     clearRoute();
     routeGroup=new THREE.Group();routeGroup.name='atlas-campus-route';
-    routePoints=points.map(xy);routeDistance=0;
+    routeMapPoints=points;routePoints=points.map(xy);routeDistance=0;
     for(let i=1;i<routePoints.length;i++)routeDistance+=routePoints[i-1].distanceTo(routePoints[i]);
     for(const [radius,color,z] of [[.022,0x164c68,.060],[.013,0x74e5ff,.067]]){
       const curve=new THREE.CurvePath();
@@ -581,6 +581,7 @@ export function createAtlas(THREE) {
     buildingTargets,
     selectPlace,
     showRoute,
+    get routeMapPoints(){return routeMapPoints;},
     clearRoute,
     updateRoute,
     updateSelection,
