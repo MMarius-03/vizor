@@ -5,7 +5,7 @@ import { campusLayout } from './studies/campus-layout.js?v=4';
 import { atlasPlaces, atlasPlaceByBuilding } from './studies/atlas-places.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
 import { createFrameBudget } from './atlas-quality.js?v=2';
-import { mountCampusLocation } from './campus-location.js?v=2';
+import { mountCampusLocation } from './campus-location.js?v=3';
 
 const $=id=>document.getElementById(id), canvas=$('scene'), view=$('view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
@@ -44,6 +44,9 @@ const places=[...atlasPlaces,...campusLayout.buildings.filter(b=>!b.neutral&&!at
 for(const place of places){const option=new Option(place.title,place.id);$('place').add(option);}
 for(const p of atlasPlaces){$('from').add(new Option(p.title,p.id));$('to').add(new Option(p.title,p.id));}
 const demoStarts={parc:{point:[770,859],title:'Parcul Universității'},...Object.fromEntries(atlasPlaces.map(p=>[p.id,{point:p.entrance||p.point,title:p.title}]))};
+const insideFootprint=(point,poly)=>poly.reduce((hit,a,i)=>{
+  const b=poly[(i+1)%poly.length];return hit!==((a[1]>point[1])!==(b[1]>point[1])&&point[0]<(b[0]-a[0])*(point[1]-a[1])/(b[1]-a[1])+a[0]);
+},false);
 $('from').add(new Option('Poziția simulată','demo'));
 $('from').add(new Option('Poziția GPS actuală','gps'));
 $('from').value='restaurant';$('to').value='biblioteca';
@@ -70,6 +73,11 @@ $('demo-activate').onclick=()=>{
 $('location').addEventListener('click',event=>{if(event.target.closest('.geo-toggle')&&locationUI.source!=='demo'&&$('from').value==='demo'){
   atlas.clearRoute();guide.hidden=true;$('from').value='restaurant';$('demo-message').textContent='Simularea s-a încheiat. GPS-ul real are prioritate.';
 }});
+$('location').addEventListener('campuslocationchange',event=>{
+  if($('from').value==='gps'&&event.detail.source!=='gps'&&atlas.routeMapPoints){
+    atlas.clearRoute();guide.hidden=true;$('status').textContent='Poziția GPS nu mai este sigură. Traseul a fost ascuns; așteaptă o poziție nouă.';
+  }
+});
 function select(place){atlas.selectPlace(place);$('info').hidden=!place;$('place').value=place?.id||'';
   if(place){$('place-title').textContent=place.title;$('description').textContent=place.description;}}
 $('place').onchange=()=>select(places.find(p=>p.id===$('place').value));
@@ -97,10 +105,17 @@ function showRoute(from,to){
 $('show-route').onclick=()=>{
   if($('from').value==='gps'&&locationUI.source!=='gps'){$('status').textContent='Activează locația și așteaptă pinul GPS înainte să pornești de aici.';return;}
   if($('from').value==='demo'&&locationUI.source!=='demo'){$('status').textContent='Pornește simularea înainte să alegi poziția simulată ca plecare.';return;}
+  let gpsOrigin=locationUI.point;
+  if($('from').value==='gps'){
+    const building=campusLayout.buildings.find(b=>insideFootprint(gpsOrigin,b.points)&&!b.holes?.some(h=>insideFootprint(gpsOrigin,h)));
+    const entrance=atlasPlaces.find(p=>p.building===building?.id)?.entrance;
+    if(building&&!entrance){$('status').textContent='Poziția pare în interiorul unei clădiri fără intrare marcată. Ieși pe o alee sau alege plecarea manual.';return;}
+    if(entrance)gpsOrigin=entrance;
+  }
   const from=$('from').value==='demo'&&locationUI.source==='demo'
     ?{id:'demo',title:'Poziția simulată',point:locationUI.point}
-    :$('from').value==='gps'?{id:'gps',title:'Ultima poziție GPS',point:locationUI.point}:atlasPlaces.find(p=>p.id===$('from').value);
-  showRoute(from,atlasPlaces.find(p=>p.id===$('to').value));
+    :$('from').value==='gps'?{id:'gps',title:gpsOrigin===locationUI.point?'Ultima poziție GPS':'Intrarea apropiată de GPS',point:gpsOrigin}:atlasPlaces.find(p=>p.id===$('from').value);
+  if(!showRoute(from,atlasPlaces.find(p=>p.id===$('to').value))&&from.id==='gps')$('status').textContent='Nu putem lega sigur poziția de aleile marcate. Ieși pe o alee sau alege o plecare manuală.';
 };
 $('clear-route').onclick=()=>{atlas.clearRoute();forgetRoute();guide.hidden=true;$('status').textContent='Traseu șters.';};
 const saved=readRoute();if(saved){$('from').value=saved.from.id;$('to').value=saved.to.id;showRoute(saved.from,saved.to);}

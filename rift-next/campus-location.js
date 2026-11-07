@@ -91,6 +91,7 @@ export function mountCampusLocation(THREE,atlas,container) {
         -m[0][1]*.00244*radius,-m[1][1]*.00244*radius,0,0,0,0,1,.041,0,0,0,1);
       ring.matrixWorldNeedsUpdate=true;
     }
+    container.dispatchEvent(new CustomEvent('campuslocationchange',{detail:{source:next.state==='located'?'gps':null,state:next.state}}));
   }});
   button.setAttribute('aria-pressed','false');
   button.onclick=()=>{demoPoint=null;controller.active?controller.stop():controller.start();};
@@ -105,9 +106,11 @@ export function mountCampusLocation(THREE,atlas,container) {
       demoPoint=point;demoLabel=label;placePin(point);root.visible=true;ring.visible=false;
       container.dataset.state='demo';status.textContent=`SIMULARE · ${label}. Poziție aleasă pe machetă, fără GPS.`;
       button.textContent='Arată unde sunt';button.setAttribute('aria-pressed','false');help.hidden=true;
+      container.dispatchEvent(new CustomEvent('campuslocationchange',{detail:{source:'demo',state:'demo'}}));
     },
     moveDemo(point){if(!demoPoint)return;demoPoint=point;placePin(point);root.visible=true;status.textContent=`SIMULARE · ${demoLabel}. Pinul urmează traseul ales, fără GPS.`;},
-    clearDemo(){if(!demoPoint)return;demoPoint=null;root.visible=false;container.dataset.state='off';status.textContent='Localizarea este oprită.';},
+    clearDemo(){if(!demoPoint)return;demoPoint=null;root.visible=false;container.dataset.state='off';status.textContent='Localizarea este oprită.';
+      container.dispatchEvent(new CustomEvent('campuslocationchange',{detail:{source:null,state:'off'}}));},
     dispose(){controller.stop();clearInterval(timer);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',hide);window.removeEventListener('pageshow',show);
       root.removeFromParent();root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});}};
 }
