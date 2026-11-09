@@ -179,7 +179,7 @@ function configureExperience() {
   $('sync-visual').hidden = true;
   $('sync-stage').dataset.experience = experience;
   $('phone-brand').innerHTML = `RIFT<span> / ${copy.label}</span>`;
-  $('live-brand').innerHTML = `← RIFT<span> / ${copy.label}</span>`;
+  $('live-brand').innerHTML = experience === 'atlas' ? '← CAMPUS' : `← RIFT<span> / ${copy.label}</span>`;
   $('error').querySelector('.phone-brand').innerHTML = `RIFT<span> / ${copy.label}</span>`;
   $('phone-eyebrow').innerHTML = `<span class="led"></span> ${copy.phoneEyebrow}`;
   $('phone-title').innerHTML = copy.phoneTitle;
@@ -187,7 +187,7 @@ function configureExperience() {
   if (experience === 'atlas') {
     for (const id of ['phone-description','laptop-description']) {
       const link = document.createElement('a');
-      link.href='./explore.html?v=41';
+      link.href='./explore.html?v=42';
       link.textContent='Explorează fără cameră →';
       link.style.cssText='display:block;padding:14px 0;color:#80c7eb;text-decoration:underline;min-height:44px';
       $(id).after(link);
@@ -220,7 +220,7 @@ function openAtlasInfo(place) {
   artifact?.selectPlace?.(place);
   $('atlas-info').dataset.expanded = 'false';
   $('atlas-info-expand').setAttribute('aria-expanded', 'false');
-  $('atlas-info-expand').textContent = 'VEZI DETALII ↓';
+  $('atlas-info-expand').textContent = 'DETALII ↓';
   $('atlas-info-more').hidden = true;
   $('atlas-info-type').textContent = place.type;
   $('atlas-info-title').textContent = place.title;
@@ -251,7 +251,7 @@ function setupAtlasPins() {
     const expanded = $('atlas-info').dataset.expanded !== 'true';
     $('atlas-info').dataset.expanded = String(expanded);
     $('atlas-info-expand').setAttribute('aria-expanded', String(expanded));
-    $('atlas-info-expand').textContent = expanded ? 'ASCUNDE DETALII ↑' : 'VEZI DETALII ↓';
+    $('atlas-info-expand').textContent = expanded ? 'ÎNCHIDE ↑' : 'DETALII ↓';
     $('atlas-info-more').hidden = !expanded;
   });
 }
@@ -269,7 +269,7 @@ function setupAtlasRoutes() {
     const panel=$('atlas-route-panel');
     panel.hidden=!panel.hidden;
     $('live').dataset.atlasRoutePanel=String(!panel.hidden);
-    if(!panel.hidden)closeAtlasInfo();
+    if(!panel.hidden){closeAtlasInfo();$('atlas-route-message').textContent='';}
   });
   $('atlas-route-close').addEventListener('click',()=>{$('atlas-route-panel').hidden=true;$('live').dataset.atlasRoutePanel='false';});
   $('atlas-route-show').addEventListener('click',()=>{
@@ -285,8 +285,9 @@ function setupAtlasRoutes() {
     atlasRouteLabel=`${from.title} → ${to.title}`;
     atlasRouteEndpoints=new Set([from.id,to.id]);
     saveRoute(from,to);
-    message.textContent=`Traseu orientativ: ${atlasRouteLabel}. Verifică intrările și accesul în campus.`;
+    message.textContent='';
     $('target-count').textContent='CAMPUS / TRASEU ACTIV';
+    if ($('tracking-state').dataset.state === 'found') $('tracking-state').textContent='TRASEU ACTIV';
     $('atlas-route-panel').hidden=true;
     $('live').dataset.atlasRoutePanel='false';
     $('instruction').textContent='Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.';
@@ -295,6 +296,7 @@ function setupAtlasRoutes() {
     artifact?.clearRoute();atlasRouteLabel='';atlasRouteEndpoints=null;
     forgetRoute();
     $('target-count').textContent='CAMPUS / AR LIVE';
+    if ($('tracking-state').dataset.state === 'found') $('tracking-state').textContent='ANCORAT';
     $('atlas-route-message').textContent='Traseu șters. Alege două locuri.';
     $('instruction').textContent=experienceCopy.atlas.found;
   });
@@ -352,6 +354,7 @@ function setStatus(label, state, instruction) {
   if ($('tracking-state').dataset.state !== state) $('tracking-state').dataset.state = state;
   if (instruction && $('instruction').textContent !== instruction) $('instruction').textContent = instruction;
   $('live').dataset.found = String(state === 'found' || state === 'grace');
+  $('live').dataset.trackingState = state;
 }
 
 function renderCoreState() {
@@ -563,7 +566,7 @@ function applyTarget(detail) {
 
 function renderPassiveState() {
   const copy = experienceCopy[experience];
-  setStatus(`${copy.label} ANCORAT`, 'found', atlasRouteLabel && experience==='atlas'
+  setStatus(experience === 'atlas' ? (atlasRouteLabel ? 'TRASEU ACTIV' : 'ANCORAT') : `${copy.label} ANCORAT`, 'found', atlasRouteLabel && experience==='atlas'
     ? 'Urmărește linia albastră de la punctul cyan la destinația portocalie. Traseul este schematic.' : copy.found);
   $('target-count').textContent = atlasRouteLabel && experience==='atlas' ? 'CAMPUS / TRASEU ACTIV' : `${copy.label} / AR LIVE`;
   $('restart').textContent = 'REIA CAMERA';
@@ -601,7 +604,7 @@ function markLost() {
   lostCount += 1;
   lastEvent = 'imagine pierdută';
   if (experience === 'atlas' && trackingMode === 'hybrid') {
-    setStatus('CAMPUS FIXAT', 'grace', 'Privește macheta de aproape. Reîncadrează posterul CAMPUS pentru a reîmprospăta poziția.');
+    setStatus('FIXAT', 'grace', 'Reîncadrează posterul CAMPUS pentru a reîmprospăta poziția.');
   } else {
     setStatus('RECONECTARE', 'grace', 'Ține imaginea în cadru. Refixăm obiectul.');
   }
@@ -618,8 +621,8 @@ function updateTrackingHold(now) {
     $('section-toggle').hidden = true;
     if (experience === 'atlas') updateAtlasPins(now);
     lossStartedAt = 0;
-    setStatus('IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
-      ? 'Încadrează din nou posterul CAMPUS de pe laptop pentru a fixa campusul.'
+    setStatus(experience === 'atlas' ? 'REÎNCADREAZĂ' : 'IMAGINE PIERDUTĂ', 'lost', experience === 'atlas'
+      ? 'Încadrează din nou posterul CAMPUS.'
       : 'Încadrează din nou imaginea întreagă de pe laptop.');
     return;
   }
@@ -1030,7 +1033,7 @@ if (phoneMode) {
     artifact.setTransparent(active);
     const button = $('atlas-transparency');
     button.setAttribute('aria-pressed', String(active));
-    button.textContent = active ? 'VEDERE NORMALĂ' : 'MOD TRANSPARENT';
+    button.textContent = active ? 'NORMAL' : 'TRANSPARENT';
   });
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {
@@ -1070,8 +1073,8 @@ if (phoneMode) {
     }
     const url = experience === 'core' ? new URL('./choose.html', location.href) : new URL('./', location.href);
     url.search = experience === 'core'
-      ? `?room=${session.code}&v=41`
-      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=41`;
+      ? `?room=${session.code}&v=42`
+      : `?mode=phone&experience=${experience === 'atlas' ? 'campus' : experience}&v=42`;
     try {
       await navigator.clipboard.writeText(url.href);
       $('copy-status').textContent = 'Link copiat. Trimite-l pe iPhone și deschide-l în Safari.';

@@ -31,11 +31,11 @@ function resize(){width=view.clientWidth;height=view.clientHeight;
   renderer.setSize(width,height,false);
 }
 function fitDistance(){const half=Math.min(Math.PI/9,Math.atan(Math.tan(Math.PI/9)*camera.aspect));return 2.2/Math.sin(half);}
-function home(){controls.target.set(0,0,0);const distance=fitDistance();
+function home(){controls.target.set(0,0,0);const distance=fitDistance()*.92;
   camera.position.copy(new THREE.Vector3(1.8,3.6,3.8).normalize().multiplyScalar(distance));controls.update();}
 new ResizeObserver(resize).observe(view);resize();home();
 $('home').onclick=home;
-$('top').onclick=()=>{controls.target.set(0,0,0);camera.position.set(0,fitDistance(),.001);controls.update();};
+$('top').onclick=()=>{controls.target.set(0,0,0);camera.position.set(0,fitDistance()*.92,.001);controls.update();};
 function zoom(factor){camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();}
 $('zoom-in').onclick=()=>zoom(.8);$('zoom-out').onclick=()=>zoom(1.25);
 const transparentButton=$('transparent-view');
@@ -43,7 +43,7 @@ transparentButton.onclick=()=>{
   const active=!atlas.transparent;
   atlas.setTransparent(active);
   transparentButton.setAttribute('aria-pressed',String(active));
-  transparentButton.textContent=active?'Vedere normală':'Mod transparent';
+  transparentButton.textContent=active?'Normal':'Transparent';
 };
 const places=[...atlasPlaces,...campusLayout.buildings.filter(b=>!b.neutral&&!atlasPlaceByBuilding.has(b.id)).map(b=>({
   id:`building-${b.id}`,building:b.id,title:/^[A-Z]$/.test(b.id)?`Corpul ${b.id}`:b.id,

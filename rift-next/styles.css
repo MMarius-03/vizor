@@ -72,7 +72,7 @@ html[data-experience=atlas] .live[data-atlas-route-panel=true] .live-bottom p{vi
 .atlas-route-panel select{width:100%;min-height:44px;padding:7px 9px;border:1px solid #668aa1;border-radius:0;background:#182d3a;color:#fff;font-size:14px}
 .atlas-route-panel p{font-size:12px;line-height:1.35;color:#d5e1e9;margin:10px 0}
 .atlas-route-actions{display:flex;gap:8px}.atlas-route-actions button{min-height:44px;padding:0 12px;border:1px solid #79b8dc;background:#5ca6d1;color:#092234;font:700 10px Consolas,Menlo,monospace;touch-action:manipulation}.atlas-route-actions button+button{background:transparent;color:#d5e1e9;border-color:#668aa1}
-.atlas-route-panel summary{min-height:44px;padding:13px 0;cursor:pointer;font-size:13px}.geo-toggle{width:100%;min-height:44px;padding:10px;color:#ffc5c0;background:#283642;border:1px solid #bf7974}.atlas-route-panel .geo-note{font-size:10px}.geo-note a{color:#9dd9f9;text-decoration:underline}
+.atlas-route-panel summary{min-height:44px;padding:13px 0;cursor:pointer;font-size:13px}.geo-toggle{width:100%;min-height:44px;padding:10px;color:#edf9ff;background:#275672;border:1px solid #70b4d7}.atlas-route-panel .geo-note{font-size:10px}.geo-note a{color:#9dd9f9;text-decoration:underline}
 .geo-help{border:1px solid #af7770;padding:9px;margin:9px 0;color:#f6d7d1}.atlas-route-panel .geo-help p{color:inherit}.geo-help a{color:#9dd9f9;text-decoration:underline;font-size:11px}
 @media(orientation:landscape) and (max-height:560px){.atlas-route-panel{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(74px + env(safe-area-inset-bottom));max-width:min(340px,48vw);max-height:calc(100vh - 150px);padding:10px 14px}}
 html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{visibility:hidden}
@@ -83,4 +83,43 @@ html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{visibilit
   .atlas-info-head button{width:44px;height:44px}
   .atlas-info{max-height:calc(100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
   .atlas-info h2{font-size:17px}.atlas-info p{font-size:12px;margin-bottom:6px}
+}
+
+/* CAMPUS: keep the model clear while recording or exploring on a phone. */
+html[data-experience=atlas] .live{background:linear-gradient(180deg,#071521a8,transparent 19%,transparent 79%,#0715217d)}
+html[data-experience=atlas] .live-top{padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left))}
+html[data-experience=atlas] .live-brand{font-size:16px;letter-spacing:-.025em;text-shadow:0 1px 6px #071521}
+html[data-experience=atlas] .tracking-state{font-size:11px;letter-spacing:.06em;min-height:32px;display:inline-flex;align-items:center;padding:6px 10px;border-radius:6px;box-shadow:0 3px 12px #07152166}
+html[data-experience=atlas] .live-bottom{padding:0 calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));background:none;display:block}
+html[data-experience=atlas] .live-bottom p{max-width:350px;min-height:0;margin:0 0 12px 4px;padding:9px 11px;background:#0d2332d9;border:1px solid #75abc67d;border-radius:8px;font-size:13px;line-height:1.35;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+html[data-experience=atlas] .live[data-tracking-state=found] .live-bottom p,
+html[data-experience=atlas] .live[data-tracking-state=grace]:not([data-recentering=true]) .live-bottom p,
+html[data-experience=atlas] .live[data-atlas-route-panel=true] .live-bottom p,
+html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{display:none}
+html[data-experience=atlas] .live-actions{display:flex;flex-wrap:nowrap;gap:5px;padding:6px;background:#102635df;border:1px solid #79aecd99;border-radius:12px;box-shadow:0 10px 30px #04131da8;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+html[data-experience=atlas] .live-actions span{display:none}
+html[data-experience=atlas] .live-actions button{position:static;top:auto;right:auto;flex:1;min-width:0;min-height:46px;padding:0 4px;border:1px solid transparent;border-radius:8px;background:transparent;color:#e6f4fc;font:700 12px Consolas,Menlo,monospace;letter-spacing:-.015em;box-shadow:none;white-space:nowrap;touch-action:manipulation}
+html[data-experience=atlas] .live-actions #atlas-route-toggle{background:#63a9d2;color:#0a2637}
+html[data-experience=atlas] .live-actions #atlas-transparency[aria-pressed=true]{background:#a1d9f2;color:#082638}
+html[data-experience=atlas] .live-actions #atlas-recenter{border-color:#769fba}
+html[data-experience=atlas] .live[data-tracking-state=found] #restart,
+html[data-experience=atlas] .live[data-tracking-state=grace] #restart{display:none}
+html[data-experience=atlas] .live:not([data-tracking-state=found]):not([data-tracking-state=grace]) #atlas-route-toggle,
+html[data-experience=atlas] .live:not([data-tracking-state=found]):not([data-tracking-state=grace]) #atlas-transparency,
+html[data-experience=atlas] .live:not([data-tracking-state=found]):not([data-tracking-state=grace]) #atlas-recenter{display:none}
+html[data-experience=atlas] .atlas-info,html[data-experience=atlas] .atlas-route-panel{left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));bottom:calc(82px + env(safe-area-inset-bottom));max-width:440px;border-radius:13px;box-shadow:0 14px 36px #06141fc7}
+html[data-experience=atlas] .atlas-info{padding:12px 15px 13px;max-height:calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+html[data-experience=atlas] .atlas-info-head{margin:0 0 2px;font-size:11px}
+html[data-experience=atlas] .atlas-info h2{font-size:22px;margin:0 0 2px}
+html[data-experience=atlas] .atlas-info #atlas-info-expand{min-height:34px;font-size:11px}
+html[data-experience=atlas] .atlas-route-panel{max-height:min(55dvh,440px);padding:13px 15px}
+html[data-experience=atlas] .atlas-route-panel #atlas-route-message:empty{display:none}
+html[data-experience=atlas] .atlas-route-panel select{border-radius:6px}
+html[data-experience=atlas] .atlas-route-actions button{flex:1;border-radius:6px;font-size:11px}
+html[data-experience=atlas] .geo-toggle[aria-pressed=true]{background:#8ed5f0;color:#0c2b3d}
+html[data-experience=atlas] #atlas-location[data-state=denied] .geo-toggle,
+html[data-experience=atlas] #atlas-location[data-state=error] .geo-toggle{border-color:#c78780;color:#ffd0ca;background:#42333b}
+@media(orientation:landscape) and (max-height:560px){
+  html[data-experience=atlas] .live-bottom{left:auto;right:0;width:min(390px,48vw)}
+  html[data-experience=atlas] .atlas-info,html[data-experience=atlas] .atlas-route-panel{left:calc(12px + env(safe-area-inset-left));right:auto;bottom:calc(12px + env(safe-area-inset-bottom));max-width:min(340px,46vw);max-height:calc(100dvh - 95px)}
 }
