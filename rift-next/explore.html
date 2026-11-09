@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#142530">
   <title>CAMPUS — explorează fără cameră</title>
-  <link rel="stylesheet" href="./explore.css?v=4">
+  <link rel="stylesheet" href="./explore.css?v=6">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"}}</script>
 </head>
 <body>
@@ -13,7 +13,7 @@
   <main>
     <section id="view" aria-label="Macheta campusului">
       <canvas id="scene" aria-label="Campus 3D: trage pentru rotire, apropie două degete pentru zoom"></canvas>
-      <div class="view-tools"><button id="home" type="button">Recentrează</button><button id="top" type="button">De sus</button><button id="zoom-in" type="button" aria-label="Mărește">+</button><button id="zoom-out" type="button" aria-label="Micșorează">−</button></div>
+      <div class="view-tools"><button id="home" type="button">Recentrează</button><button id="top" type="button">De sus</button><button id="zoom-in" type="button" aria-label="Mărește">+</button><button id="zoom-out" type="button" aria-label="Micșorează">−</button><button id="transparent-view" type="button" aria-pressed="false" title="Arată aleile prin clădiri">Mod transparent</button></div>
       <p class="hint">Trage pentru rotire · zoom cu două degete sau rotița mouse-ului</p>
       <p id="error" role="alert" hidden>Scena 3D nu s-a încărcat. Verifică internetul și reîncarcă pagina. <a href="./explore.html?v=41">Reîncarcă</a></p>
     </section>
@@ -35,7 +35,7 @@
       <p id="status" role="status">Fără cameră și fără poster. Traseele și intrările sunt orientative.</p>
     </aside>
   </main>
-  <script type="module" src="./explore.js?v=5"></script>
+  <script type="module" src="./explore.js?v=6"></script>
   <script>window.addEventListener('error',()=>{document.getElementById('error').hidden=false;},true);window.addEventListener('unhandledrejection',()=>{document.getElementById('error').hidden=false;});</script>
 </body>
 </html>

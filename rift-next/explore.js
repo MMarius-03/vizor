@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createAtlas } from './studies/models.js?v=21';
+import { createAtlas } from './studies/models.js?v=22';
 import { campusLayout } from './studies/campus-layout.js?v=4';
 import { atlasPlaces, atlasPlaceByBuilding } from './studies/atlas-places.js?v=2';
 import { readRoute, saveRoute, forgetRoute } from './route-session.js?v=1';
@@ -38,6 +38,13 @@ $('home').onclick=home;
 $('top').onclick=()=>{controls.target.set(0,0,0);camera.position.set(0,fitDistance(),.001);controls.update();};
 function zoom(factor){camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target);controls.update();}
 $('zoom-in').onclick=()=>zoom(.8);$('zoom-out').onclick=()=>zoom(1.25);
+const transparentButton=$('transparent-view');
+transparentButton.onclick=()=>{
+  const active=!atlas.transparent;
+  atlas.setTransparent(active);
+  transparentButton.setAttribute('aria-pressed',String(active));
+  transparentButton.textContent=active?'Vedere normală':'Mod transparent';
+};
 const places=[...atlasPlaces,...campusLayout.buildings.filter(b=>!b.neutral&&!atlasPlaceByBuilding.has(b.id)).map(b=>({
   id:`building-${b.id}`,building:b.id,title:/^[A-Z]$/.test(b.id)?`Corpul ${b.id}`:b.id,
   description:'Loc marcat pe planul schematic al campusului USV.'}))];

@@ -1,6 +1,6 @@
 import { createRiftCore } from './artifact.js?v=10';
 import { createCoreSession } from './sync.js?v=4';
-import { createAtlas, createOrbit } from './studies/models.js?v=21';
+import { createAtlas, createOrbit } from './studies/models.js?v=22';
 import { atlasPlaces, atlasPlaceByBuilding, atlasSourceUrl } from './studies/atlas-places.js?v=2';
 import { smoothAtlasPose, createAtlasPoseTracker } from './atlas-pose.js?v=2';
 import { createFrameBudget, createAtlasCanvasModule } from './atlas-quality.js?v=2';
@@ -569,6 +569,7 @@ function renderPassiveState() {
   $('restart').textContent = 'REIA CAMERA';
   $('atlas-recenter').hidden = experience !== 'atlas';
   $('atlas-route-toggle').hidden = experience !== 'atlas';
+  $('atlas-transparency').hidden = experience !== 'atlas';
   $('node-controls').hidden = true;
   $('section-toggle').hidden = true;
 }
@@ -1022,6 +1023,14 @@ if (phoneMode) {
     $('live').dataset.recentering = 'true';
     closeAtlasInfo();
     setStatus('REÎNCADREAZĂ', 'grace', 'Ține posterul CAMPUS întreg în cameră până când macheta se fixează din nou.');
+  });
+  $('atlas-transparency').addEventListener('click', () => {
+    if (experience !== 'atlas' || !artifact) return;
+    const active = !artifact.transparent;
+    artifact.setTransparent(active);
+    const button = $('atlas-transparency');
+    button.setAttribute('aria-pressed', String(active));
+    button.textContent = active ? 'VEDERE NORMALĂ' : 'MOD TRANSPARENT';
   });
   $('start-ar').addEventListener('click', startAR);
   $('restart').addEventListener('click', () => {

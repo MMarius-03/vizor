@@ -76,6 +76,8 @@ html[data-experience=atlas] .live[data-atlas-route-panel=true] .live-bottom p{vi
 .geo-help{border:1px solid #af7770;padding:9px;margin:9px 0;color:#f6d7d1}.atlas-route-panel .geo-help p{color:inherit}.geo-help a{color:#9dd9f9;text-decoration:underline;font-size:11px}
 @media(orientation:landscape) and (max-height:560px){.atlas-route-panel{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(74px + env(safe-area-inset-bottom));max-width:min(340px,48vw);max-height:calc(100vh - 150px);padding:10px 14px}}
 html[data-experience=atlas] .live[data-atlas-info=true] .live-bottom p{visibility:hidden}
+.atlas-transparency{position:absolute;z-index:3;top:calc(76px + env(safe-area-inset-top));right:calc(18px + env(safe-area-inset-right));min-height:44px;padding:0 13px;border:1px solid #8ac6e3;background:#102c3bdc;color:#e2f6ff;font:700 10px Consolas,Menlo,monospace;letter-spacing:.07em;box-shadow:0 4px 18px #05141c8a;pointer-events:auto;touch-action:manipulation;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.atlas-transparency[aria-pressed=true]{background:#8ed5f0;color:#102b39;border-color:#e1f8ff}.atlas-transparency:focus-visible{outline:2px solid white;outline-offset:3px}
 @media(orientation:landscape) and (max-height:560px){
   .atlas-info{left:calc(20px + env(safe-area-inset-left));right:auto;bottom:calc(75px + env(safe-area-inset-bottom));max-width:min(340px,48vw);padding:10px 14px}
   .atlas-info-head button{width:44px;height:44px}

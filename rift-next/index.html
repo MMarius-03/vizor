@@ -14,7 +14,7 @@
     if (!query.has('mode') && !query.has('room') && !query.has('experience')) location.replace('./choose.html?v=41');
     document.documentElement.dataset.mode = query.get('mode') || (/iPhone|Android|Mobile/i.test(navigator.userAgent) ? 'phone' : 'laptop');
   </script>
-  <link rel="stylesheet" href="./styles.css?v=21">
+  <link rel="stylesheet" href="./styles.css?v=22">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js"}}</script>
 </head>
 <body>
@@ -57,6 +57,7 @@
     <section id="live" class="live" hidden>
       <div class="live-top"><a href="./choose.html" class="phone-brand live-brand" id="live-brand" aria-label="Înapoi la alegerea obiectului">← RIFT<span> / CORE</span></a><span id="tracking-state" class="tracking-state" data-state="loading">CAMERA PORNEȘTE</span><span id="phone-sync-live" class="phone-sync-live">SE CONECTEAZĂ…</span></div>
       <div id="scan-guide" class="scan-guide"><span></span><span></span><span></span><span></span></div>
+      <button id="atlas-transparency" class="atlas-transparency" type="button" aria-pressed="false" title="Arată aleile prin clădiri" hidden>MOD TRANSPARENT</button>
       <div id="atlas-pins" class="atlas-pins" aria-label="Locuri din campus" hidden></div>
       <aside id="atlas-info" class="atlas-info" aria-live="polite" data-expanded="false" hidden>
         <div class="atlas-info-head"><span id="atlas-info-type"></span><button id="atlas-info-close" type="button" aria-label="Închide detaliile">×</button></div>
@@ -79,6 +80,6 @@
     <section id="error" class="error" hidden><div class="intro-head"><span class="phone-brand">RIFT / CORE</span><a href="./choose.html" class="back-link">← ÎNAPOI</a></div><div><h1>Camera nu<br>a pornit.</h1><p id="error-message"></p><button id="retry" type="button">ÎNCEARCĂ DIN NOU <span>↗</span></button></div></section>
   </main>
 
-  <script type="module" src="./app.js?v=41"></script>
+  <script type="module" src="./app.js?v=42"></script>
 </body>
 </html>

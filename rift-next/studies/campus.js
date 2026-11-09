@@ -10,6 +10,7 @@ export function createAtlas(THREE) {
   const buildings = [];
   const buildingTargets = [];
   const labels = [];
+  const buildingSurfaces = [];
   const buildingHeights = new Map(campusLayout.buildings.map(block => [block.id, block.height]));
   const inside = ([x,y], points) => points.reduce((hit,[ax,ay],i) => {
     const [bx,by] = points[(i+1)%points.length];
@@ -460,6 +461,19 @@ export function createAtlas(THREE) {
     holder.add(border);
     outlines.push({ mesh:body, line:border });
     addLandmarkDetails(block,holder);
+    // Keep a separate, reusable material for the see-through view. The meshes
+    // remain present so tapping a transparent building still selects it.
+    holder.traverse(mesh => {
+      if (!mesh.isMesh || !mesh.material?.isMeshStandardMaterial || mesh.name.startsWith('atlas-A-step-')) return;
+      const solid = mesh.material;
+      const transparent = solid.clone();
+      transparent.transparent = true;
+      transparent.depthWrite = false;
+      transparent.opacity = mesh === roof ? .38 : mesh === body ? .24
+        : mesh.name.includes('dome') ? .53 : .31;
+      transparent.color.lerp(new THREE.Color(0x9ed5e7), .3);
+      buildingSurfaces.push({ mesh, solid, transparent });
+    });
     if (!block.neutral) {
     const labelPoint = labelPositions[block.id] || [
       block.points.reduce((sum,p)=>sum+p[0],0)/block.points.length,
@@ -478,8 +492,9 @@ export function createAtlas(THREE) {
   const markerPoint = xy([612,556]);
   marker.position.set(markerPoint.x,markerPoint.y,.09);
   root.rotation.x = -1.18;
-  let target = .9, progress = .9, effect = .65, technical = false;
+  let target = .9, progress = .9, effect = .65, technical = false, transparentView = false;
   let selection = null;
+  let selectedPlace = null;
   let routeGroup = null, routePulse = null, routePoints = null, routeMapPoints = null, routeDistance = 0, routePhase = 0;
   const clearRoute = () => {
     if(routeGroup){routeGroup.removeFromParent();routeGroup.traverse(object=>{
@@ -542,6 +557,7 @@ export function createAtlas(THREE) {
   };
   const selectPlace = place => {
     clearSelection();
+    selectedPlace = place;
     if (!place) return;
     const block=campusLayout.buildings.find(b=>b.id===place.building);
     const holder=block ? root.getObjectByName(`atlas-building-${block.id}`) : root;
@@ -552,6 +568,7 @@ export function createAtlas(THREE) {
       const original=mesh.material, highlight=original.clone();
       highlight.userData.baseColor=original.color.clone();
       highlight.emissive.set(0x135b83); highlight.emissiveIntensity=0;
+      if (transparentView) highlight.opacity = Math.min(.8, original.opacity + .43);
       mesh.material=highlight; selectionMaterials.push({mesh,original,highlight});
     });
     selection=new THREE.Group(); selection.name='atlas-place-selection';
@@ -580,6 +597,19 @@ export function createAtlas(THREE) {
     root,
     buildingTargets,
     selectPlace,
+    setTransparent(value) {
+      const next = !!value;
+      if (next === transparentView) return;
+      const place = selectedPlace;
+      clearSelection();
+      transparentView = next;
+      buildingSurfaces.forEach(({ mesh, solid, transparent }) => {
+        mesh.material = next ? transparent : solid;
+      });
+      contactShadows.material.opacity = next ? .32 : .65;
+      if (place) selectPlace(place);
+    },
+    get transparent(){return transparentView;},
     showRoute,
     get routeMapPoints(){return routeMapPoints;},
     clearRoute,
@@ -619,7 +649,7 @@ export function createAtlas(THREE) {
         holder.scale.z = heightScale * Math.max(.003,THREE.MathUtils.smoothstep(progress,start,end));
       });
       contactShadows.visible = !technical && progress > .3;
-      contactShadows.material.opacity = .65 * THREE.MathUtils.smoothstep(progress,.3,.78);
+      contactShadows.material.opacity = (transparentView ? .32 : .65) * THREE.MathUtils.smoothstep(progress,.3,.78);
       marker.visible = !technical && progress > .75;
       marker.scale.setScalar(.7+effect*.5);
     },
