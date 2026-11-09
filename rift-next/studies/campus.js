@@ -11,6 +11,7 @@ export function createAtlas(THREE) {
   const buildingTargets = [];
   const labels = [];
   const buildingSurfaces = [];
+  const interiors = [];
   const buildingHeights = new Map(campusLayout.buildings.map(block => [block.id, block.height]));
   const inside = ([x,y], points) => points.reduce((hit,[ax,ay],i) => {
     const [bx,by] = points[(i+1)%points.length];
@@ -390,6 +391,37 @@ export function createAtlas(THREE) {
         new THREE.Vector3(timber.x,timber.y,roofZ+.015));
     }
   };
+  // These are the entrance points already used by the route map. Keep the
+  // small exterior stairs on the ground so they remain clear in both views.
+  const entranceSteps = {
+    E: { point:[582,730], outward:[0,-1] },
+    SPORT: { point:[595,394], outward:[-1,0] },
+    RESTAURANT: { point:[375,568], outward:[1,0] },
+    'CĂMIN 2': { point:[423,501], outward:[-1,0] },
+    'CĂMIN 4': { point:[163,445], outward:[1,0] },
+  };
+  const addEntranceSteps = (block,holder) => {
+    const entry = entranceSteps[block.id];
+    if (!entry) return;
+    const [du,dv] = entry.outward;
+    for (let i=0;i<3;i++) {
+      const point=xy([entry.point[0]+du*(5+i*8),entry.point[1]+dv*(5+i*8)]);
+      detailMesh(holder,new THREE.BoxGeometry(du ? .028 : .105,du ? .105 : .025,.007),
+        materials.path,`atlas-${block.id}-step-${i}`,
+        new THREE.Vector3(point.x,point.y,.038+(2-i)*.005));
+    }
+  };
+  const floorMaterial = new THREE.MeshBasicMaterial({ color:0xa8d8eb, transparent:true,
+    opacity:.16, depthWrite:false, side:THREE.DoubleSide });
+  const floorEdgeMaterial = new THREE.LineBasicMaterial({ color:0x36799b, transparent:true,
+    opacity:.62, depthWrite:false });
+  const liftFrameMaterial = new THREE.MeshStandardMaterial({ color:0x286f95, metalness:.45,
+    roughness:.34 });
+  const liftGlassMaterial = new THREE.MeshPhysicalMaterial({ color:0xa6e5f1, transparent:true,
+    opacity:.36, roughness:.18, metalness:.08, depthWrite:false, side:THREE.DoubleSide });
+  const liftCabinMaterial = new THREE.MeshStandardMaterial({ color:0x35a1cd, transparent:true,
+    opacity:.78, metalness:.25, roughness:.3, depthWrite:false });
+  const liftNameplateMaterial = new THREE.MeshBasicMaterial({ color:0xe7f4f6 });
   campusLayout.buildings.forEach((block, index) => {
     const shape = polygon(block.points);
     for (const holePoints of block.holes || []) {
@@ -461,10 +493,11 @@ export function createAtlas(THREE) {
     holder.add(border);
     outlines.push({ mesh:body, line:border });
     addLandmarkDetails(block,holder);
+    addEntranceSteps(block,holder);
     // Keep a separate, reusable material for the see-through view. The meshes
     // remain present so tapping a transparent building still selects it.
     holder.traverse(mesh => {
-      if (!mesh.isMesh || !mesh.material?.isMeshStandardMaterial || mesh.name.startsWith('atlas-A-step-')) return;
+      if (!mesh.isMesh || !mesh.material?.isMeshStandardMaterial || mesh.name.includes('-step-')) return;
       const solid = mesh.material;
       const transparent = solid.clone();
       transparent.transparent = true;
@@ -474,6 +507,60 @@ export function createAtlas(THREE) {
       transparent.color.lerp(new THREE.Color(0x9ed5e7), .3);
       buildingSurfaces.push({ mesh, solid, transparent });
     });
+    if (!block.neutral && block.height >= .18) {
+      const inside = new THREE.Group();
+      inside.name = `atlas-${block.id}-interior`;
+      inside.visible = false;
+      const levels = block.height >= .22 ? [1/3,2/3] : [.5];
+      levels.forEach((fraction, level) => {
+        const z = .038 + block.height*fraction;
+        const floor = new THREE.Mesh(roof.geometry,floorMaterial);
+        floor.name = `atlas-${block.id}-floor-${level+1}`;
+        floor.position.z = z;
+        inside.add(floor);
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(roof.geometry),floorEdgeMaterial);
+        edge.position.z = z+.002;
+        inside.add(edge);
+      });
+      holder.add(inside);
+      interiors.push(inside);
+    }
+    if (block.id === 'A') {
+      // Glazed lift against A's north-west wing, facing the gap to Cămin 2.
+      const attachLift = mesh => {
+        mesh.userData.atlasBuildingId = block.id;
+        holder.add(mesh); solids.push(mesh); buildingTargets.push(mesh);
+      };
+      const point = xy([635,515]);
+      const shaftHeight = block.height*1.12;
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(.079,.075,shaftHeight),liftGlassMaterial);
+      shaft.position.set(point.x,point.y,.038+shaftHeight/2);
+      shaft.name = 'atlas-A-lift-shaft';
+      attachLift(shaft);
+      for (const sx of [-1,1]) for (const sy of [-1,1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(.006,.006,shaftHeight),liftFrameMaterial);
+        rail.position.set(point.x+sx*.04,point.y+sy*.038,.038+shaftHeight/2);
+        attachLift(rail);
+      }
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(.065,.062,.06),liftCabinMaterial);
+      cabin.position.set(point.x,point.y,.038+block.height*.48);
+      cabin.name = 'atlas-A-lift-cabin';
+      attachLift(cabin);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(.09,.086,.012),liftFrameMaterial);
+      cap.position.set(point.x,point.y,.042+shaftHeight);
+      attachLift(cap);
+      const nameplate = new THREE.Mesh(new THREE.BoxGeometry(.078,.072,.003),liftNameplateMaterial);
+      nameplate.position.set(point.x,point.y,.053+shaftHeight);
+      attachLift(nameplate);
+      const landing = new THREE.Mesh(new THREE.BoxGeometry(.075,.06,.012),liftGlassMaterial);
+      landing.position.set(point.x+.065,point.y,.038+block.height*.65);
+      attachLift(landing);
+      const liftSign = new THREE.Mesh(new THREE.PlaneGeometry(.105,.048),
+        new THREE.MeshBasicMaterial({ map:labelTexture('LIFT'),transparent:true,depthWrite:false }));
+      liftSign.position.set(point.x,point.y,.058+shaftHeight);
+      liftSign.renderOrder = 5;
+      attachLift(liftSign);
+    }
     if (!block.neutral) {
     const labelPoint = labelPositions[block.id] || [
       block.points.reduce((sum,p)=>sum+p[0],0)/block.points.length,
@@ -606,6 +693,7 @@ export function createAtlas(THREE) {
       buildingSurfaces.forEach(({ mesh, solid, transparent }) => {
         mesh.material = next ? transparent : solid;
       });
+      interiors.forEach(group => { group.visible = next && !technical; });
       contactShadows.material.opacity = next ? .32 : .65;
       if (place) selectPlace(place);
     },
@@ -636,6 +724,7 @@ export function createAtlas(THREE) {
       solids.forEach(mesh => { mesh.visible = !technical; });
       outlines.forEach(({ line }) => { line.visible = true; });
       labels.forEach(label => { label.visible = !technical; });
+      interiors.forEach(group => { group.visible = transparentView && !technical; });
     },
     update(dt) {
       updateSelection(dt);
